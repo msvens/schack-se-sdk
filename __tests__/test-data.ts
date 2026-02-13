@@ -26,7 +26,7 @@ export const TEST_PLAYER_DATE = new Date('2024-01-01');
 // =============================================================================
 // Organization test data
 // =============================================================================
-export const TEST_DISTRICT_ID = 1; // Stockholms Schackforbund
+export const TEST_DISTRICT_ID = 1; // Stockholms Schackförbund
 export const TEST_CLUB_ID = 38464; // SK Rockaden Sthlm
 export const TEST_CLUB_NAME = 'SK Rockaden Sthlm';
 

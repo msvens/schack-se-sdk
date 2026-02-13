@@ -107,3 +107,24 @@ export function getPlayerDateCacheKey(playerId: number, timestamp: number): stri
   const monthStart = getMonthStartString(timestamp);
   return `${playerId}-${monthStart}`;
 }
+
+/**
+ * Parse a YYYY-MM-DD date string as local midnight.
+ *
+ * IMPORTANT: Do NOT use `new Date("2026-03-02")` for date-only strings —
+ * that creates UTC midnight, causing timezone issues when compared with
+ * `new Date()` (local time). This function avoids that by using the
+ * component-based Date constructor which creates local midnight.
+ *
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns Date object at local midnight
+ *
+ * @example
+ * // In CET (UTC+1):
+ * new Date("2026-03-02")      // → 2026-03-02T00:00:00Z (UTC midnight)
+ * parseLocalDate("2026-03-02") // → 2026-03-02T00:00:00+01:00 (local midnight)
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}

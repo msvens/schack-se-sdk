@@ -55,6 +55,8 @@ export {
   getPlayerRatingByAlgorithm,
   getRatingTypeFromRoundRated,
   getPlayerRatingByRoundType,
+  getPrimaryRatingType,
+  getPlayerRatingStrict,
   formatPlayerName
 } from './ratingUtils';
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
@@ -76,7 +78,8 @@ export {
   getMonthStart,
   getMonthStartString,
   normalizeEloLookupDate,
-  getPlayerDateCacheKey
+  getPlayerDateCacheKey,
+  parseLocalDate
 } from './dateUtils';
 export {
   type TournamentInfo,
@@ -89,6 +92,5 @@ export {
   calculateStatsByColor,
   aggregateOpponentStats,
   sortOpponentStats,
-  formatGameResultDisplay,
   gamesToDisplayFormat
 } from './opponentStats';

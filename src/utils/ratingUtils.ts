@@ -465,6 +465,57 @@ export function getPlayerRatingByRoundType(
 }
 
 /**
+ * Get the primary rating type for a ranking algorithm (no fallback chain).
+ * E.g. RAPID_STANDARD_BLITZ_ELO → 'rapid', BLITZ_ELO → 'blitz'.
+ */
+export function getPrimaryRatingType(rankingAlgorithm: number | null | undefined): RatingType | null {
+  switch (rankingAlgorithm) {
+    case RatingAlgorithm.STANDARD_ELO:
+    case RatingAlgorithm.IF_ELO_THEN_ELO_OTHERWISE_LASK:
+    case RatingAlgorithm.MAX_ELO_LASK:
+    case RatingAlgorithm.STANDARD_RAPID_BLITZ_ELO:
+      return 'standard';
+    case RatingAlgorithm.RAPID_ELO:
+    case RatingAlgorithm.RAPID_STANDARD_BLITZ_ELO:
+      return 'rapid';
+    case RatingAlgorithm.BLITZ_ELO:
+    case RatingAlgorithm.BLITZ_STANDARD_RAPID_ELO:
+      return 'blitz';
+    case RatingAlgorithm.LASK:
+      return 'lask';
+    case RatingAlgorithm.NO_RATING:
+    default:
+      return null;
+  }
+}
+
+/**
+ * Strict rating lookup — returns only the primary rating type for the algorithm.
+ * If the player doesn't have that rating, returns null (no fallback).
+ * Use for display contexts like H2H where fallback would be misleading.
+ */
+export function getPlayerRatingStrict(
+  elo: MemberFIDERatingDTO | null | undefined,
+  rankingAlgorithm: number | null | undefined
+): PlayerRating {
+  if (!elo) return { rating: null, isFallback: false, ratingType: null };
+
+  const ratingType = getPrimaryRatingType(rankingAlgorithm);
+  if (!ratingType) return { rating: null, isFallback: false, ratingType: null };
+
+  switch (ratingType) {
+    case 'standard':
+      return { rating: elo.rating || null, isFallback: false, ratingType: elo.rating ? 'standard' : null };
+    case 'rapid':
+      return { rating: elo.rapidRating || null, isFallback: false, ratingType: elo.rapidRating ? 'rapid' : null };
+    case 'blitz':
+      return { rating: elo.blitzRating || null, isFallback: false, ratingType: elo.blitzRating ? 'blitz' : null };
+    default:
+      return { rating: null, isFallback: false, ratingType: null };
+  }
+}
+
+/**
  * Format a player's name with their FIDE title if they have one
  *
  * @param firstName - Player's first name

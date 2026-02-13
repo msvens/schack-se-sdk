@@ -34,6 +34,8 @@ export {
   formatPlayerName,
   getRatingTypeFromRoundRated,
   getPlayerRatingByRoundType,
+  getPrimaryRatingType,
+  getPlayerRatingStrict,
   isJuniorPlayer,
   parseTimeControl,
   RoundRatedType,
@@ -103,7 +105,8 @@ export {
   getMonthStart,
   getMonthStartString,
   normalizeEloLookupDate,
-  getPlayerDateCacheKey
+  getPlayerDateCacheKey,
+  parseLocalDate
 } from './utils/dateUtils';
 export { deduplicateIds, chunkArray } from './utils/batchUtils';
 export {
@@ -117,6 +120,5 @@ export {
   calculateStatsByColor,
   aggregateOpponentStats,
   sortOpponentStats,
-  formatGameResultDisplay,
   gamesToDisplayFormat
 } from './utils/opponentStats';

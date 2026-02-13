@@ -96,11 +96,11 @@ export const ResultDisplay = {
   // Standard
   WHITE_WIN: '1 - 0',
   WHITE_WIN_WO: '1 - 0 w.o',
-  WHITE_TOURIST_WO: '1/2 bye',
+  WHITE_TOURIST_WO: '½ bye',
   BLACK_WIN: '0 - 1',
   BLACK_WIN_WO: '0 - 1 w.o',
   NO_WIN_WO: '0 - 0 w.o',
-  DRAW: '1/2 - 1/2',
+  DRAW: '½ - ½',
   NO_RESULT: '  -  ',
   BOTH_NO_RESULT: '0 - 0 adj',
   BOTH_WIN: '1 - 1 adj',
@@ -447,6 +447,6 @@ export function getPointSystemName(pointSystem: PointSystemType): string {
       return '3-1-0';
     case PointSystem.DEFAULT:
     default:
-      return 'Standard (1-1/2-0)';
+      return 'Standard (1-½-0)';
   }
 }

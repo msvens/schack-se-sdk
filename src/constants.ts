@@ -18,6 +18,9 @@ export const SSF_DEV_API_URL = `https://halvarsson.no-ip.com/webapp/memdb/public
 // Current API URL (default to production)
 export const CURRENT_API_URL = SSF_PROD_API_URL;
 
+// Current remote API URL for tests
+export const CURRENT_TEST_API_URL = SSF_PROD_API_URL;
+
 // Default timeout for API requests
 export const DEFAULT_TIMEOUT = 10000;
 

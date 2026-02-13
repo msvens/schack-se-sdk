@@ -1,5 +1,6 @@
 import { GameDto, PlayerInfoDto, TournamentDto } from '../types';
-import { parseTimeControl, formatPlayerRating, formatPlayerName } from './ratingUtils';
+import { getPrimaryRatingType, formatPlayerRating, formatPlayerName } from './ratingUtils';
+import { findTournamentGroup } from './tournamentGroupUtils';
 import {
   getPlayerOutcome,
   getPlayerPoints,
@@ -12,7 +13,7 @@ export interface TournamentInfo {
   groupId: number;
   tournamentId: number;
   name: string;
-  timeControl: 'standard' | 'rapid' | 'blitz';
+  timeControl: 'standard' | 'rapid' | 'blitz' | 'unrated';
 }
 
 export interface OpponentStats {
@@ -33,7 +34,7 @@ export interface GameDisplay {
   whiteName: string;
   blackId: number;
   blackName: string;
-  result: string;  // "1-0", "1/2-1/2", "0-1"
+  result: string;  // "1-0", "½-½", "0-1"
   groupId: number;
   tournamentId: number;
   tournamentName: string;
@@ -81,6 +82,25 @@ export function calculatePlayerPoints(
 }
 
 /**
+ * Get the rating type for a group from the tournament map.
+ * Uses the group's rankingAlgorithm to determine the type.
+ */
+function getGroupRatingType(
+  groupId: number,
+  tournamentMap: Map<number, TournamentDto>
+): 'standard' | 'rapid' | 'blitz' | 'unrated' {
+  const tournament = tournamentMap.get(groupId);
+  if (!tournament) return 'standard';
+  const groupResult = findTournamentGroup(tournament, groupId);
+  if (!groupResult) return 'standard';
+  const ratingType = getPrimaryRatingType(groupResult.group.rankingAlgorithm);
+  if (!ratingType) return 'unrated';
+  // LASK was the Swedish national rating for standard games
+  if (ratingType === 'lask') return 'standard';
+  return ratingType;
+}
+
+/**
  * Filter games by time control
  * @param games - Array of games
  * @param tournamentMap - Map of group ID to tournament data
@@ -90,16 +110,14 @@ export function calculatePlayerPoints(
 export function filterGamesByTimeControl(
   games: GameDto[],
   tournamentMap: Map<number, TournamentDto>,
-  timeControl: 'all' | 'standard' | 'rapid' | 'blitz'
+  timeControl: 'all' | 'standard' | 'rapid' | 'blitz' | 'unrated'
 ): GameDto[] {
   if (timeControl === 'all') {
     return games;
   }
 
   return games.filter(game => {
-    const tournament = tournamentMap.get(game.groupiD);
-    const tournamentTimeControl = parseTimeControl(tournament?.thinkingTime) || 'standard';
-    return tournamentTimeControl === timeControl;
+    return getGroupRatingType(game.groupiD, tournamentMap) === timeControl;
   });
 }
 
@@ -219,12 +237,11 @@ export function aggregateOpponentStats(
     // Build tournament list
     const tournaments: TournamentInfo[] = Array.from(record.groupIds).map(groupId => {
       const tournament = tournamentMap.get(groupId);
-      const timeControl = parseTimeControl(tournament?.thinkingTime) || 'standard';
       return {
         groupId,
         tournamentId: tournament?.id || 0,
         name: tournament?.name || `Group ${groupId}`,
-        timeControl
+        timeControl: getGroupRatingType(groupId, tournamentMap)
       };
     });
 
@@ -279,9 +296,9 @@ export function sortOpponentStats(
  * Format game result as string
  * Supports all point systems: DEFAULT, SCHACK4AN, POINT310
  * @param result - Game result code
- * @returns Formatted result string (e.g., "1 - 0", "1/2 - 1/2", "3 - 1")
+ * @returns Formatted result string (e.g., "1 - 0", "½ - ½", "3 - 1")
  */
-export function formatGameResultDisplay(result: number): string {
+export function formatGameResult(result: number): string {
   return getResultDisplayString(result);
 }
 
@@ -297,8 +314,8 @@ export function formatGameResultDisplay(result: number): string {
  * @param tournamentMap - Map of tournament info
  * @param currentPlayerName - Current player's full name
  * @param playersLoading - Whether player data is still loading
- * @param retrievingText - Text to show while loading (e.g., "Retrieving" or "Hamtar")
- * @param unknownText - Text to show for unknown players (e.g., "Unknown" or "Okand")
+ * @param retrievingText - Text to show while loading (e.g., "Retrieving" or "Hämtar")
+ * @param unknownText - Text to show for unknown players (e.g., "Unknown" or "Okänd")
  * @returns Array of games ready for display (latest-first order)
  */
 export function gamesToDisplayFormat(
@@ -353,7 +370,7 @@ export function gamesToDisplayFormat(
       whiteName,
       blackId: game.blackId,
       blackName,
-      result: formatGameResultDisplay(game.result),
+      result: formatGameResult(game.result),
       groupId: game.groupiD,
       tournamentId: tournament?.id || 0,
       tournamentName: tournament?.name || `Group ${game.groupiD}`
