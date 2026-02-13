@@ -1,3 +1,6 @@
+// SDK configuration
+export { configure, getConfig } from './config';
+
 // Main API exports
 export { BaseApiService } from './services/base';
 

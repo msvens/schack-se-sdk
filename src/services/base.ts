@@ -1,12 +1,12 @@
 import { ApiResponse, ApiError } from '../types';
-import { CURRENT_API_URL } from '../constants';
+import { getConfig } from '../config';
 
 export class BaseApiService {
   protected baseUrl: string;
   protected defaultHeaders: HeadersInit;
 
-  constructor(baseUrl: string = CURRENT_API_URL, defaultHeaders?: HeadersInit) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string, defaultHeaders?: HeadersInit) {
+    this.baseUrl = baseUrl ?? getConfig().baseUrl;
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       ...defaultHeaders,
