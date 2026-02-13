@@ -43,7 +43,7 @@ export {
   parseTimeControl,
   RoundRatedType,
   type PlayerRating,
-  type RatingType,
+  type TimeControlType,
   type RoundRatedTypeValue
 } from './utils/ratingUtils';
 export { RatingAlgorithm, type RatingAlgorithmType } from './types/ratingAlgorithm';

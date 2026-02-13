@@ -62,7 +62,7 @@ export function parseTimeControl(thinkingTime: string | null | undefined): 'stan
 /**
  * Type of rating used
  */
-export type RatingType = 'standard' | 'rapid' | 'blitz' | 'lask';
+export type TimeControlType = 'standard' | 'rapid' | 'blitz' | 'lask';
 
 /**
  * Result of getting a player's rating for a tournament
@@ -73,7 +73,7 @@ export interface PlayerRating {
   /** Whether this is a fallback to standard rating (marked with *) */
   isFallback: boolean;
   /** The type of rating that was used */
-  ratingType: RatingType | null;
+  ratingType: TimeControlType | null;
 }
 
 /**
@@ -186,7 +186,7 @@ export function formatPlayerRating(
  */
 export function formatRatingWithType(
   rating: number | null,
-  ratingType: RatingType | null,
+  ratingType: TimeControlType | null,
   language: 'sv' | 'en' = 'sv'
 ): string {
   if (rating === null) {
@@ -275,7 +275,7 @@ export function isJuniorPlayer(birthdate: string | null | undefined, gameDate?: 
  * @returns K-factor to use for calculations
  */
 export function getKFactorForRating(
-  ratingType: RatingType | null,
+  ratingType: TimeControlType | null,
   playerRating: number | null,
   playerElo?: MemberFIDERatingDTO | null,
   birthdate?: string | null,
@@ -413,13 +413,13 @@ export function getPlayerRatingByAlgorithm(
 }
 
 /**
- * Convert round.rated value to RatingType
+ * Convert round.rated value to TimeControlType
  * Returns null for unrated rounds (no ELO calculation should happen)
  *
  * @param rated - The RoundDto.rated field value (0/1/2/3)
- * @returns The corresponding RatingType, or null for unrated rounds
+ * @returns The corresponding TimeControlType, or null for unrated rounds
  */
-export function getRatingTypeFromRoundRated(rated: number | undefined): RatingType | null {
+export function getRatingTypeFromRoundRated(rated: number | undefined): TimeControlType | null {
   switch (rated) {
     case RoundRatedType.STANDARD: return 'standard';
     case RoundRatedType.RAPID: return 'rapid';
@@ -468,7 +468,7 @@ export function getPlayerRatingByRoundType(
  * Get the primary rating type for a ranking algorithm (no fallback chain).
  * E.g. RAPID_STANDARD_BLITZ_ELO → 'rapid', BLITZ_ELO → 'blitz'.
  */
-export function getPrimaryRatingType(rankingAlgorithm: number | null | undefined): RatingType | null {
+export function getPrimaryRatingType(rankingAlgorithm: number | null | undefined): TimeControlType | null {
   switch (rankingAlgorithm) {
     case RatingAlgorithm.STANDARD_ELO:
     case RatingAlgorithm.IF_ELO_THEN_ELO_OTHERWISE_LASK:

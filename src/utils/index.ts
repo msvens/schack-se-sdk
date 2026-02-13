@@ -45,7 +45,7 @@ export {
   RoundRatedType,
   type RoundRatedTypeValue,
   parseTimeControl,
-  type RatingType,
+  type TimeControlType,
   type PlayerRating,
   getPlayerRatingForTournament,
   formatPlayerRating,
