@@ -3,8 +3,8 @@
  * Tests real API calls with known FIDE player data
  */
 
-import { FideService } from '../src/services/fide';
-import { CHESSTOOLS_API_URL } from '../src/constants';
+import { FideService } from '../src';
+import { CHESSTOOLS_API_URL } from '../src';
 import {
   TEST_FIDE_CARLSEN_ID,
   TEST_FIDE_CRAMLING_ID,

@@ -3,7 +3,7 @@
  * Tests real API calls with known data points
  */
 
-import { OrganizationService } from '../src/index';
+import { OrganizationService } from '../src';
 import { CURRENT_TEST_API_URL } from '../src/constants';
 import {
   TEST_DISTRICT_ID,

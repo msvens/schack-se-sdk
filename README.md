@@ -7,15 +7,17 @@ TypeScript SDK for the Swedish Chess Federation (schack.se) API.
 Install from GitHub:
 
 ```bash
+# Using pnpm (recommended)
+pnpm add github:msvens/schack-se-sdk
+
 # Using npm
 npm install github:msvens/schack-se-sdk
 
-# Using yarn
-yarn add github:msvens/schack-se-sdk
-
-# Specific version
-yarn add github:msvens/schack-se-sdk#v1.0.0
+# Specific version/tag
+pnpm add github:msvens/schack-se-sdk#v1.0.0
 ```
+
+> **Note:** `yarn` has a known bug when installing packages directly from GitHub repositories. Use `pnpm` or `npm` instead.
 
 ## Quick Start
 

@@ -108,9 +108,11 @@ Tournament
 ## Build & Test
 
 ```bash
-yarn install
-yarn build    # Uses tsup
-yarn test     # Uses Jest
+pnpm install
+pnpm build      # Uses tsup + tsc for declarations
+pnpm test       # Uses Jest
+pnpm typecheck  # Type-check src + tests
+pnpm check      # typecheck + test + build (CI gate)
 ```
 
 ## File Structure
