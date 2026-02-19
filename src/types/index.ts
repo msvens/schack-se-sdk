@@ -12,3 +12,4 @@ export * from './results';
 export * from './ratings';
 export * from './registration';
 export * from './ratingAlgorithm';
+export * from './fide';

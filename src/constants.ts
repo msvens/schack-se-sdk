@@ -21,6 +21,9 @@ export const CURRENT_API_URL = SSF_PROD_API_URL;
 // Current remote API URL for tests
 export const CURRENT_TEST_API_URL = SSF_PROD_API_URL;
 
+// ChessTools API URL (FIDE data)
+export const CHESSTOOLS_API_URL = 'https://api.chesstools.org';
+
 // Default timeout for API requests
 export const DEFAULT_TIMEOUT = 10000;
 

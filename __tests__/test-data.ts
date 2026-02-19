@@ -56,3 +56,11 @@ export const EXPECTED_TOURNAMENT_NAME = 'SS 4 Springare JGP 2025';
 export const EXPECTED_PLAYER_FIRST_NAME = 'Olle';
 export const EXPECTED_PLAYER_LAST_NAME = 'Svensson';
 export const EXPECTED_CLUB_NAME = 'SK Rockaden Sthlm';
+
+// =============================================================================
+// FIDE test data (ChessTools API)
+// =============================================================================
+export const TEST_FIDE_CARLSEN_ID = 1503014;
+export const TEST_FIDE_CRAMLING_ID = 1700030;
+export const EXPECTED_FIDE_CARLSEN_NAME = 'Carlsen, Magnus';
+export const EXPECTED_FIDE_CRAMLING_NAME = 'Cramling, Pia';
