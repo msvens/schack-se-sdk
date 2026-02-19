@@ -14,6 +14,7 @@ export { TournamentService } from './services/tournaments';
 export { ResultsService } from './services/results';
 export { RatingsService } from './services/ratings';
 export { RegistrationService } from './services/registration';
+export { FideService } from './services/fide';
 
 // Export constants
 export {
@@ -22,7 +23,8 @@ export {
   SSF_PROD_API_URL,
   SSF_DEV_API_URL,
   CURRENT_API_URL,
-  DEFAULT_TIMEOUT
+  DEFAULT_TIMEOUT,
+  CHESSTOOLS_API_URL
 } from './constants';
 
 // Export utility functions

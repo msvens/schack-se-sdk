@@ -6,3 +6,4 @@ export { TournamentService } from './tournaments';
 export { ResultsService } from './results';
 export { RatingsService } from './ratings';
 export { RegistrationService } from './registration';
+export { FideService } from './fide';
