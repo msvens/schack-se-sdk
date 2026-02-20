@@ -7,6 +7,43 @@
     }
   ],
   "paths": {
+    "/public/api/v1/player/list/": {
+      "post": {
+        "tags": [
+          "player-public-controller"
+        ],
+        "summary": "Hämta spelarinfo",
+        "operationId": "getPlayerList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/MemberDateDto"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlayerInfoDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/public/api/v1/tournamentteamregistration/tournament/{id}/club/{clubid}": {
       "get": {
         "tags": [
@@ -902,7 +939,7 @@
           {
             "name": "category",
             "in": "path",
-            "description": "Medlemskategori: Alla=0, Damer=5, Juniorer=1, Kadetter=2, Miniorer=6, Knattar=7, Veteraner=4",
+            "description": "Medlemskategori: Alla=0, Damer=5, Juniorer=1, Kadetter=2, Miniorer=6, Knattar=7, Veteraner=4, Y2C_LAGSTAD=10, Y2C_FEMMAN=11, Y2C_SEXAN=12, Y2C_HOGSTAD=13",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1214,6 +1251,18 @@
   },
   "components": {
     "schemas": {
+      "MemberDateDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "date": {
+            "type": "string"
+          }
+        }
+      },
       "MemberFIDERatingDTO": {
         "type": "object",
         "properties": {

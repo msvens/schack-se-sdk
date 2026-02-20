@@ -4,7 +4,7 @@
  */
 
 import { PlayerService } from '../src/services/players';
-import { PlayerInfoDto } from '../src/types';
+import { PlayerInfoDto, MemberDateDto } from '../src/types';
 import { SSF_PROD_API_URL } from '../src/constants';
 import {
   TEST_PLAYER_ID,
@@ -133,6 +133,46 @@ describe('Player Service Integration Tests', () => {
     }, 10000);
   });
 
+  describe('Player List API', () => {
+    test('should fetch multiple players and dates in a single call', async () => {
+      const members: MemberDateDto[] = [
+        { id: TEST_PLAYER_ID, date: '2025-06-01' },
+        { id: 464113, date: '2025-06-01' },
+        { id: TEST_PLAYER_ID, date: '2025-12-01' },
+        { id: 464113, date: '2025-12-01' }
+      ];
+      const response = await playerService.getPlayerList(members);
+
+      expect(response.status).toBe(200);
+      expect(response.data).toBeDefined();
+      expect(Array.isArray(response.data)).toBe(true);
+
+      if (response.data) {
+        expect(response.data.length).toBe(4);
+
+        // Verify player identities and that elo dates match requested dates
+        const [olle1, lukas1, olle2, lukas2] = response.data;
+
+        expect(olle1.id).toBe(TEST_PLAYER_ID);
+        expect(olle1.firstName).toBe(EXPECTED_PLAYER_FIRST_NAME);
+        expect(olle1.elo.date).toBe('2025-06-01');
+        expect(olle1.elo.rating).toBe(1649);
+
+        expect(lukas1.id).toBe(464113);
+        expect(lukas1.firstName).toBe('Lukas');
+        expect(lukas1.lastName).toBe('Willstedt');
+        expect(lukas1.elo.date).toBe('2025-06-01');
+        expect(lukas1.elo.rating).toBe(2055);
+
+        expect(olle2.id).toBe(TEST_PLAYER_ID);
+        expect(olle2.elo.date).toBe('2025-12-01');
+
+        expect(lukas2.id).toBe(464113);
+        expect(lukas2.elo.date).toBe('2025-12-01');
+      }
+    }, 10000);
+  });
+
   describe('Player Rating History API', () => {
     test('should fetch player ELO history', async () => {
       const response = await playerService.getPlayerEloHistory(TEST_PLAYER_ID);
@@ -149,14 +189,27 @@ describe('Player Service Integration Tests', () => {
       }
     }, 15000); // Longer timeout as this makes multiple API calls
 
-    test('should fetch player ELO history with custom date range', async () => {
-      const response = await playerService.getPlayerEloHistory(TEST_PLAYER_ID, '2025-06', '2025-12');
+    test('should fetch player ELO history with custom date range and correct order', async () => {
+      const response = await playerService.getPlayerEloHistory(TEST_PLAYER_ID, '2025-06', '2026-01');
 
       expect(response.status).toBe(200);
       expect(response.data).toBeDefined();
       expect(Array.isArray(response.data)).toBe(true);
+
       if (response.data) {
-        expect(response.data.length).toBeLessThanOrEqual(7); // 7 months inclusive
+        expect(response.data.length).toBe(8); // 8 months inclusive
+
+        // Verify dates are returned latest first
+        const expectedDates = [
+          '2026-01-01', '2025-12-01', '2025-11-01', '2025-10-01',
+          '2025-09-01', '2025-08-01', '2025-07-01', '2025-06-01'
+        ];
+        const actualDates = response.data.map(entry => entry.elo.date);
+        expect(actualDates).toEqual(expectedDates);
+
+        // Verify specific known ratings
+        expect(response.data[0].elo.rating).toBe(1582); // 2026-01
+        expect(response.data[7].elo.rating).toBe(1649); // 2025-06
       }
     }, 15000);
   });

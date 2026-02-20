@@ -3,6 +3,16 @@
  */
 
 /**
+ * Request DTO for the batch player list endpoint (POST /player/list/)
+ */
+export interface MemberDateDto {
+  /** Player ID */
+  id: number;
+  /** Date in YYYY-MM-DD format */
+  date: string;
+}
+
+/**
  * FIDE rating information for a member
  */
 export interface MemberFIDERatingDTO {

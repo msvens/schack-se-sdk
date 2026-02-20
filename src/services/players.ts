@@ -1,9 +1,9 @@
 import { BaseApiService } from './base';
-import type { PlayerInfoDto, ApiResponse, PlayerRatingHistory } from '../types';
-import { chunkArray } from '../utils/batchUtils';
+import type { PlayerInfoDto, ApiResponse, PlayerRatingHistory, MemberDateDto } from '../types';
 
 /**
  * Options for batch processing
+ * @deprecated Only used by the deprecated {@link PlayerService.getPlayerInfoBatch}
  */
 export interface BatchOptions {
   /** Number of parallel requests to execute at once (default: 10, use Infinity for unlimited) */
@@ -13,6 +13,7 @@ export interface BatchOptions {
 /**
  * Result of a single batch item
  * Either contains data or an error, never both
+ * @deprecated Only used by the deprecated {@link PlayerService.getPlayerInfoBatch}
  */
 export type BatchItemResult<T> =
   | { data: T; error: null }
@@ -74,64 +75,56 @@ export class PlayerService extends BaseApiService {
   }
 
   /**
+   * Fetch player information for multiple players in a single API call
+   *
+   * @param members - Array of { id, date } objects
+   * @returns Array of player information
+   */
+  async getPlayerList(members: MemberDateDto[]): Promise<ApiResponse<PlayerInfoDto[]>> {
+    return this.post<PlayerInfoDto[]>('/player/list/', members);
+  }
+
+  /**
    * Fetch player information for multiple player IDs in batches
+   *
+   * @deprecated Use {@link getPlayerList} instead, which directly calls the
+   * POST /player/list/ endpoint and supports different dates per player.
    *
    * @param playerIds - Array of player IDs to fetch (duplicates allowed, order preserved)
    * @param date - Optional date filter (defaults to current date)
-   * @param options - Batch processing options
+   * @param options - Batch processing options (unused, kept for backwards compatibility)
    * @returns Array of results matching input order - each item contains either data or error
-   *
-   * @remarks
-   * - **Preserves input order** - results[i] corresponds to playerIds[i]
-   * - **Allows duplicates** - each ID is fetched separately (caller controls deduplication)
-   * - Processes requests in batches to avoid overwhelming the API
-   * - Use concurrency: Infinity for maximum parallelism
-   *
-   * @example
-   * ```typescript
-   * const results = await playerService.getPlayerInfoBatch([1, 2, 2, 3]);
-   * results.forEach((result, i) => {
-   *   if (result.data) {
-   *     console.log(`Player ${playerIds[i]}:`, result.data);
-   *   } else {
-   *     console.error(`Player ${playerIds[i]} failed:`, result.error);
-   *   }
-   * });
-   * ```
    */
   async getPlayerInfoBatch(
     playerIds: number[],
     date?: Date,
     options: BatchOptions = {}
   ): Promise<BatchItemResult<PlayerInfoDto>[]> {
-    const { concurrency = 10 } = options;
-    const chunks = chunkArray(playerIds, concurrency);
+    const targetDate = date ? this.formatDateToString(date) : this.getCurrentDate();
+    const members: MemberDateDto[] = playerIds.map(id => ({ id, date: targetDate }));
 
-    const results: BatchItemResult<PlayerInfoDto>[] = [];
+    const response = await this.getPlayerList(members);
 
-    // Process each chunk sequentially
-    for (const chunk of chunks) {
-      // Within each chunk, process requests in parallel
-      const responses = await Promise.allSettled(
-        chunk.map(id => this.getPlayerInfo(id, date))
-      );
-
-      // Collect results in order
-      responses.forEach((response) => {
-        if (response.status === 'fulfilled' && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === 'fulfilled' && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === 'rejected') {
-          results.push({
-            data: null,
-            error: response.reason?.message || 'Unknown error'
-          });
-        }
-      });
+    if (response.error || !response.data) {
+      // If the batch call itself failed, return error for every input ID
+      const errorMsg = response.error || 'Unknown error';
+      return playerIds.map(() => ({ data: null, error: errorMsg }));
     }
 
-    return results;
+    // Build lookup by player ID for mapping results back
+    const resultsByPlayerId = new Map<number, PlayerInfoDto>();
+    for (const player of response.data) {
+      resultsByPlayerId.set(player.id, player);
+    }
+
+    // Map results back preserving input order (including duplicates)
+    return playerIds.map(id => {
+      const player = resultsByPlayerId.get(id);
+      if (player) {
+        return { data: player, error: null };
+      }
+      return { data: null, error: `Player ${id} not found` };
+    });
   }
 
   /**
@@ -143,11 +136,11 @@ export class PlayerService extends BaseApiService {
    * @returns Array of rating history sorted by date (latest first)
    *
    * @remarks
-   * - Fetches player ratings for each month in the range
-   * - Processes in batches of 12 months for efficiency
-   * - **Smart stopping**: Stops when encountering a month with no ratings (all rating fields are null/0)
-   * - Also stops if API call fails (player doesn't exist at that date)
-   * - Returns only months where the player has rating data
+   * - Fetches all months in the range via a single POST to /player/list/
+   * - Results are ordered latest first (matching the request order)
+   * - **Smart stopping**: Iterates results and stops at the first month with no ratings
+   *   (elo and lask are null/0), so months before the player was rated are excluded
+   * - Only returns months where the player has at least one rating value
    *
    * @example
    * ```typescript
@@ -181,50 +174,38 @@ export class PlayerService extends BaseApiService {
         current.setMonth(current.getMonth() - 1);
       }
 
-      // Process in batches of 12 months
-      const chunks = chunkArray(dates, 12);
+      // Build MemberDateDto[] for all months and fetch in one call
+      const members: MemberDateDto[] = dates.map(d => ({
+        id: playerId,
+        date: this.formatDateToString(d)
+      }));
+
+      const response = await this.getPlayerList(members);
+
+      if (response.error || !response.data) {
+        return {
+          status: response.status,
+          error: response.error || 'Failed to fetch rating history'
+        };
+      }
+
+      // Process results in order (most recent first) with stop logic
       const ratingHistory: PlayerRatingHistory[] = [];
-      let shouldStop = false;
+      for (const player of response.data) {
+        const elo = player.elo;
+        const lask = player.lask;
 
-      // Process each chunk sequentially (most recent first)
-      for (const chunk of chunks) {
-        if (shouldStop) break;
+        // Check if player has any ratings at this date
+        const hasAnyRating = elo?.rating || elo?.rapidRating || elo?.blitzRating || lask?.rating;
 
-        // Within chunk, fetch in parallel
-        const responses = await Promise.allSettled(
-          chunk.map(date => this.getPlayerInfo(playerId, date))
-        );
-
-        // Process responses and check for stop condition
-        for (const response of responses) {
-          if (response.status === 'fulfilled' && response.value.status === 200 && response.value.data) {
-            const player = response.value.data;
-            const elo = player.elo;
-            const lask = player.lask;
-
-            // Check if player has any ratings at this date
-            const hasAnyRating = elo?.rating || elo?.rapidRating || elo?.blitzRating || lask?.rating;
-
-            if (hasAnyRating) {
-              ratingHistory.push({
-                elo: elo,
-                lask: lask
-              });
-            } else {
-              // No ratings found - player likely didn't exist yet or wasn't rated
-              // Stop processing further (older) dates
-              shouldStop = true;
-              break;
-            }
-          } else {
-            // API call failed or returned error - stop here
-            shouldStop = true;
-            break;
-          }
+        if (hasAnyRating) {
+          ratingHistory.push({ elo, lask });
+        } else {
+          // No ratings found - player likely didn't exist yet or wasn't rated
+          break;
         }
       }
 
-      // Already sorted (latest first) since we processed most recent dates first
       return {
         status: 200,
         data: ratingHistory
