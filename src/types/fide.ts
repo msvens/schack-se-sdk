@@ -1,9 +1,17 @@
 /**
  * FIDE player types from the ChessTools API (https://api.chesstools.org)
  *
- * Note: The API is inconsistent across endpoints (e.g. `fideid` vs `fide_id`,
- * `rating` as number vs string). Each interface models the exact shape returned
- * by its corresponding endpoint.
+ * These types are exact 1:1 mappings of the JSON responses from the API,
+ * including internal fields like `_id` (MongoDB ObjectId). We don't reshape
+ * or omit fields — what the API returns is what the type describes.
+ *
+ * The API has two data sources with different response shapes:
+ * - **Web scraper** (scrapes FIDE website): `top_active`, `player_info`, `player_history`
+ * - **MongoDB rating list** (parsed from FIDE XML): `top_by_rating`, `/fide/{id}`, `search`
+ *
+ * This leads to inconsistencies across endpoints (e.g. `fideid` vs `fide_id`,
+ * `rating` as number vs string, `country` vs `federation`). Each interface
+ * models the exact shape returned by its corresponding endpoint.
  */
 
 /**
@@ -22,10 +30,12 @@ export interface FideRatingPeriod {
 }
 
 /**
- * Player from /fide/{id} and /fide/top_by_rating endpoints.
- * Note: `fideid` is a string, `rating` is a number.
+ * Player from /fide/{id} and /fide/top_by_rating endpoints (MongoDB rating list).
+ * Only classical rating data is stored from the FIDE XML — no rapid/blitz fields.
+ * Note: `fideid` is a string, `rating` is a number, `birth_year` is a number.
  */
 export interface FidePlayer {
+  _id: string;
   fideid: string;
   name: string;
   country: string;
@@ -37,13 +47,7 @@ export interface FidePlayer {
   rating: number;
   games: number;
   k_factor: string;
-  rapid_rating: number;
-  rapid_games: number;
-  rapid_k_factor: string;
-  blitz_rating: number;
-  blitz_games: number;
-  blitz_k_factor: string;
-  birthday: string;
+  birth_year: number;
   flag: string;
 }
 
@@ -70,24 +74,16 @@ export interface FidePlayerInfo {
 }
 
 /**
- * Active top player from /fide/top_active/ endpoint.
+ * Active top player from /fide/top_active/ endpoint (web scraper).
  * Note: `fide_id` (not `fideid`), `rating` and `rank` are strings.
+ * Uses `country` (not `federation`) as parsed from the FIDE HTML table.
  */
 export interface FideActivePlayer {
   fide_id: string;
   name: string;
-  federation: string;
+  country: string;
   rating: string;
   rank: string;
   history?: FideRatingPeriod[];
 }
 
-/**
- * Search result from /ratinglist/search endpoint.
- */
-export interface FideSearchResult {
-  name: string;
-  fide_id: string;
-  country: string;
-  rating: string;
-}

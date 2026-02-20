@@ -5,7 +5,6 @@ import type {
   FidePlayerInfo,
   FideActivePlayer,
   FideRatingPeriod,
-  FideSearchResult,
 } from '../types';
 import { CHESSTOOLS_API_URL } from '../constants';
 
@@ -80,10 +79,10 @@ export class FideService extends BaseApiService {
    *
    * @param query - Search string (name or partial name)
    */
-  async searchPlayers(query: string): Promise<ApiResponse<FideSearchResult[]>> {
+  async searchPlayers(query: string): Promise<ApiResponse<FidePlayer[]>> {
     const params = new URLSearchParams();
     params.set('query', query);
     params.set('list_type', 'fide');
-    return this.get<FideSearchResult[]>(`/ratinglist/search?${params.toString()}`);
+    return this.get<FidePlayer[]>(`/ratinglist/search?${params.toString()}`);
   }
 }

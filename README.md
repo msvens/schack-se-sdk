@@ -1,6 +1,11 @@
 # schack-se-sdk
 
-TypeScript SDK for the Swedish Chess Federation (schack.se) API.
+TypeScript SDK for the Swedish Chess Federation (schack.se) API and FIDE player data via [ChessTools](https://api.chesstools.org/docs).
+
+### Underlying APIs
+
+- **SSF (Swedish Chess Federation):** [Swagger docs](https://member.schack.se/swagger-ui/index.html#/)
+- **ChessTools (FIDE data):** [API docs](https://api.chesstools.org/docs)
 
 ## Installation
 
@@ -163,6 +168,33 @@ const service = new RegistrationService();
 
 // Get team registration for a club
 const registration = await service.getTeamRegistration(tournamentId, clubId);
+```
+
+### FideService
+
+Provides FIDE player data via the [ChessTools API](https://api.chesstools.org/docs).
+
+All types (`FidePlayer`, `FideActivePlayer`, `FidePlayerInfo`, `FideRatingPeriod`) are exact 1:1 mappings of the JSON responses from the API — we don't reshape or omit fields. The ChessTools API has two internal data sources (a web scraper and a MongoDB rating list) which leads to inconsistencies across endpoints (e.g. `fideid` vs `fide_id`, `rating` as number vs string). Each type models exactly what its endpoint returns.
+
+```typescript
+import { FideService } from '@msvens/schack-se-sdk';
+
+const service = new FideService();
+
+// Get player by FIDE ID
+const player = await service.getPlayer(1503014);
+
+// Get detailed player info with rating history
+const info = await service.getPlayerInfo(1503014, true);
+
+// Get full rating history
+const history = await service.getPlayerHistory(1503014);
+
+// Get top players by classical rating
+const top = await service.getTopByRating(10);
+
+// Get top active players
+const active = await service.getTopActive(10, true);
 ```
 
 ## Utility Functions

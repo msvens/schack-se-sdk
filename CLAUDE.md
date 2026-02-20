@@ -18,6 +18,7 @@ Direct 1:1 mappings to API endpoints. All extend BaseApiService.
 | ResultsService | Standings, round results, individual games |
 | RatingsService | National/district/club rating lists |
 | RegistrationService | Team tournament registration |
+| FideService | FIDE player data via ChessTools API |
 
 ### Types - `src/types/`
 
@@ -33,6 +34,7 @@ TypeScript interfaces matching API response DTOs:
 | ratings.ts | RatingType, PlayerCategory, MemberCategory |
 | ratingAlgorithm.ts | RatingAlgorithm constants |
 | registration.ts | TeamRegistrationDto |
+| fide.ts | FidePlayer, FideActivePlayer, FidePlayerInfo, FideRatingPeriod |
 
 ### Utils (Domain Logic) - `src/utils/`
 
@@ -129,7 +131,8 @@ src/
 │   ├── tournaments.ts
 │   ├── results.ts
 │   ├── ratings.ts
-│   └── registration.ts
+│   ├── registration.ts
+│   └── fide.ts
 ├── types/
 │   ├── index.ts
 │   ├── base.ts
@@ -139,7 +142,8 @@ src/
 │   ├── results.ts
 │   ├── ratings.ts
 │   ├── ratingAlgorithm.ts
-│   └── registration.ts
+│   ├── registration.ts
+│   └── fide.ts
 └── utils/
     ├── index.ts
     ├── batchUtils.ts
