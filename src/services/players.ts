@@ -1,9 +1,9 @@
 import { BaseApiService } from './base';
 import type { PlayerInfoDto, ApiResponse, PlayerRatingHistory, MemberDateDto } from '../types';
+import { chunkArray } from '../utils/batchUtils';
 
 /**
  * Options for batch processing
- * @deprecated Only used by the deprecated {@link PlayerService.getPlayerInfoBatch}
  */
 export interface BatchOptions {
   /** Number of parallel requests to execute at once (default: 10, use Infinity for unlimited) */
@@ -13,7 +13,6 @@ export interface BatchOptions {
 /**
  * Result of a single batch item
  * Either contains data or an error, never both
- * @deprecated Only used by the deprecated {@link PlayerService.getPlayerInfoBatch}
  */
 export type BatchItemResult<T> =
   | { data: T; error: null }
@@ -87,12 +86,14 @@ export class PlayerService extends BaseApiService {
   /**
    * Fetch player information for multiple player IDs in batches
    *
-   * @deprecated Use {@link getPlayerList} instead, which directly calls the
-   * POST /player/list/ endpoint and supports different dates per player.
+   * Uses individual GET requests per player ID, which is slower than
+   * {@link getPlayerList} but tolerant of invalid/missing IDs — a single
+   * bad ID won't fail the entire batch. Prefer {@link getPlayerList} when
+   * you know all IDs are valid.
    *
    * @param playerIds - Array of player IDs to fetch (duplicates allowed, order preserved)
    * @param date - Optional date filter (defaults to current date)
-   * @param options - Batch processing options (unused, kept for backwards compatibility)
+   * @param options - Batch processing options
    * @returns Array of results matching input order - each item contains either data or error
    */
   async getPlayerInfoBatch(
@@ -100,31 +101,34 @@ export class PlayerService extends BaseApiService {
     date?: Date,
     options: BatchOptions = {}
   ): Promise<BatchItemResult<PlayerInfoDto>[]> {
-    const targetDate = date ? this.formatDateToString(date) : this.getCurrentDate();
-    const members: MemberDateDto[] = playerIds.map(id => ({ id, date: targetDate }));
+    const { concurrency = 10 } = options;
+    const chunks = chunkArray(playerIds, concurrency);
 
-    const response = await this.getPlayerList(members);
+    const results: BatchItemResult<PlayerInfoDto>[] = [];
 
-    if (response.error || !response.data) {
-      // If the batch call itself failed, return error for every input ID
-      const errorMsg = response.error || 'Unknown error';
-      return playerIds.map(() => ({ data: null, error: errorMsg }));
+    // Process each chunk sequentially
+    for (const chunk of chunks) {
+      // Within each chunk, process requests in parallel
+      const responses = await Promise.allSettled(
+        chunk.map(id => this.getPlayerInfo(id, date))
+      );
+
+      // Collect results in order
+      responses.forEach((response) => {
+        if (response.status === 'fulfilled' && response.value.data) {
+          results.push({ data: response.value.data, error: null });
+        } else if (response.status === 'fulfilled' && response.value.error) {
+          results.push({ data: null, error: response.value.error });
+        } else if (response.status === 'rejected') {
+          results.push({
+            data: null,
+            error: response.reason?.message || 'Unknown error'
+          });
+        }
+      });
     }
 
-    // Build lookup by player ID for mapping results back
-    const resultsByPlayerId = new Map<number, PlayerInfoDto>();
-    for (const player of response.data) {
-      resultsByPlayerId.set(player.id, player);
-    }
-
-    // Map results back preserving input order (including duplicates)
-    return playerIds.map(id => {
-      const player = resultsByPlayerId.get(id);
-      if (player) {
-        return { data: player, error: null };
-      }
-      return { data: null, error: `Player ${id} not found` };
-    });
+    return results;
   }
 
   /**
