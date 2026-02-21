@@ -359,21 +359,21 @@ interface ApiResponse<T> {
 
 ### Next.js: Trailing Slash Problem
 
-The SSF API is **inconsistent** about trailing slashes — GET endpoints break *with* them, POST endpoints break *without* them:
+Both the SSF API and the ChessTools API are sensitive to trailing slashes. The SSF API is particularly inconsistent — GET endpoints break *with* them, POST endpoints break *without* them:
 
-| Method | Trailing slash | Result |
-|--------|---------------|--------|
-| `GET /player/{id}/date/{date}` | No | 200 |
-| `GET /player/{id}/date/{date}/` | Yes | **404** |
-| `POST /player/list` | No | **404** |
-| `POST /player/list/` | Yes | 200 |
+| API | Method | Trailing slash | Result |
+|-----|--------|---------------|--------|
+| SSF | `GET /player/{id}/date/{date}` | No | 200 |
+| SSF | `GET /player/{id}/date/{date}/` | Yes | **404** |
+| SSF | `POST /player/list` | No | **404** |
+| SSF | `POST /player/list/` | Yes | 200 |
 
 The SDK handles this correctly (each endpoint uses the right path). The problem is **Next.js rewrites strip trailing slashes** before forwarding to the upstream API. This is standard Next.js behavior (SEO normalization) and `skipTrailingSlashRedirect: true` does not help — it only affects client-facing redirects, not rewrite forwarding.
 
-**Solution:** Use a catch-all **route handler** instead of a rewrite. Route handlers preserve `request.nextUrl.pathname` exactly, including trailing slashes:
+**Solution:** Use catch-all **route handlers** instead of rewrites. Route handlers preserve `request.nextUrl.pathname` exactly, including trailing slashes. You need one for each API:
 
 ```typescript
-// src/app/api/chess/v1/[...path]/route.ts
+// src/app/api/chess/v1/[...path]/route.ts — SSF proxy
 import { NextRequest } from 'next/server';
 
 const SSF_API_BASE = process.env.SSF_API_URL || 'https://member.schack.se/public/api/v1';
@@ -400,10 +400,37 @@ export const GET = proxy;
 export const POST = proxy;
 ```
 
-Then configure the SDK to use the proxy path:
+```typescript
+// src/app/api/chesstools/[...path]/route.ts — ChessTools/FIDE proxy
+import { NextRequest } from 'next/server';
+
+const CHESSTOOLS_API_BASE = 'https://api.chesstools.org';
+
+async function proxy(request: NextRequest) {
+  const originalPath = request.nextUrl.pathname.replace('/api/chesstools', '');
+  const url = new URL(request.url);
+  const target = `${CHESSTOOLS_API_BASE}${originalPath}${url.search}`;
+
+  const response = await fetch(target, {
+    method: request.method,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  const data = await response.text();
+  return new Response(data, {
+    status: response.status,
+    headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/json' },
+  });
+}
+
+export const GET = proxy;
+```
+
+Then configure the SDK services to use the proxy paths:
 
 ```typescript
 const playerService = new PlayerService('/api/chess/v1');
+const fideService = new FideService('/api/chesstools');
 ```
 
 ### `getPlayerList` Returns 500 for Unknown IDs
