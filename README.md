@@ -300,19 +300,33 @@ import type { PlayerInfoDto } from '@msvens/schack-se-sdk/types';
 import { calculateExpectedScore } from '@msvens/schack-se-sdk/utils';
 ```
 
-## API URLs
+## API URLs & CORS
 
-The SDK defaults to the production API. You can switch to the development API:
+Every service constructor takes an optional base URL. This exists because the SSF API (`member.schack.se`) does **not** set CORS headers — browser-based apps cannot call it directly. In practice, you need to proxy API calls through your own backend to avoid CORS errors.
+
+The actual API URLs are:
+
+| Constant | URL |
+|----------|-----|
+| `SSF_PROD_API_URL` | `https://member.schack.se/public/api/v1` |
+| `CHESSTOOLS_API_URL` | `https://api.chesstools.org` |
+
+The SDK is intentionally flexible about the base URL so you can point it at your proxy path instead of the actual API:
 
 ```typescript
 import { PlayerService, SSF_PROD_API_URL, SSF_DEV_API_URL } from '@msvens/schack-se-sdk';
 
-// Production (default)
-const prodService = new PlayerService(SSF_PROD_API_URL);
+// Direct call (works server-side or in tests, blocked by CORS in the browser)
+const serverService = new PlayerService(SSF_PROD_API_URL);
 
-// Development
+// Through a local proxy (works in the browser — recommended for web apps)
+const clientService = new PlayerService('/api/chess/v1');
+
+// Development API
 const devService = new PlayerService(SSF_DEV_API_URL);
 ```
+
+For a Next.js example of setting up the proxy, see [Known Issues & Gotchas](#nextjs-trailing-slash-problem) below.
 
 ## Types
 
