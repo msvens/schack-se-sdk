@@ -341,6 +341,63 @@ interface ApiResponse<T> {
 }
 ```
 
+## Known Issues & Gotchas
+
+### Next.js: Trailing Slash Problem
+
+The SSF API is **inconsistent** about trailing slashes — GET endpoints break *with* them, POST endpoints break *without* them:
+
+| Method | Trailing slash | Result |
+|--------|---------------|--------|
+| `GET /player/{id}/date/{date}` | No | 200 |
+| `GET /player/{id}/date/{date}/` | Yes | **404** |
+| `POST /player/list` | No | **404** |
+| `POST /player/list/` | Yes | 200 |
+
+The SDK handles this correctly (each endpoint uses the right path). The problem is **Next.js rewrites strip trailing slashes** before forwarding to the upstream API. This is standard Next.js behavior (SEO normalization) and `skipTrailingSlashRedirect: true` does not help — it only affects client-facing redirects, not rewrite forwarding.
+
+**Solution:** Use a catch-all **route handler** instead of a rewrite. Route handlers preserve `request.nextUrl.pathname` exactly, including trailing slashes:
+
+```typescript
+// src/app/api/chess/v1/[...path]/route.ts
+import { NextRequest } from 'next/server';
+
+const SSF_API_BASE = process.env.SSF_API_URL || 'https://member.schack.se/public/api/v1';
+
+async function proxy(request: NextRequest) {
+  const originalPath = request.nextUrl.pathname.replace('/api/chess/v1', '');
+  const url = new URL(request.url);
+  const target = `${SSF_API_BASE}${originalPath}${url.search}`;
+
+  const response = await fetch(target, {
+    method: request.method,
+    headers: { 'Content-Type': 'application/json' },
+    body: request.method !== 'GET' ? await request.text() : undefined,
+  });
+
+  const data = await response.text();
+  return new Response(data, {
+    status: response.status,
+    headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/json' },
+  });
+}
+
+export const GET = proxy;
+export const POST = proxy;
+```
+
+Then configure the SDK to use the proxy path:
+
+```typescript
+const playerService = new PlayerService('/api/chess/v1');
+```
+
+### `getPlayerList` Returns 500 for Unknown IDs
+
+`POST /player/list/` returns HTTP 500 if **any** requested player ID doesn't exist. Players who leave the federation get removed from the database, but their IDs still appear in historical game results.
+
+Use `getPlayerInfoBatch` (individual GET calls with per-player error handling) when fetching players where unknown IDs are possible. `getPlayerList` is safe only when all IDs are known to be valid.
+
 ## License
 
 MIT
