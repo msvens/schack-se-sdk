@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import {
   getMonthStart,
   getMonthStartString,
@@ -56,11 +57,11 @@ describe('dateUtils', () => {
   describe('normalizeEloLookupDate', () => {
     beforeEach(() => {
       // Mock Date.now to return January 15, 2026
-      jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-01-15T12:00:00').getTime());
+      vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-01-15T12:00:00').getTime());
     });
 
     afterEach(() => {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     it('should return month-start for current month dates', () => {
