@@ -1,6 +1,6 @@
 {
   "name": "@msvens/schack-se-sdk",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "TypeScript SDK for the Swedish Chess Federation (schack.se) API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

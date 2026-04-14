@@ -45,45 +45,78 @@ describe('BaseApiService error contract', () => {
   });
 
   describe('HTTP error responses', () => {
-    it('converts 404 into error response with status 500', async () => {
-      // Note: BaseApiService collapses all HTTP errors to status 500 in the
-      // response — the original status is embedded in the error message.
+    it('preserves the real HTTP status on 404', async () => {
       fetchMock.mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: 'not found' }), { status: 404 })
+        new Response(JSON.stringify({ error: 'Player not found' }), { status: 404 })
       );
 
       const service = new PlayerService(BASE_URL);
       const response = await service.getPlayerInfo(999999);
 
       expect(response.data).toBeUndefined();
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(404);
       expect(response.message).toBe('Error');
-      expect(response.error).toContain('404');
+      expect(response.error).toBe('Player not found');
     });
 
-    it('converts 500 into error response', async () => {
+    it('preserves the real HTTP status on 500', async () => {
       fetchMock.mockResolvedValueOnce(
-        new Response(JSON.stringify({}), { status: 500 })
+        new Response(JSON.stringify({}), { status: 500, statusText: 'Internal Server Error' })
       );
 
       const service = new PlayerService(BASE_URL);
       const response = await service.getPlayerInfo(1);
 
       expect(response.status).toBe(500);
-      expect(response.error).toContain('500');
       expect(response.message).toBe('Error');
+      expect(response.error).toBe('Internal Server Error');
+    });
+
+    it('preserves 429 (rate limit) so callers can back off', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response('', { status: 429, statusText: 'Too Many Requests' })
+      );
+
+      const service = new PlayerService(BASE_URL);
+      const response = await service.getPlayerInfo(1);
+
+      expect(response.status).toBe(429);
+    });
+
+    it('extracts error message from body.message when available', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'Custom server message' }), { status: 400 })
+      );
+
+      const service = new PlayerService(BASE_URL);
+      const response = await service.getPlayerInfo(1);
+
+      expect(response.status).toBe(400);
+      expect(response.error).toBe('Custom server message');
+    });
+
+    it('falls back to statusText when body is not JSON', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response('plain text error', { status: 503, statusText: 'Service Unavailable' })
+      );
+
+      const service = new PlayerService(BASE_URL);
+      const response = await service.getPlayerInfo(1);
+
+      expect(response.status).toBe(503);
+      expect(response.error).toBe('Service Unavailable');
     });
   });
 
-  describe('network errors', () => {
-    it('handles fetch rejection (network failure)', async () => {
+  describe('network errors (status: 0)', () => {
+    it('returns status: 0 when fetch rejects', async () => {
       fetchMock.mockRejectedValueOnce(new Error('ECONNREFUSED'));
 
       const service = new PlayerService(BASE_URL);
       const response = await service.getPlayerInfo(1);
 
       expect(response.data).toBeUndefined();
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(0);
       expect(response.message).toBe('Error');
       expect(response.error).toBe('ECONNREFUSED');
     });
@@ -94,11 +127,13 @@ describe('BaseApiService error contract', () => {
       const service = new PlayerService(BASE_URL);
       const response = await service.getPlayerInfo(1);
 
-      expect(response.status).toBe(500);
-      expect(response.error).toBe('Unknown error occurred');
+      expect(response.status).toBe(0);
+      expect(response.error).toBe('Network error');
     });
 
-    it('handles malformed JSON in response body', async () => {
+    it('returns status: 0 when 2xx response body is malformed JSON', async () => {
+      // Server returned 200 OK but the body isn't valid JSON — we have no
+      // usable response, so this is treated like a network-level failure.
       fetchMock.mockResolvedValueOnce(
         new Response('not-json{{{', { status: 200 })
       );
@@ -106,7 +141,7 @@ describe('BaseApiService error contract', () => {
       const service = new PlayerService(BASE_URL);
       const response = await service.getPlayerInfo(1);
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(0);
       expect(response.message).toBe('Error');
       expect(response.error).toBeDefined();
     });

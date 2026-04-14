@@ -344,16 +344,48 @@ import type {
 
 ## Response Format
 
-All service methods return an `ApiResponse<T>` object:
+All service methods return an `ApiResponse<T>` object — methods **never throw**, so you don't need try/catch around calls:
 
 ```typescript
 interface ApiResponse<T> {
-  data?: T;           // The response data (if successful)
-  error?: string;     // Error message (if failed)
-  status: number;     // HTTP status code
-  message?: string;   // Optional status message
+  data?: T;           // The response data (only present on success)
+  error?: string;     // Error message (only present on failure)
+  status: number;     // See "Status code conventions" below
+  message?: string;   // 'Success' or 'Error'
 }
 ```
+
+### Status code conventions
+
+The `status` field uses three categories so callers can distinguish *what kind* of failure happened:
+
+| Status | Meaning | When |
+|--------|---------|------|
+| `200`–`299` | Success | `data` is populated, `error` is undefined |
+| `400`–`599` | HTTP error | The server responded with an error status. The real status (404, 429, 500, etc.) is preserved. `error` contains a message extracted from the response body or status text. |
+| `0` | No HTTP response | `fetch` rejected (DNS failure, connection refused, offline, CORS blocked) **or** the response body wasn't valid JSON. There is no usable response from the server. |
+
+This lets you handle different failure modes appropriately:
+
+```typescript
+const response = await playerService.getPlayerInfo(id);
+
+if (response.data) {
+  // Success — use response.data
+} else if (response.status === 0) {
+  // Network problem — show "Check your connection", consider retrying
+} else if (response.status === 404) {
+  // Player doesn't exist
+} else if (response.status === 429) {
+  // Rate limited — back off
+} else if (response.status >= 500) {
+  // Server problem — show "Service unavailable, try later"
+} else {
+  // Other client error (400, 401, 403, ...)
+}
+```
+
+> **Note on `status: 0`:** This convention comes from `XMLHttpRequest`, where `xhr.status === 0` indicates the request never completed (no HTTP response was received). The SDK uses the same value for the same meaning.
 
 ## Known Issues & Gotchas
 
