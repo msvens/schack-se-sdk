@@ -72,11 +72,6 @@ export class FideService extends BaseApiService {
   /**
    * Search for FIDE-rated players by name.
    *
-   * NOTE: As of Feb 2026, this endpoint is broken server-side on ChessTools —
-   * it returns an empty array for all queries. The issue appears to be a missing
-   * MongoDB text index. The method is kept for forward-compatibility in case
-   * the ChessTools maintainer fixes it.
-   *
    * @param query - Search string (name or partial name)
    */
   async searchPlayers(query: string): Promise<ApiResponse<FidePlayer[]>> {

@@ -190,20 +190,19 @@ describe('FIDE Service Integration Tests', () => {
   });
 
   describe('searchPlayers', () => {
-    test('should return an array for search query', async () => {
+    test('should return matching players for search query', async () => {
       const response = await fideService.searchPlayers('Carlsen');
 
       expect(response.status).toBe(200);
       expect(response.data).toBeDefined();
 
       if (response.data) {
-        // Search endpoint may return empty results (broken server-side)
         expect(Array.isArray(response.data)).toBe(true);
-
-        // If results are returned, verify exact FidePlayer shape
-        if (response.data.length > 0) {
-          expect(Object.keys(response.data[0]).sort()).toEqual(FIDE_PLAYER_KEYS);
-        }
+        expect(response.data.length).toBeGreaterThan(0);
+        expect(Object.keys(response.data[0]).sort()).toEqual(FIDE_PLAYER_KEYS);
+        expect(
+          response.data.every((p) => p.name.toLowerCase().includes('carlsen'))
+        ).toBe(true);
       }
     }, 15000);
   });
