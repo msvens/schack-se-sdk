@@ -111,6 +111,17 @@ export interface TeamTournamentEndResultDto {
     drawGames: number;
     /** Number of lost games */
     lostGames: number;
-    /** Club information */
-    club: ClubDTO;
+    /**
+     * Club information for the team.
+     *
+     * May be `null` for "loosely-coupled" team tournaments where teams are
+     * not bound to a single club — i.e. tournaments whose
+     * `teamtournamentPlayerListType` is `TEAM_TEAMS` (3), such as Skol-SM
+     * (school team championships). For ordinary club-based team tournaments
+     * (`REGISTRATION_TEAMS` / `RATINGLIST_TEAMS`) this is always present.
+     *
+     * See `TeamTournamentPlayerListType` and `isLooseTeamTournament()` in
+     * `../types/tournament` for detecting this case from a TournamentDto.
+     */
+    club: ClubDTO | null;
 }

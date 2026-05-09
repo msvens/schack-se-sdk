@@ -26,6 +26,38 @@ export const TournamentState = {
 } as const;
 
 /**
+ * Team tournament player list type — describes how players are tied to teams
+ * in a team tournament. Used as the value of
+ * {@link TournamentDto.teamtournamentPlayerListType}.
+ *
+ * - `REGISTRATION_TEAMS` (1): Players are registered to the club. The team
+ *   roster is the club's registered players (standard club team format).
+ * - `RATINGLIST_TEAMS` (2): The team is drawn from the club's rating list.
+ * - `TEAM_TEAMS` (3): "Loosely-coupled" teams that are not bound to a single
+ *   club — e.g. Skol-SM (school team championships) where a team represents a
+ *   school rather than a chess club. For tournaments of this type, the
+ *   `club` field on {@link TeamTournamentEndResultDto} may be `null`. Use
+ *   {@link isLooseTeamTournament} to detect this case.
+ */
+export const TeamTournamentPlayerListType = {
+  REGISTRATION_TEAMS: 1,
+  RATINGLIST_TEAMS: 2,
+  TEAM_TEAMS: 3,
+} as const;
+
+/**
+ * Check if a team tournament uses "loosely-coupled" teams that are not bound
+ * to a single club (e.g. Skol-SM). For these tournaments, standings rows may
+ * have `club: null` since the team does not represent a registered club.
+ *
+ * @param playerListType The `teamtournamentPlayerListType` from a TournamentDto
+ * @returns true if the tournament uses TEAM_TEAMS registration
+ */
+export function isLooseTeamTournament(playerListType: number): boolean {
+  return playerListType === TeamTournamentPlayerListType.TEAM_TEAMS;
+}
+
+/**
  * Check if a tournament type is a team tournament
  * @param type Tournament type number
  * @returns true if team tournament (Allsvenskan, Svenska Cupen, Yes2Chess)
@@ -214,7 +246,13 @@ export interface TournamentDto {
     state: number;
     /** Allow foreign players */
     allowForeignPlayers: number;
-    /** Team tournament player list type */
+    /**
+     * Team tournament player list type — how players are tied to teams.
+     * See {@link TeamTournamentPlayerListType} for the possible values:
+     * 1 = REGISTRATION_TEAMS (club's registered players),
+     * 2 = RATINGLIST_TEAMS (club's rating list),
+     * 3 = TEAM_TEAMS (loosely-coupled teams, e.g. Skol-SM).
+     */
     teamtournamentPlayerListType: number;
     /** Age filter */
     ageFilter: number;
