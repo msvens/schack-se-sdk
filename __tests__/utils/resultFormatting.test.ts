@@ -3,8 +3,7 @@
  */
 
 import {
-  isWalkoverPlayer,
-  isWalkoverClub,
+  getOpponentKind,
   isWalkoverResult,
   isWalkover,
   formatGameResult,
@@ -13,37 +12,26 @@ import {
 import { ResultCode } from '../../src/utils/gameResults';
 
 describe('resultFormatting', () => {
-  describe('isWalkoverPlayer', () => {
-    it('should identify negative IDs as walkover', () => {
-      expect(isWalkoverPlayer(-1)).toBe(true);
-      expect(isWalkoverPlayer(-100)).toBe(true);
-      expect(isWalkoverPlayer(-200)).toBe(true);
+  describe('getOpponentKind', () => {
+    it('classifies positive IDs as paired', () => {
+      expect(getOpponentKind(1)).toBe('paired');
+      expect(getOpponentKind(12345)).toBe('paired');
+      expect(getOpponentKind(999999)).toBe('paired');
     });
 
-    it('should not identify positive IDs as walkover', () => {
-      expect(isWalkoverPlayer(1)).toBe(false);
-      expect(isWalkoverPlayer(12345)).toBe(false);
-      expect(isWalkoverPlayer(999999)).toBe(false);
+    it('classifies zero as paired', () => {
+      expect(getOpponentKind(0)).toBe('paired');
     });
 
-    it('should not identify zero as walkover', () => {
-      expect(isWalkoverPlayer(0)).toBe(false);
-    });
-  });
-
-  describe('isWalkoverClub', () => {
-    it('should identify negative IDs as walkover', () => {
-      expect(isWalkoverClub(-100)).toBe(true);
-      expect(isWalkoverClub(-1)).toBe(true);
+    it('classifies -100 as bye (frirond)', () => {
+      expect(getOpponentKind(-100)).toBe('bye');
     });
 
-    it('should not identify positive IDs as walkover', () => {
-      expect(isWalkoverClub(38464)).toBe(false);
-      expect(isWalkoverClub(1)).toBe(false);
-    });
-
-    it('should not identify zero as walkover', () => {
-      expect(isWalkoverClub(0)).toBe(false);
+    it('classifies other negative IDs as walkover', () => {
+      expect(getOpponentKind(-1)).toBe('walkover');
+      expect(getOpponentKind(-200)).toBe('walkover');
+      expect(getOpponentKind(-99)).toBe('walkover');
+      expect(getOpponentKind(-101)).toBe('walkover');
     });
   });
 
@@ -84,6 +72,11 @@ describe('resultFormatting', () => {
     it('should handle undefined result', () => {
       expect(isWalkover(12345, 67890, undefined)).toBe(false);
     });
+
+    it('should NOT treat a bye (-100) as a walkover', () => {
+      expect(isWalkover(-100, 12345)).toBe(false);
+      expect(isWalkover(12345, -100)).toBe(false);
+    });
   });
 
   describe('formatGameResult', () => {
@@ -107,6 +100,11 @@ describe('resultFormatting', () => {
     it('should not double-add w.o for walkover result code with walkover player', () => {
       // Result code already indicates walkover
       expect(formatGameResult(ResultCode.WHITE_WIN_WO, -1, 12345)).toBe('1 - 0 w.o');
+    });
+
+    it('should NOT append w.o when player ID indicates a bye (-100)', () => {
+      expect(formatGameResult(ResultCode.WHITE_WIN, -100, 12345)).toBe('1 - 0');
+      expect(formatGameResult(ResultCode.WHITE_WIN, 12345, -100)).toBe('1 - 0');
     });
 
     it('should format tourist bye correctly', () => {
@@ -146,6 +144,11 @@ describe('resultFormatting', () => {
 
     it('should not append w.o for normal player IDs', () => {
       expect(formatMatchResult(1, 0, 12345, 67890)).toBe('1 - 0');
+    });
+
+    it('should NOT append w.o when player ID indicates a bye (-100)', () => {
+      expect(formatMatchResult(1, 0, -100, 12345)).toBe('1 - 0');
+      expect(formatMatchResult(1, 0, 12345, -100)).toBe('1 - 0');
     });
 
     it('should handle undefined player IDs', () => {

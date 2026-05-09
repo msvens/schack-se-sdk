@@ -59,8 +59,8 @@ export {
   type TournamentRatingStats
 } from './utils/eloCalculations';
 export {
-  isWalkoverPlayer,
-  isWalkoverClub,
+  getOpponentKind,
+  type OpponentKind,
   isWalkoverResult,
   isWalkover,
   formatGameResult,

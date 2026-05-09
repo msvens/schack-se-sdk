@@ -34,8 +34,8 @@ export {
   getPointSystemName
 } from './gameResults';
 export {
-  isWalkoverPlayer,
-  isWalkoverClub,
+  getOpponentKind,
+  type OpponentKind,
   isWalkoverResult,
   isWalkover,
   formatGameResult,

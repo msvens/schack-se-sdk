@@ -10,20 +10,36 @@ import {
 } from './gameResults';
 
 /**
- * Check if a player ID represents a walkover (missing player)
- * Negative IDs indicate walkovers: -1 is standard, but other negative values
- * like -200 are also used in some tournaments
+ * What an opponent ID slot represents in a round.
+ *
+ * - `paired`: a real opponent (positive ID).
+ * - `bye`: no opponent assigned for this round (frirond / free round, e.g. odd
+ *   number of participants). Encoded as `-100`. A bye is NOT a walkover —
+ *   no game was scheduled.
+ * - `walkover`: an opponent was scheduled but did not show. Encoded as a
+ *   negative ID other than `-100` (typically `-1`, sometimes `-200`).
  */
-export function isWalkoverPlayer(playerId: number): boolean {
-  return playerId < 0;
-}
+export type OpponentKind = 'paired' | 'bye' | 'walkover';
+
+/** ID used by the API to indicate "no opponent" / bye / frirond. */
+const BYE_ID = -100;
 
 /**
- * Check if a club/organization ID represents a walkover (missing team)
- * Negative IDs like -100 indicate walkovers
+ * Classify an opponent ID (player or club/team) into its slot kind.
+ *
+ * @param id Opponent ID from a round result (homeId / awayId / whiteId / blackId).
+ * @returns The kind of slot this ID represents.
+ *
+ * @example
+ * getOpponentKind(12345)  // 'paired'
+ * getOpponentKind(-100)   // 'bye'
+ * getOpponentKind(-1)     // 'walkover'
+ * getOpponentKind(-200)   // 'walkover'
  */
-export function isWalkoverClub(clubId: number): boolean {
-  return clubId < 0;
+export function getOpponentKind(id: number): OpponentKind {
+  if (id === BYE_ID) return 'bye';
+  if (id < 0) return 'walkover';
+  return 'paired';
 }
 
 /**
@@ -37,14 +53,20 @@ export function isWalkoverResult(result: number): boolean {
 }
 
 /**
- * Check if a match has walkover conditions
+ * Check if a match has walkover conditions.
+ *
+ * Returns `true` only for actual walkovers — a bye (id `-100`) is NOT a
+ * walkover and will return `false`.
+ *
  * @param homeId Home player/team ID
  * @param awayId Away player/team ID
  * @param result Game result (optional, for team tournaments)
- * @returns true if either player is missing or result indicates W.O
+ * @returns true if either side is a walkover or the result code indicates W.O
  */
 export function isWalkover(homeId: number, awayId: number, result?: number): boolean {
-  return isWalkoverPlayer(homeId) || isWalkoverPlayer(awayId) || (result !== undefined && isWalkoverResult(result));
+  return getOpponentKind(homeId) === 'walkover'
+    || getOpponentKind(awayId) === 'walkover'
+    || (result !== undefined && isWalkoverResult(result));
 }
 
 /**
@@ -66,11 +88,10 @@ export function formatGameResult(result: number, whiteId?: number, blackId?: num
     return displayString;
   }
 
-  // Check if walkover is indicated by player IDs (negative IDs)
-  const hasWalkoverPlayer = (whiteId !== undefined && isWalkoverPlayer(whiteId)) ||
-                            (blackId !== undefined && isWalkoverPlayer(blackId));
+  // Walkover detection by ID — bye (-100) must not trigger "w.o"
+  const hasWalkoverPlayer = (whiteId !== undefined && getOpponentKind(whiteId) === 'walkover')
+    || (blackId !== undefined && getOpponentKind(blackId) === 'walkover');
 
-  // If we detected walkover via player IDs and result is countable, append w.o
   if (hasWalkoverPlayer && isCountableResult(result)) {
     return `${displayString} w.o`;
   }
@@ -97,8 +118,8 @@ export function formatMatchResult(
     return '-';
   }
 
-  const hasWalkover = (homeId !== undefined && isWalkoverPlayer(homeId)) ||
-                      (awayId !== undefined && isWalkoverPlayer(awayId));
+  const hasWalkover = (homeId !== undefined && getOpponentKind(homeId) === 'walkover')
+    || (awayId !== undefined && getOpponentKind(awayId) === 'walkover');
 
   const resultStr = `${homeResult} - ${awayResult}`;
   return hasWalkover ? `${resultStr} w.o` : resultStr;
