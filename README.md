@@ -285,6 +285,99 @@ const numeral = toRomanNumeral(4); // "IV"
 const formatter = createTeamNameFormatter(results, getClubName);
 ```
 
+## Team Tournaments and Schackfyran
+
+Team tournaments have two axes that are often conflated. Knowing the difference matters when you decide how to render a tournament:
+
+- **Identity** — is this fundamentally a team competition? Use `isTeamTournament(type)`.
+- **Pairing (lottning)** — are pairings made team-vs-team or player-vs-player? Use `isTeamPairing(type)`.
+
+Most types align on both axes. The exception is **Schackfyran** (school class tournament): it's a team competition (each school class is a team) but the pairings themselves are individual.
+
+| `type` | Constant | Identity | Pairing |
+|---|---|---|---|
+| 2 | `ALLSVENSKAN` | team | team |
+| 3 | `INDIVIDUAL` | individual | individual |
+| 4 | `SM_TREE` | individual | individual |
+| 5 | `SCHOOL_SM` | — | — |
+| 6 | `SVENSKA_CUPEN` | team | team |
+| 7 | `GRAND_PRIX` | individual | individual |
+| 8 | `YES2CHESS` | team | team |
+| 9 | `SCHACKFYRAN` | **team** | **individual** |
+
+> **Note on `SCHOOL_SM` (5):** Despite the name, this type is used in practice for *individual* school championships, not team Skol-SM. Real team Skol-SM events are configured as `ALLSVENSKAN` (2) with `teamtournamentPlayerListType = TEAM_TEAMS`. Don't rely on `type === SCHOOL_SM` as a team-tournament signal.
+
+```typescript
+import {
+  isTeamTournament,
+  isTeamPairing,
+  isSchackfyran,
+  isLooseTeamTournament,
+} from '@msvens/schack-se-sdk';
+
+if (isTeamTournament(tournament.type)) {
+  // Render team-oriented UI / team results table
+}
+
+if (isTeamPairing(tournament.type)) {
+  // Pairings are team-vs-team — show team matchups
+} else {
+  // Individual pairings — even on Schackfyran
+}
+```
+
+### Loose (TEAM-TEAM) tournaments
+
+Some team tournaments use "loosely-coupled" teams that are not bound to a club — e.g. real Skol-SM events where a team represents a school. These are detected by `teamtournamentPlayerListType === TEAM_TEAMS` (3), exposed as `isLooseTeamTournament(playerListType)`.
+
+For these tournaments:
+- `TeamTournamentEndResultDto.club` may be `null` (the team isn't a club).
+- **Team names are not yet exposed in the public REST API** — standings rows carry meaningful `contenderId` + `teamNumber`, but lack a human-readable label. This is an upstream gap that's expected to close eventually.
+
+Recommended stopgap until upstream catches up — link out to schack.se's existing servlet:
+
+```
+https://resultat.schack.se/ShowTournamentServlet?id={groupId}
+```
+
+### Schackfyran specifics
+
+Schackfyran (`type === 9`, detected via `isSchackfyran(type)`) has a deliberate privacy commitment:
+
+> The federation hides individual standings publicly because participants are typically children who aren't tournament-registered. The SDK still passes through whatever the API returns for the individual table, but you should *not* render those rows publicly. Prefer linking to schack.se for Schackfyran results until upstream exposes a clean team-aggregated endpoint.
+
+If you want to defensively catch tournaments that look like Schackfyran even when the type is wrong (some organisers pick `INDIVIDUAL` but use S4 scoring), use the pragmatic fallback:
+
+```typescript
+import { isSchackfyranLike } from '@msvens/schack-se-sdk';
+
+if (isSchackfyranLike(tournament.type, group.pointSystem)) {
+  // S4 scoring or type 9 — treat as Schackfyran-like
+}
+```
+
+### Decoding constants
+
+```typescript
+import { PairingSystem, Schack4anTeamPointSystem } from '@msvens/schack-se-sdk';
+
+// Decode group.pairingSystemMember
+if (group.pairingSystemMember === PairingSystem.ARENA) {
+  // Online tournament — nrofrounds (often 300+) is an internal counter,
+  // not a real round count to display.
+}
+```
+
+`Schack4anTeamPointSystem` constants (`S4_NORMALIZED`, `NORMAL`, `LEGACY_DEFAULT`) are defined in anticipation — the underlying field isn't currently exposed by the public API, but the constants are ready when it lands.
+
+### Deferred / upstream-blocked
+
+These pieces are intentionally not in the SDK yet:
+
+- **Schackfyran team aggregation.** The full algorithm needs `schack4anteampointsystem`, `s4minclasssize`, and `nrofTopArenaLeaders` from the API — none are exposed today. schack.se's official servlets already do this correctly; link out for now.
+- **`clubpresentationmode` handling** for team-name formatters. Field not exposed by the API.
+- **Loose-team team-name resolution.** The names exist server-side but the public API doesn't return them.
+
 ## Subpath Imports
 
 For tree-shaking or smaller bundles, you can import from specific subpaths:
