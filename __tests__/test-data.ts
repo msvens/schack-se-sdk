@@ -16,6 +16,13 @@ export const TEST_TOURNAMENT_GROUP_ID = 16046; // SS 4 Springare JGP 2025, grupp
 export const TEST_TOURNAMENT_CLASS_ID = 6451; // SS 4 Springare JGP 2025 class
 export const TEST_SEARCH_TERM = 'Stockholm';
 
+// Reference tournaments for predicate / classification reality checks.
+// These pin our empirical understanding of how schack.se configures real
+// tournaments (vs. how the constants are documented in Tournament.java).
+export const TEST_SCHACKFYRAN_TOURNAMENT_ID = 6535; // IES National Chess Championship 4-6 2026 — type=9 (SCHACKFYRAN), TEAM_TEAMS
+export const TEST_SKOLLAGS_TEAM_TOURNAMENT_ID = 6649; // Skollags-SM 2026 — type=2 (ALLSVENSKAN), TEAM_TEAMS (real team Skol-SM uses type 2, not 5)
+export const TEST_SKOL_SM_INDIVIDUAL_TOURNAMENT_ID = 3933; // Skol-SM 2023 — type=5 (SCHOOL_SM), individual (playerListType=-1)
+
 // =============================================================================
 // Player test data
 // =============================================================================

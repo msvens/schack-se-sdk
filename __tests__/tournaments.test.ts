@@ -3,14 +3,25 @@
  * Tests real API calls with known data points
  */
 
-import { TournamentService } from '../src/index';
+import {
+  TournamentService,
+  TournamentType,
+  TeamTournamentPlayerListType,
+  isTeamTournament,
+  isTeamPairing,
+  isSchackfyran,
+  isLooseTeamTournament,
+} from '../src/index';
 import { CURRENT_TEST_API_URL } from '../src/constants';
 import {
   TEST_TOURNAMENT_ID,
   TEST_TOURNAMENT_GROUP_ID,
   TEST_TOURNAMENT_CLASS_ID,
   TEST_SEARCH_TERM,
-  EXPECTED_TOURNAMENT_NAME
+  EXPECTED_TOURNAMENT_NAME,
+  TEST_SCHACKFYRAN_TOURNAMENT_ID,
+  TEST_SKOLLAGS_TEAM_TOURNAMENT_ID,
+  TEST_SKOL_SM_INDIVIDUAL_TOURNAMENT_ID,
 } from './test-data';
 
 
@@ -76,6 +87,49 @@ describe('Tournament Service Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.data).toBeDefined();
       expect(Array.isArray(response.data)).toBe(true);
+    }, 10000);
+  });
+
+  /**
+   * Empirical reality checks: assert that real tournaments on schack.se are
+   * configured the way we documented them, AND that the SDK's predicates
+   * classify them correctly. If schack.se changes a tournament's type or
+   * player-list type, these will fail and signal that the docs/predicates
+   * need a revisit.
+   */
+  describe('Tournament type classification (empirical reality check)', () => {
+    test('Schackfyran tournament is type=SCHACKFYRAN, TEAM_TEAMS, team-identity but individual pairing', async () => {
+      const response = await tournamentService.getTournament(TEST_SCHACKFYRAN_TOURNAMENT_ID);
+      expect(response.status).toBe(200);
+      const t = response.data!;
+      expect(t.type).toBe(TournamentType.SCHACKFYRAN);
+      expect(t.teamtournamentPlayerListType).toBe(TeamTournamentPlayerListType.TEAM_TEAMS);
+      expect(isTeamTournament(t.type)).toBe(true);
+      expect(isTeamPairing(t.type)).toBe(false);
+      expect(isSchackfyran(t.type)).toBe(true);
+      expect(isLooseTeamTournament(t.teamtournamentPlayerListType)).toBe(true);
+    }, 10000);
+
+    test('real team Skol-SM is type=ALLSVENSKAN with TEAM_TEAMS (not type=SCHOOL_SM)', async () => {
+      const response = await tournamentService.getTournament(TEST_SKOLLAGS_TEAM_TOURNAMENT_ID);
+      expect(response.status).toBe(200);
+      const t = response.data!;
+      expect(t.type).toBe(TournamentType.ALLSVENSKAN);
+      expect(t.teamtournamentPlayerListType).toBe(TeamTournamentPlayerListType.TEAM_TEAMS);
+      expect(isTeamTournament(t.type)).toBe(true);
+      expect(isTeamPairing(t.type)).toBe(true);
+      expect(isLooseTeamTournament(t.teamtournamentPlayerListType)).toBe(true);
+    }, 10000);
+
+    test('SCHOOL_SM (5) is used in practice for an individual tournament, not a team one', async () => {
+      const response = await tournamentService.getTournament(TEST_SKOL_SM_INDIVIDUAL_TOURNAMENT_ID);
+      expect(response.status).toBe(200);
+      const t = response.data!;
+      expect(t.type).toBe(TournamentType.SCHOOL_SM);
+      expect(t.teamtournamentPlayerListType).toBe(-1);
+      expect(isTeamTournament(t.type)).toBe(false);
+      expect(isTeamPairing(t.type)).toBe(false);
+      expect(isLooseTeamTournament(t.teamtournamentPlayerListType)).toBe(false);
     }, 10000);
   });
 });
