@@ -9,7 +9,11 @@ export class ResultsService extends BaseApiService {
   // Tournament Results API methods
 
   /**
-   * Get individual tournament results by group ID
+   * Get individual tournament results by group ID.
+   *
+   * Note: the upstream endpoint is server-side cached for ~10 seconds.
+   * Polling faster than that returns stale data; back off accordingly.
+   *
    * @param groupId - Tournament group ID (e.g., 15816)
    * @returns Tournament results with player standings
    */
@@ -20,7 +24,11 @@ export class ResultsService extends BaseApiService {
   }
 
   /**
-   * Get tournament round results by group ID
+   * Get tournament round results by group ID.
+   *
+   * Note: the upstream endpoint is server-side cached for ~10 seconds.
+   * Polling faster than that returns stale data; back off accordingly.
+   *
    * @param groupId - Tournament group ID (e.g., 15816)
    * @returns Tournament round results with individual games
    */

@@ -18,7 +18,12 @@ echo "Checking SSF API spec..."
 if curl -sf "$SSF_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$TMP_DIR/ssf-api.json" 2>/dev/null; then
   if ! diff -q "$SPECS_DIR/ssf-api.json" "$TMP_DIR/ssf-api.json" > /dev/null 2>&1; then
     echo "  CHANGED - SSF API spec differs from stored version"
-    diff --unified=3 "$SPECS_DIR/ssf-api.json" "$TMP_DIR/ssf-api.json" | head -50 || true
+    ssf_diff=$(diff --unified=3 "$SPECS_DIR/ssf-api.json" "$TMP_DIR/ssf-api.json" || true)
+    ssf_hunks=$(echo "$ssf_diff" | grep -c '^@@' || true)
+    ssf_adds=$(echo "$ssf_diff" | grep -cE '^\+[^+]' || true)
+    ssf_dels=$(echo "$ssf_diff" | grep -cE '^-[^-]' || true)
+    echo "  Summary: ${ssf_hunks} hunks, +${ssf_adds}/-${ssf_dels} lines"
+    echo "$ssf_diff"
     changed=1
   else
     echo "  OK - no changes"
@@ -33,7 +38,12 @@ echo "Checking ChessTools API spec..."
 if curl -sf "$CHESSTOOLS_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$TMP_DIR/chesstools-api.json" 2>/dev/null; then
   if ! diff -q "$SPECS_DIR/chesstools-api.json" "$TMP_DIR/chesstools-api.json" > /dev/null 2>&1; then
     echo "  CHANGED - ChessTools API spec differs from stored version"
-    diff --unified=3 "$SPECS_DIR/chesstools-api.json" "$TMP_DIR/chesstools-api.json" | head -50 || true
+    ct_diff=$(diff --unified=3 "$SPECS_DIR/chesstools-api.json" "$TMP_DIR/chesstools-api.json" || true)
+    ct_hunks=$(echo "$ct_diff" | grep -c '^@@' || true)
+    ct_adds=$(echo "$ct_diff" | grep -cE '^\+[^+]' || true)
+    ct_dels=$(echo "$ct_diff" | grep -cE '^-[^-]' || true)
+    echo "  Summary: ${ct_hunks} hunks, +${ct_adds}/-${ct_dels} lines"
+    echo "$ct_diff"
     changed=1
   else
     echo "  OK - no changes"

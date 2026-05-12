@@ -246,7 +246,7 @@
         "tags": [
           "tournament-results-public-controller"
         ],
-        "summary": "Hämta turneringstabell (endast individuell än så länge) för en grupp i en turnering",
+        "summary": "Hämta turneringstabell (endast individuell än så länge) för en grupp i en turnering. 10 sec cache.",
         "operationId": "getResultTable",
         "parameters": [
           {
@@ -282,7 +282,7 @@
         "tags": [
           "tournament-results-public-controller"
         ],
-        "summary": "Hämta rondresultaten (endast individuell än så länge) för en grupp i en turnering",
+        "summary": "Hämta rondresultaten (endast individuell än så länge) för en grupp i en turnering. 10 sec cache.",
         "operationId": "getRoundResults",
         "parameters": [
           {
