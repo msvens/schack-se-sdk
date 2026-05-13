@@ -40,7 +40,8 @@
     "prepublishOnly": "pnpm build",
     "clean": "rm -rf dist",
     "api:check": "bash scripts/api-check.sh",
-    "api:update": "bash scripts/api-update.sh"
+    "api:update": "bash scripts/api-update.sh",
+    "release": "bash scripts/release.sh"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
