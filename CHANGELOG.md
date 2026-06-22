@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- `getTournamentStatus(source, now?)` — derives a trustworthy lifecycle status (`'upcoming' | 'ongoing' | 'finished' | 'unknown'`) for a tournament or group, working around the unreliable `TournamentDto.state` field (organizers frequently leave it stale). Pass a bare `TournamentDto` or a `{ tournament?, group?, roundResults? }` bag; derivation is date-first, group dates take precedence over tournament dates, and a non-empty `roundResults` array proves the event has started. `now` is injectable for tests/SSR.
+- `isUpcoming` / `isOngoing` / `isFinished` — convenience predicates over `getTournamentStatus`.
+- `TournamentStatus` and `TournamentStatusSource` types.
+
 ## 0.6.1
 
 Republish from a non-merge commit to work around pnpm/pacote falling back to git-clone instead of the codeload tarball when the tag points at a merge commit. No code changes vs 0.6.0.
