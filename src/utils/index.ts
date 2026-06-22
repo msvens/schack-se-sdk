@@ -59,6 +59,12 @@ export {
   getPlayerRatingStrict,
   formatPlayerName
 } from './ratingUtils';
+export {
+  getTournamentStatus,
+  isUpcoming,
+  isOngoing,
+  isFinished
+} from './tournamentStatus';
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './sortingUtils';
 export {

@@ -456,3 +456,35 @@ export interface GroupSearchAnswerDto {
     /** Latest updated game timestamp */
     latestUpdatedGame?: string;
 }
+
+/**
+ * Derived lifecycle status of a tournament or group.
+ *
+ * This is the *trustworthy* status to display. Prefer it over the raw
+ * `TournamentDto.state` field, which organizers frequently leave stale
+ * (e.g. events long finished are still marked `REGISTRATION`). See
+ * {@link getTournamentStatus} for how it is derived.
+ *
+ * - `upcoming`  — before the start date (registration phase).
+ * - `ongoing`   — started but not past the end date (or round results exist).
+ * - `finished`  — past the end date.
+ * - `unknown`   — not enough information to decide.
+ */
+export type TournamentStatus = 'upcoming' | 'ongoing' | 'finished' | 'unknown';
+
+/**
+ * Input for {@link getTournamentStatus}: pass the raw objects you already hold.
+ *
+ * You MUST provide a `tournament` and/or a `group`; add `roundResults` if you
+ * have already fetched them. The union enforces "at least one of
+ * tournament/group" at compile time, so `{}` or a results-only object is a
+ * type error.
+ *
+ * The SDK extracts what it needs internally:
+ * - dates: `group` dates take precedence over `tournament` dates;
+ * - `state`: read from `tournament` (a group DTO has no state field);
+ * - "has results": derived from `roundResults` being non-empty.
+ */
+export type TournamentStatusSource =
+    | { tournament: TournamentDto; group?: TournamentClassGroupDto; roundResults?: ReadonlyArray<unknown> }
+    | { tournament?: TournamentDto; group: TournamentClassGroupDto; roundResults?: ReadonlyArray<unknown> };

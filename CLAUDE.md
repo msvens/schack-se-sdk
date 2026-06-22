@@ -48,6 +48,7 @@ Chess-specific utilities:
 | resultFormatting.ts | Walkover detection, result display strings |
 | teamFormatting.ts | Team names with Roman numerals |
 | tournamentGroupUtils.ts | Find groups in tournament hierarchy |
+| tournamentStatus.ts | Derive lifecycle status (works around unreliable `state`) |
 | sortingUtils.ts | Sort results by place, tournaments by date |
 | dateUtils.ts | ELO lookup date normalization |
 | batchUtils.ts | Array chunking, deduplication |
@@ -156,5 +157,6 @@ src/
     ├── resultFormatting.ts
     ├── sortingUtils.ts
     ├── teamFormatting.ts
-    └── tournamentGroupUtils.ts
+    ├── tournamentGroupUtils.ts
+    └── tournamentStatus.ts
 ```

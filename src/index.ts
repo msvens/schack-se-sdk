@@ -72,6 +72,12 @@ export {
   type TournamentGroupResult
 } from './utils/tournamentGroupUtils';
 export {
+  getTournamentStatus,
+  isUpcoming,
+  isOngoing,
+  isFinished
+} from './utils/tournamentStatus';
+export {
   toRomanNumeral,
   countTeamsByClub,
   formatTeamName,
