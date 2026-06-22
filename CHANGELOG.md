@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.6.1
 
 Republish from a non-merge commit to work around pnpm/pacote falling back to git-clone instead of the codeload tarball when the tag points at a merge commit. No code changes vs 0.6.0.
