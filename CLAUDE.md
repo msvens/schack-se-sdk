@@ -1,162 +1,35 @@
-# schack-se-sdk - AI Quick Reference
+# Project Context
 
-## Purpose
+TypeScript SDK for the Swedish Chess Federation (schack.se) public API, plus FIDE
+player data via the ChessTools API. Typed service wrappers + chess utilities.
+Consumed via git tag, not npm. Full usage docs: README.md. Release: RELEASE.md.
 
-TypeScript SDK for the Swedish Chess Federation (schack.se) public API. Provides typed wrappers for API endpoints and chess-specific utility functions.
+# Commands
 
-## Architecture
+- Check (CI gate — run before committing): `pnpm check`  # typecheck + test + build
+- Test: `pnpm test` (Vitest) · Build: `pnpm build` · Typecheck: `pnpm typecheck`
+- Release (tag-only): `pnpm release X.Y.Z`
+- API spec drift: `pnpm api:check`
 
-### Services (API Wrappers) - `src/services/`
+# Conventions
 
-Direct 1:1 mappings to API endpoints. All extend BaseApiService.
+- Spec-driven services: `src/services/` are 1:1 wrappers of documented endpoints in
+  `api-specs/` (`ssf-api.json` = SSF, `chesstools-api.json` = FIDE/ChessTools;
+  `pnpm api:check` flags drift). Don't wrap undocumented endpoints as spec'd
+  services — if one is genuinely needed, keep it clearly separated.
+- Aggregation / derived helpers are encouraged in `src/utils/` (composing spec'd
+  endpoints), separate from the raw service wrappers.
+- Named exports only (no default exports).
+- Service methods return `ApiResponse<T>` (`{ data?, error?, status }`); callers
+  check `response.data` / `response.error`.
+- Tests live in `__tests__/` (Vitest).
+- Feature PRs: don't bump `package.json` version; add notes under `## Unreleased`
+  in CHANGELOG.md. Releasing is git-tag only — never tag a merge commit; use
+  `pnpm release` (see RELEASE.md).
 
-| Service | Purpose |
-|---------|---------|
-| PlayerService | Player info, search, batch operations, rating history |
-| OrganizationService | Federation, districts, clubs |
-| TournamentService | Tournament structure, search, batch operations |
-| ResultsService | Standings, round results, individual games |
-| RatingsService | National/district/club rating lists |
-| RegistrationService | Team tournament registration |
-| FideService | FIDE player data via ChessTools API |
+# Behavior Rules
 
-### Types - `src/types/`
-
-TypeScript interfaces matching API response DTOs:
-
-| File | Contents |
-|------|----------|
-| base.ts | ApiResponse, ApiError |
-| player.ts | PlayerInfoDto, MemberFIDERatingDTO, RatingDataPoint |
-| organization.ts | FederationDTO, DistrictDTO, ClubDTO |
-| tournament.ts | TournamentDto, TournamentClassDto, GroupSearchAnswerDto |
-| results.ts | TournamentEndResultDto, TournamentRoundResultDto, GameDto |
-| ratings.ts | RatingType, PlayerCategory, MemberCategory |
-| ratingAlgorithm.ts | RatingAlgorithm constants |
-| registration.ts | TeamRegistrationDto |
-| fide.ts | FidePlayer, FideActivePlayer, FidePlayerInfo, FideRatingPeriod |
-
-### Utils (Domain Logic) - `src/utils/`
-
-Chess-specific utilities:
-
-| File | Purpose |
-|------|---------|
-| eloCalculations.ts | Expected score, rating change, performance rating |
-| gameResults.ts | Point systems, result codes, win/draw/loss detection |
-| ratingUtils.ts | Time control parsing, K-factor, rating formatting |
-| resultFormatting.ts | Walkover detection, result display strings |
-| teamFormatting.ts | Team names with Roman numerals |
-| tournamentGroupUtils.ts | Find groups in tournament hierarchy |
-| tournamentStatus.ts | Derive lifecycle status (works around unreliable `state`) |
-| sortingUtils.ts | Sort results by place, tournaments by date |
-| dateUtils.ts | ELO lookup date normalization |
-| batchUtils.ts | Array chunking, deduplication |
-| ratingHistory.ts | Fetch and decimate rating history |
-| opponentStats.ts | Game statistics by opponent/color |
-
-## Usage Pattern
-
-```typescript
-import { PlayerService, SSF_PROD_API_URL } from '@msvens/schack-se-sdk';
-
-const service = new PlayerService(SSF_PROD_API_URL);
-const response = await service.getPlayerInfo(12345);
-
-if (response.data) {
-  console.log(response.data.firstName);
-} else {
-  console.error(response.error);
-}
-```
-
-## API URLs
-
-- Production: `https://member.schack.se/public/api/v1`
-- Dev: `https://halvarsson.no-ip.com/webapp/memdb/public/api/v1`
-
-## Point Systems
-
-The API supports three point systems (determined by result code):
-
-| System | Win | Draw | Loss |
-|--------|-----|------|------|
-| DEFAULT | 1 | 0.5 | 0 |
-| SCHACK4AN | 3 | 2 | 1 |
-| POINT310 | 3 | 1 | 0 |
-
-## Key Concepts
-
-### Rating Types
-- `standard` - Classical time control (>60 min)
-- `rapid` - 10-60 minutes
-- `blitz` - <10 minutes
-- `lask` - Swedish national rating
-
-### K-Factors (FIDE)
-- K=40: Juniors (<18 at end of year) with rating <2300
-- K=20: Rating <2400
-- K=10: Rating >=2400
-
-### Tournament Structure
-```
-Tournament
-  └── rootClasses[]
-       └── TournamentClassDto
-            ├── groups[] (TournamentClassGroupDto)
-            │    └── tournamentRounds[] (RoundDto)
-            └── subClasses[] (recursive)
-```
-
-## Build & Test
-
-```bash
-pnpm install
-pnpm build      # Uses tsup + tsc for declarations
-pnpm test       # Uses Jest
-pnpm typecheck  # Type-check src + tests
-pnpm check      # typecheck + test + build (CI gate)
-```
-
-## File Structure
-
-```
-src/
-├── index.ts              # Main exports
-├── constants.ts          # API URLs, timeouts
-├── services/
-│   ├── index.ts
-│   ├── base.ts           # BaseApiService
-│   ├── players.ts
-│   ├── organizations.ts
-│   ├── tournaments.ts
-│   ├── results.ts
-│   ├── ratings.ts
-│   ├── registration.ts
-│   └── fide.ts
-├── types/
-│   ├── index.ts
-│   ├── base.ts
-│   ├── player.ts
-│   ├── organization.ts
-│   ├── tournament.ts
-│   ├── results.ts
-│   ├── ratings.ts
-│   ├── ratingAlgorithm.ts
-│   ├── registration.ts
-│   └── fide.ts
-└── utils/
-    ├── index.ts
-    ├── batchUtils.ts
-    ├── dateUtils.ts
-    ├── eloCalculations.ts
-    ├── gameResults.ts
-    ├── opponentStats.ts
-    ├── ratingHistory.ts
-    ├── ratingUtils.ts
-    ├── resultFormatting.ts
-    ├── sortingUtils.ts
-    ├── teamFormatting.ts
-    ├── tournamentGroupUtils.ts
-    └── tournamentStatus.ts
-```
+- Ask before assuming when requirements are ambiguous
+- Write minimum code to solve the stated problem — no preemptive abstraction
+- Only modify files and functions directly involved in the current task
+- Say "I'm not sure" when uncertain rather than confabulating
