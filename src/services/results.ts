@@ -1,5 +1,9 @@
 import { BaseApiService } from './base';
+import { isTeamPairing, PairingSystem } from '../types';
 import type { TournamentEndResultDto, TournamentRoundResultDto, TeamTournamentEndResultDto, GameDto, ApiResponse } from '../types';
+import { computeRoundStandings, type RoundStandings, type StandingsMode, type QualityMetric } from '../utils/roundStandings';
+import { findTournamentGroup } from '../utils/tournamentGroupUtils';
+import { TournamentService } from './tournaments';
 
 export class ResultsService extends BaseApiService {
   constructor(baseUrl?: string) {
@@ -36,6 +40,85 @@ export class ResultsService extends BaseApiService {
     const endpoint = `/tournamentresults/roundresults/id/${groupId}`;
 
     return this.get<TournamentRoundResultDto[]>(endpoint);
+  }
+
+  /**
+   * Replay tournament standings round-by-round — a best-effort "playback" of how
+   * the table evolved. Give it a group ID and nothing else: it detects whether
+   * the event is team or individual, picks the right round-results endpoint, and
+   * (for individual events) the right secondary metric — all from the tournament
+   * data. The caller never specifies any of that.
+   *
+   * Cumulative points reproduce the official primary column exactly; this is an
+   * *estimated* view of intermediate rounds. For the official final table use
+   * `getTournamentResults` / `getTeamTournamentResults`.
+   *
+   * Detection: `isTeamPairing(tournament.type)` chooses team vs individual; for
+   * individual events the group's `pairingSystemMember` chooses the secondary —
+   * Sonneborn-Berger for Berger/round-robin (Buchholz is FIDE-invalid there),
+   * Buchholz otherwise. Team standings (match points → board points) match the
+   * official table exactly; individual quality points are indicative — the
+   * official per-group tie-break variant is not reproduced (see `TiebreakSystem`).
+   *
+   * @param groupId - Tournament group ID
+   * @returns One standings snapshot per round, ordered by round ascending
+   */
+  async getRoundStandings(groupId: number): Promise<ApiResponse<RoundStandings[]>>;
+  /**
+   * Replay standings for a single round.
+   *
+   * @param groupId - Tournament group ID
+   * @param round - Round number to return the snapshot for
+   * @returns The standings snapshot after `round`, or a 404 error if that round
+   *   has no results
+   */
+  async getRoundStandings(groupId: number, round: number): Promise<ApiResponse<RoundStandings>>;
+  async getRoundStandings(
+    groupId: number,
+    round?: number
+  ): Promise<ApiResponse<RoundStandings | RoundStandings[]>> {
+    // Derive everything from the tournament: one lookup yields the type
+    // (team vs individual) and the group's pairing system (Buchholz vs SB).
+    let mode: StandingsMode = 'individual';
+    let qualityMetric: QualityMetric = 'buchholz';
+    const tournament = await new TournamentService(this.baseUrl).getTournamentFromGroup(groupId);
+    if (tournament.data) {
+      mode = isTeamPairing(tournament.data.type) ? 'team' : 'individual';
+      if (mode === 'individual') {
+        const group = findTournamentGroup(tournament.data, groupId);
+        if (group?.group.pairingSystemMember === PairingSystem.BERGER) {
+          qualityMetric = 'sonneborn-berger';
+        }
+      }
+    }
+    // Detection failure is best-effort: fall through to individual/Buchholz.
+
+    const roundResults = mode === 'team'
+      ? await this.getTeamRoundResults(groupId)
+      : await this.getTournamentRoundResults(groupId);
+    if (roundResults.error || !roundResults.data) {
+      return {
+        error: roundResults.error ?? 'No round results',
+        status: roundResults.status,
+        message: 'Error'
+      };
+    }
+
+    const snapshots = computeRoundStandings(roundResults.data, { mode, qualityMetric });
+
+    if (round === undefined) {
+      return { data: snapshots, status: roundResults.status, message: 'Success' };
+    }
+
+    const snapshot = snapshots.find((s) => s.round === round);
+    if (!snapshot) {
+      return {
+        error: `No results for round ${round} in group ${groupId}`,
+        status: 404,
+        message: 'Error'
+      };
+    }
+    return { data: snapshot, status: roundResults.status, message: 'Success' };
   }
 
   /**

@@ -126,6 +126,9 @@ const results = await service.getTournamentResults(groupId);
 // Get round results
 const rounds = await service.getTournamentRoundResults(groupId);
 
+// Replay estimated standings round-by-round (see "Replaying standings" below)
+const standings = await service.getRoundStandings(groupId);
+
 // Get team tournament results
 const teamResults = await service.getTeamTournamentResults(groupId);
 
@@ -285,6 +288,53 @@ const numeral = toRomanNumeral(4); // "IV"
 const formatter = createTeamNameFormatter(results, getClubName);
 ```
 
+### Replaying standings (round-by-round)
+
+A best-effort "playback" of how a tournament's standings evolved after each
+round — useful for animating a tournament or scrubbing back through it. Works for
+both individual and team events. **Give it a group ID and nothing else** — it
+derives everything (team-vs-individual, the right endpoint, and the secondary
+metric) from the tournament data; the caller never specifies any of that.
+
+```typescript
+import { ResultsService } from '@msvens/schack-se-sdk';
+
+const service = new ResultsService();
+
+// All snapshots — one per round, ordered ascending
+const all = await service.getRoundStandings(groupId);
+// all.data: [{ round: 1, rows: [...] }, { round: 2, rows: [...] }, ...]
+
+// Just the table as it stood after round 4
+const afterR4 = await service.getRoundStandings(groupId, 4);
+afterR4.data?.rows.forEach(r =>
+  console.log(r.rank, r.contenderId, r.points, r.qualityPoints ?? r.matchPoints)
+);
+```
+
+Each `RoundStandingRow` carries `rank`, `points`, `wins` / `draws` / `losses`,
+and `gamesPlayed`. Individual rows add `qualityPoints`; team rows add
+`matchPoints` and `teamNumber`.
+
+**What is and isn't exact:**
+
+- **Team** standings reproduce the official table *exactly* — ranking is
+  `matchPoints → points` (board points), both verified against live data
+  (`matchPoints` = official `points`, board `points` = official `secPoints`).
+- **Individual** cumulative `points` are *exact*, but the secondary
+  `qualityPoints` is *indicative*. Ranking is `points → qualityPoints → ELO`,
+  where `qualityPoints` is **Buchholz** by default — or **Sonneborn-Berger** for
+  round-robin groups (auto-selected via `pairingSystemMember === BERGER`, since
+  FIDE forbids Buchholz in round-robins). It equals a group's official secondary
+  tie-break only when that group actually uses that metric; groups using SSF
+  Buchholz, Median, FIDE Buchholz 2024, etc. order point-ties differently, and
+  the SDK intentionally does **not** reproduce those algorithms. Use
+  `getTiebreakSystemName(group.tiebreakSystem)` to show which method a group uses.
+
+This is an *estimated* reconstruction for intermediate rounds. For the
+**official** final standings (including the real `secPoints`), always use
+`getTournamentResults` / `getTeamTournamentResults`.
+
 ## Team Tournaments and Schackfyran
 
 Team tournaments have two axes that are often conflated. Knowing the difference matters when you decide how to render a tournament:
@@ -359,13 +409,22 @@ if (isSchackfyranLike(tournament.type, group.pointSystem)) {
 ### Decoding constants
 
 ```typescript
-import { PairingSystem, Schack4anTeamPointSystem } from '@msvens/schack-se-sdk';
+import {
+  PairingSystem,
+  Schack4anTeamPointSystem,
+  TiebreakSystem,
+  getTiebreakSystemName
+} from '@msvens/schack-se-sdk';
 
 // Decode group.pairingSystemMember
 if (group.pairingSystemMember === PairingSystem.ARENA) {
   // Online tournament — nrofrounds (often 300+) is an internal counter,
   // not a real round count to display.
 }
+
+// Decode group.tiebreakSystem (labeling only — the SDK does not compute these)
+getTiebreakSystemName(group.tiebreakSystem); // e.g. "SSF Buchholz", "Allsvenskan"
+const usesPlainBuchholz = group.tiebreakSystem === TiebreakSystem.BUCHHOLZ;
 ```
 
 `Schack4anTeamPointSystem` constants (`S4_NORMALIZED`, `NORMAL`, `LEGACY_DEFAULT`) are defined in anticipation — the underlying field isn't currently exposed by the public API, but the constants are ready when it lands.
