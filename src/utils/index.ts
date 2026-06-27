@@ -67,6 +67,9 @@ export {
 } from './tournamentStatus';
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './sortingUtils';
+// Round-standings result types only — the engine (computeRoundStandings) is
+// internal; ResultsService.getRoundStandings is the public entry point.
+export type { RoundStandingRow, RoundStandings } from './roundStandings';
 export {
   toRomanNumeral,
   countTeamsByClub,

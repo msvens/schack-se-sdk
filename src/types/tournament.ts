@@ -89,6 +89,68 @@ export const PairingSystem = {
 export type PairingSystemType = typeof PairingSystem[keyof typeof PairingSystem];
 
 /**
+ * Tie-break system constants — values of
+ * {@link TournamentClassGroupDto.tiebreakSystem}. These identify *which*
+ * secondary-ranking method a group uses to separate players/teams level on
+ * points (confirmed against the SSF member system, 2026).
+ *
+ * - `SSF_BERGER` (1): Sonneborn–Berger variant.
+ * - `BUCHHOLZ` (2): Plain Buchholz (sum of opponents' points).
+ * - `SSF_BUCHHOLZ` (3): SSF's Buchholz variant (carries a fractional
+ *   rating-derived component in `secPoints`).
+ * - `MEDIAN_BUCHHOLZ` (4): Buchholz dropping highest/lowest opponent scores.
+ * - `PROGRESSIVE` (5): Cumulative/progressive score.
+ * - `ALLSVENSKAN` (6): Team-league ordering (match points then board points).
+ * - `FIDE_BUCHHOLZ_2024` (7): FIDE Buchholz cut-1 per the 2024 regulations.
+ * - `UNSET` (-1): No tie-break configured. Confirmed by SSF to appear on
+ *   imported historical records whose pairing (lottning) and ranking were
+ *   handled *outside* the member system — common on older league/Allsvenskan
+ *   data. It is the absence of a configured method, not a method itself.
+ *
+ * **The SDK deliberately does not implement these algorithms.** Per explicit
+ * SSF guidance the tie-break ("särskiljning") logic — FIDE Buchholz 2024 in
+ * particular — is extremely intricate and out of scope for an API-access SDK.
+ * These constants exist only so consumers can *read and display* which method a
+ * group uses. {@link computeRoundStandings} computes plain Buchholz as an
+ * indicative secondary, which equals the official tie-break only when this
+ * value is `BUCHHOLZ` (2).
+ */
+export const TiebreakSystem = {
+  UNSET: -1,
+  SSF_BERGER: 1,
+  BUCHHOLZ: 2,
+  SSF_BUCHHOLZ: 3,
+  MEDIAN_BUCHHOLZ: 4,
+  PROGRESSIVE: 5,
+  ALLSVENSKAN: 6,
+  FIDE_BUCHHOLZ_2024: 7,
+} as const;
+
+export type TiebreakSystemType = typeof TiebreakSystem[keyof typeof TiebreakSystem];
+
+/**
+ * Human-readable name for a {@link TournamentClassGroupDto.tiebreakSystem}
+ * value, using the SSF labels. Returns `'Unknown (<value>)'` for unrecognised
+ * values so unexpected systems are still surfaced rather than hidden.
+ *
+ * @param tiebreakSystem The `tiebreakSystem` value from a group
+ * @returns The method's display name
+ */
+export function getTiebreakSystemName(tiebreakSystem: number): string {
+  switch (tiebreakSystem) {
+    case TiebreakSystem.UNSET: return 'Unset';
+    case TiebreakSystem.SSF_BERGER: return 'SSF-Berger';
+    case TiebreakSystem.BUCHHOLZ: return 'Buchholz';
+    case TiebreakSystem.SSF_BUCHHOLZ: return 'SSF Buchholz';
+    case TiebreakSystem.MEDIAN_BUCHHOLZ: return 'Median Buchholz';
+    case TiebreakSystem.PROGRESSIVE: return 'Progressive';
+    case TiebreakSystem.ALLSVENSKAN: return 'Allsvenskan';
+    case TiebreakSystem.FIDE_BUCHHOLZ_2024: return 'FIDE Buchholz 2024';
+    default: return `Unknown (${tiebreakSystem})`;
+  }
+}
+
+/**
  * Schack4an team aggregation modes — controls how individual player points
  * are aggregated into a team score in Schackfyran tournaments. The field
  * (`schack4anteampointsystem` on the backing `TournamentClassGroup`) is **not

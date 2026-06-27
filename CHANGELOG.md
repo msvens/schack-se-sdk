@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `ResultsService.getRoundStandings(groupId)` / `getRoundStandings(groupId, round)` — a best-effort "playback" of how a tournament's standings evolved, returning one snapshot per round (or a single round's). Give it a group ID and nothing else: it derives team-vs-individual from the tournament (`isTeamPairing(type)`, which selects the round-results endpoint) and, for individual events, the secondary metric from the group's `pairingSystemMember` — Sonneborn-Berger for Berger/round-robin (Buchholz is FIDE-invalid there), Buchholz otherwise. No options, no caller-supplied mode. Cumulative primary values reproduce the official column exactly; **team** standings match the official table exactly (match points → board points, verified against live data), while **individual** quality points are *indicative* (see caveat). Each `RoundStandingRow` has `rank`, `points`, `wins`/`draws`/`losses`, `gamesPlayed`; individual rows add `qualityPoints`, team rows add `matchPoints` and `teamNumber`.
+- `RoundStandings`, `RoundStandingRow` types.
+- `TiebreakSystem` constants (`UNSET` -1, `SSF_BERGER` 1, `BUCHHOLZ` 2, `SSF_BUCHHOLZ` 3, `MEDIAN_BUCHHOLZ` 4, `PROGRESSIVE` 5, `ALLSVENSKAN` 6, `FIDE_BUCHHOLZ_2024` 7) and `getTiebreakSystemName()` for decoding `TournamentClassGroupDto.tiebreakSystem`. `UNSET` (-1) marks imported legacy records whose pairing/ranking was handled outside the SSF member system. Reference/labeling only — the SDK intentionally does not implement the tie-break algorithms (per SSF guidance); the individual `qualityPoints` from `getRoundStandings` are plain Buchholz/Sonneborn-Berger and authoritative only when the group actually uses that metric.
+- Caveats: **team** standings reproduce the official table exactly (match points then board points — both keys verified against live data). **Individual** primary points are exact, but the secondary (quality points) is *indicative*: the official per-group method is selected by `TournamentClassGroupDto.tiebreakSystem` (see `TiebreakSystem`), and the SDK does not implement the variants (SSF Buchholz, Median, FIDE Buchholz 2024, …), so a group using one may order point-ties differently than Buchholz/Sonneborn-Berger. Byes/walkovers credit points but add no secondary contribution and are excluded from W/D/L.
+
 ## 0.7.0
 
 ### Added
