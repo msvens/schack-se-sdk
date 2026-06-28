@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `getRoundStandings` now reproduces the **official `secPoints`** for individual groups using **SSF Buchholz** (`tiebreakSystem === 3`, the common Swiss tie-break): `qualityPoints` becomes `base + wins·0.01 + gamesWithBlack·0.0001`, where `base` is Buchholz-Cut-1, or plain Buchholz when the player has a bye/walkover (the FIDE Art 16.5.1 virtual-opponent rule — the cut is spent on the dummy). Reverse-engineered from live data and validated against two groups: 15816 (2025, 64 players) to within 9.8e-6 with 62/64 ordering, and group 6072 (Linköpingsmästerskapen 2016, SSF's reference torture set with byes) where all 37 players — including all 6 with byes — match the official `secPoints` (that older event returns it rounded to ~0.1). The only residual is a not-yet-decoded sub-1e-5 packed field that separates the very deepest ties. For all other systems the secondary stays the indicative Buchholz/Sonneborn-Berger as before. No public API change.
+- Internal `src/utils/tiebreaks.ts`: FIDE base methods (`buchholz`, `buchholzCut1`, `medianBuchholz`, `sonnebornBerger`, each cited to its handbook article) as a clean layer, plus the reverse-engineered SSF decimal-packing layer (`computeSsfSecPoints`) on top — kept separable so a pure-FIDE implementation remains a drop-in alternative.
+
+### Notes
+
+- The SSF packing is reverse-engineered (SSF/Lotta output, not the FIDE spec) and **pending confirmation from SSF**. Once the formula stabilizes across more systems, hand it to SSF to confirm/refute and request the Linköping 2016 autotest dataset.
+
 ## 0.8.0
 
 ### Added

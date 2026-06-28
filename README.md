@@ -321,15 +321,19 @@ and `gamesPlayed`. Individual rows add `qualityPoints`; team rows add
 - **Team** standings reproduce the official table *exactly* — ranking is
   `matchPoints → points` (board points), both verified against live data
   (`matchPoints` = official `points`, board `points` = official `secPoints`).
-- **Individual** cumulative `points` are *exact*, but the secondary
-  `qualityPoints` is *indicative*. Ranking is `points → qualityPoints → ELO`,
-  where `qualityPoints` is **Buchholz** by default — or **Sonneborn-Berger** for
-  round-robin groups (auto-selected via `pairingSystemMember === BERGER`, since
-  FIDE forbids Buchholz in round-robins). It equals a group's official secondary
-  tie-break only when that group actually uses that metric; groups using SSF
-  Buchholz, Median, FIDE Buchholz 2024, etc. order point-ties differently, and
-  the SDK intentionally does **not** reproduce those algorithms. Use
-  `getTiebreakSystemName(group.tiebreakSystem)` to show which method a group uses.
+- **Individual** cumulative `points` are *exact*. The secondary `qualityPoints`
+  depends on the group's tie-break system:
+  - **SSF Buchholz** (`tiebreakSystem === 3`, the common Swiss tie-break):
+    `qualityPoints` reproduces the official `secPoints` —
+    `Buchholz-Cut-1 + wins·0.01 + gamesWithBlack·0.0001` — matching live data to
+    ~5 decimals and the official ordering for all but the deepest ties. (This
+    part is reverse-engineered from SSF's output, pending confirmation from SSF.)
+  - **All other systems**: `qualityPoints` is *indicative* — plain **Buchholz**,
+    or **Sonneborn-Berger** for round-robin groups (auto-selected via
+    `pairingSystemMember === BERGER`, since FIDE forbids Buchholz in round-robins).
+    It equals the official secondary only when the group actually uses that metric;
+    the SDK does not (yet) reproduce SSF-Berger, Median, FIDE Buchholz 2024, etc.
+    Use `getTiebreakSystemName(group.tiebreakSystem)` to show which method applies.
 
 This is an *estimated* reconstruction for intermediate rounds. For the
 **official** final standings (including the real `secPoints`), always use
