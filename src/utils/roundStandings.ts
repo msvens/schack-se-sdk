@@ -24,6 +24,11 @@
 
 import type { TournamentRoundResultDto } from '../types';
 import { getOpponentKind } from './resultFormatting';
+import {
+  computeSsfSecPoints,
+  isSsfSecPointsSupported,
+  type SbContribution
+} from './tiebreaks';
 
 export type StandingsMode = 'individual' | 'team';
 export type QualityMetric = 'buchholz' | 'sonneborn-berger';
@@ -68,8 +73,14 @@ export interface RoundStandings {
 export interface ComputeRoundStandingsOptions {
   /** `'individual'` or `'team'`. Determines the ranking keys. */
   mode: StandingsMode;
-  /** Individual only — secondary metric. Default `'buchholz'`. */
+  /** Individual only — fallback secondary metric when no SSF system applies. Default `'buchholz'`. */
   qualityMetric?: QualityMetric;
+  /**
+   * Individual only — the group's `tiebreakSystem`. When it's one the SDK can
+   * reproduce (see `computeSsfSecPoints`), `qualityPoints` becomes the official
+   * `secPoints` value; otherwise the indicative `qualityMetric` is used.
+   */
+  tiebreakSystem?: number;
   /** Team only — match-point award scheme. Default `{ win: 2, draw: 1, loss: 0 }`. */
   matchPointValues?: { win: number; draw: number; loss: number };
 }
@@ -83,6 +94,10 @@ interface Accumulator {
   draws: number;
   losses: number;
   gamesPlayed: number;
+  /** Individual only — games played with the black pieces (FIDE Art 7.3). */
+  gamesWithBlack: number;
+  /** Individual only — unplayed rounds (byes/walkovers), i.e. FIDE Art 16 VURs. */
+  unplayedRounds: number;
   /** Individual only — one entry per real game (kept for Buchholz / SB). */
   opponents: { id: number; myResult: number }[];
 }
@@ -102,6 +117,7 @@ export function computeRoundStandings(
   const {
     mode,
     qualityMetric = 'buchholz',
+    tiebreakSystem,
     matchPointValues = { win: 2, draw: 1, loss: 0 }
   } = options;
   const team = mode === 'team';
@@ -131,6 +147,8 @@ export function computeRoundStandings(
         draws: 0,
         losses: 0,
         gamesPlayed: 0,
+        gamesWithBlack: 0,
+        unplayedRounds: 0,
         opponents: []
       };
       acc.set(key, a);
@@ -148,6 +166,12 @@ export function computeRoundStandings(
       if (homeReal) get(p.homeId, p.homeTeamNumber).points += p.homeResult;
       if (awayReal) get(p.awayId, p.awayTeamNumber).points += p.awayResult;
 
+      // An unplayed round for the real side (bye/walkover) is a FIDE Art 16 VUR.
+      if (!team) {
+        if (homeReal && !awayReal) get(p.homeId, 0).unplayedRounds += 1;
+        if (awayReal && !homeReal) get(p.awayId, 0).unplayedRounds += 1;
+      }
+
       if (homeReal && awayReal) {
         const h = get(p.homeId, p.homeTeamNumber);
         const a = get(p.awayId, p.awayTeamNumber);
@@ -157,12 +181,16 @@ export function computeRoundStandings(
         } else {
           recordGame(h, p.awayId, p.homeResult, p.awayResult);
           recordGame(a, p.homeId, p.awayResult, p.homeResult);
+          // Track colour for the games-with-black tie-break (FIDE Art 7.3).
+          for (const g of p.games) {
+            if (g.blackId > 0) get(g.blackId, 0).gamesWithBlack += 1;
+          }
         }
       }
       // Bye/walkover: points already credited; no game/match, opponent, or W/D/L.
     }
 
-    snapshots.push({ round, rows: buildRows(acc, keyOf, { team, qualityMetric }) });
+    snapshots.push({ round, rows: buildRows(acc, keyOf, { team, qualityMetric, tiebreakSystem }) });
   }
 
   return snapshots;
@@ -203,20 +231,36 @@ function recordMatch(
 function buildRows(
   acc: Map<string, Accumulator>,
   keyOf: (id: number, teamNumber: number) => string,
-  opts: { team: boolean; qualityMetric: QualityMetric }
+  opts: { team: boolean; qualityMetric: QualityMetric; tiebreakSystem?: number }
 ): RoundStandingRow[] {
-  const { team, qualityMetric } = opts;
+  const { team, qualityMetric, tiebreakSystem } = opts;
+  const useSsf = !team && tiebreakSystem !== undefined && isSsfSecPointsSupported(tiebreakSystem);
   const rows: RoundStandingRow[] = [];
 
   for (const a of acc.values()) {
     let qualityPoints: number | undefined;
     if (!team) {
-      // Buchholz: Σ opponents' current points. Sonneborn-Berger: weighted by my result.
-      qualityPoints = 0;
+      const opponentScores: number[] = [];
+      const sbContributions: SbContribution[] = [];
       for (const opp of a.opponents) {
         const oppScore = acc.get(keyOf(opp.id, 0))?.points ?? 0;
-        qualityPoints += qualityMetric === 'sonneborn-berger' ? opp.myResult * oppScore : oppScore;
+        opponentScores.push(oppScore);
+        sbContributions.push({ opponentScore: oppScore, myResult: opp.myResult });
       }
+      // Official SSF secPoints when we can reproduce this group's tie-break
+      // system; otherwise the indicative Buchholz / Sonneborn-Berger metric.
+      const ssf = useSsf
+        ? computeSsfSecPoints(tiebreakSystem!, {
+            opponentScores,
+            sbContributions,
+            wins: a.wins,
+            gamesWithBlack: a.gamesWithBlack,
+            hasVoluntaryUnplayed: a.unplayedRounds > 0
+          })
+        : null;
+      qualityPoints = ssf ?? (qualityMetric === 'sonneborn-berger'
+        ? sbContributions.reduce((s, c) => s + c.opponentScore * c.myResult, 0)
+        : opponentScores.reduce((s, x) => s + x, 0));
     }
     rows.push({
       contenderId: a.contenderId,

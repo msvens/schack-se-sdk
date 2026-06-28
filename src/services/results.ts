@@ -81,11 +81,13 @@ export class ResultsService extends BaseApiService {
     // (team vs individual) and the group's pairing system (Buchholz vs SB).
     let mode: StandingsMode = 'individual';
     let qualityMetric: QualityMetric = 'buchholz';
+    let tiebreakSystem: number | undefined;
     const tournament = await new TournamentService(this.baseUrl).getTournamentFromGroup(groupId);
     if (tournament.data) {
       mode = isTeamPairing(tournament.data.type) ? 'team' : 'individual';
       if (mode === 'individual') {
         const group = findTournamentGroup(tournament.data, groupId);
+        tiebreakSystem = group?.group.tiebreakSystem;
         if (group?.group.pairingSystemMember === PairingSystem.BERGER) {
           qualityMetric = 'sonneborn-berger';
         }
@@ -104,7 +106,7 @@ export class ResultsService extends BaseApiService {
       };
     }
 
-    const snapshots = computeRoundStandings(roundResults.data, { mode, qualityMetric });
+    const snapshots = computeRoundStandings(roundResults.data, { mode, qualityMetric, tiebreakSystem });
 
     if (round === undefined) {
       return { data: snapshots, status: roundResults.status, message: 'Success' };
