@@ -316,6 +316,19 @@ Each `RoundStandingRow` carries `rank`, `points`, `wins` / `draws` / `losses`,
 and `gamesPlayed`. Individual rows add `qualityPoints`; team rows add
 `matchPoints` and `teamNumber`.
 
+**Is it exact or an estimate? Read one flag.** Each `RoundStandings` snapshot has
+`estimated: boolean` — the SDK decides this from the tie-break system and the
+data, so your app never reasons about tie-break systems:
+
+```typescript
+const snap = (await service.getRoundStandings(groupId, 4)).data;
+if (snap?.estimated) showEstimateNote(); // team → false (exact); individual → true (today)
+```
+
+`secondaryBasis` says *why* (`'exact' | 'official' | 'reproduced' | 'indicative'`)
+if you want to tailor the note text. When `estimated` is `false`, the standings —
+order included — match the official table.
+
 **What is and isn't exact:**
 
 - **Team** standings reproduce the official table *exactly* — ranking is

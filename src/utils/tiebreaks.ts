@@ -163,3 +163,56 @@ export function computeSsfSecPoints(tiebreakSystem: number, ctx: TiebreakContext
 export function isSsfSecPointsSupported(tiebreakSystem: number): boolean {
   return tiebreakSystem === TiebreakSystem.SSF_BUCHHOLZ;
 }
+
+// ---------------------------------------------------------------------------
+// Secondary-ordering confidence (powers the `estimated` flag on standings)
+// ---------------------------------------------------------------------------
+
+/**
+ * How trustworthy a group's secondary (tie-break) ordering is:
+ * - `'exact'`       — structurally the official numbers (team: match → board points).
+ * - `'official'`    — a reproduced system that SSF has confirmed bit-correct, on
+ *                     data with no edge cases we can't model. (None yet — pending SSF.)
+ * - `'reproduced'`  — we reproduce the official secondary (reverse-engineered), but
+ *                     it's unconfirmed and/or has a residual; treat as an estimate.
+ * - `'indicative'`  — only a rough Buchholz/Sonneborn-Berger stand-in.
+ */
+export type SecondaryBasis = 'exact' | 'official' | 'reproduced' | 'indicative';
+
+/** Individual systems whose secondary we reproduce (reverse-engineered; pending SSF). */
+const REPRODUCED_SYSTEMS = new Set<number>([TiebreakSystem.SSF_BUCHHOLZ]);
+
+/**
+ * Systems SSF has confirmed bit-correct. Empty until we get that confirmation;
+ * once a system is added here, clean groups of it report `'official'` (and stop
+ * being flagged as estimates). The friend-verification is the gate.
+ */
+const CONFIRMED_SYSTEMS = new Set<number>();
+
+/**
+ * Classify a group's secondary-ordering basis. The `estimated` flag is derived
+ * from this — see {@link isEstimated}. Note this is keyed on the *system* and the
+ * *data*, NOT on team-vs-individual: a clean round-robin (no unplayed rounds) of
+ * a confirmed system is `'official'`, while a Swiss event with byes, or any
+ * unconfirmed system, is not. The round-robin advantage falls out of
+ * `hasUnhandledUnplayed` — round-robins have no byes, so nothing to mishandle.
+ */
+export function secondaryBasis(opts: {
+  mode: 'individual' | 'team';
+  tiebreakSystem: number | undefined;
+  /** True when the data has unplayed-round cases we can't reproduce exactly (e.g. multi-VUR). */
+  hasUnhandledUnplayed: boolean;
+}): SecondaryBasis {
+  if (opts.mode === 'team') return 'exact';
+  const sys = opts.tiebreakSystem;
+  if (sys !== undefined && CONFIRMED_SYSTEMS.has(sys) && !opts.hasUnhandledUnplayed) {
+    return 'official';
+  }
+  if (sys !== undefined && REPRODUCED_SYSTEMS.has(sys)) return 'reproduced';
+  return 'indicative';
+}
+
+/** Whether a basis should be shown to users as an estimate (vs. trustworthy). */
+export function isEstimated(basis: SecondaryBasis): boolean {
+  return basis === 'reproduced' || basis === 'indicative';
+}
