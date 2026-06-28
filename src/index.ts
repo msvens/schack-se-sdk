@@ -32,7 +32,7 @@ export { getPlayerRatingHistory, decimateRatingData } from './utils/ratingHistor
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './utils/sortingUtils';
 // Round-standings result types only — the engine is internal; use
 // ResultsService.getRoundStandings(groupId).
-export type { RoundStandingRow, RoundStandings } from './utils/roundStandings';
+export type { RoundStandingRow, RoundStandings, SecondaryBasis } from './utils/roundStandings';
 export {
   getPlayerRatingForTournament,
   getPlayerRatingByAlgorithm,

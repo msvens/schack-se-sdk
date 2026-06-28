@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `RoundStandings` now carries `estimated: boolean` and `secondaryBasis: 'exact' | 'official' | 'reproduced' | 'indicative'`. The SDK owns the "is this exact or an estimate?" decision so consumers never reason about tie-break systems: read `snapshot.estimated` to decide whether to show an "estimated standings" note/badge. Derived per group from the system and the data (not from team-vs-individual): team standings are `exact` (`estimated: false`); individual SSF Buchholz is `reproduced` (`estimated: true`, reverse-engineered / pending SSF confirmation); other individual systems are `indicative` (`estimated: true`). A clean round-robin of a confirmed system would become `official` (`estimated: false`) — the round-robin advantage falls out of an unplayed-rounds check, and the "confirmed" set is empty until SSF blesses a system. New exported type `SecondaryBasis`.
+
 ## 0.9.0
 
 ### Added

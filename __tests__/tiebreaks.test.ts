@@ -13,7 +13,9 @@ import {
   medianBuchholz,
   sonnebornBerger,
   computeSsfSecPoints,
-  isSsfSecPointsSupported
+  isSsfSecPointsSupported,
+  secondaryBasis,
+  isEstimated
 } from '../src/utils/tiebreaks';
 import { TiebreakSystem } from '../src/index';
 import { ResultsService } from '../src/index';
@@ -85,6 +87,26 @@ describe('SSF packing (reverse-engineered)', () => {
   });
 });
 
+describe('secondaryBasis / estimated flag', () => {
+  test('team standings are exact (not estimated)', () => {
+    const b = secondaryBasis({ mode: 'team', tiebreakSystem: TiebreakSystem.ALLSVENSKAN, hasUnhandledUnplayed: false });
+    expect(b).toBe('exact');
+    expect(isEstimated(b)).toBe(false);
+  });
+
+  test('individual SSF Buchholz is reproduced (estimated, pending SSF)', () => {
+    const b = secondaryBasis({ mode: 'individual', tiebreakSystem: TiebreakSystem.SSF_BUCHHOLZ, hasUnhandledUnplayed: false });
+    expect(b).toBe('reproduced');
+    expect(isEstimated(b)).toBe(true);
+  });
+
+  test('unmodeled / unknown individual systems are indicative (estimated)', () => {
+    expect(secondaryBasis({ mode: 'individual', tiebreakSystem: TiebreakSystem.SSF_BERGER, hasUnhandledUnplayed: false })).toBe('indicative');
+    expect(secondaryBasis({ mode: 'individual', tiebreakSystem: undefined, hasUnhandledUnplayed: false })).toBe('indicative');
+    expect(isEstimated('indicative')).toBe(true);
+  });
+});
+
 describe('getRoundStandings reproduces official secPoints (integration)', () => {
   test('SSF Buchholz group: qualityPoints match official secPoints', async () => {
     const service = new ResultsService(CURRENT_TEST_API_URL);
@@ -98,6 +120,10 @@ describe('getRoundStandings reproduces official secPoints (integration)', () => 
     }
 
     const final = replay.data[replay.data.length - 1];
+    // SSF Buchholz is reproduced (reverse-engineered) → flagged as an estimate.
+    expect(final.secondaryBasis).toBe('reproduced');
+    expect(final.estimated).toBe(true);
+
     const byId = new Map(final.rows.map((r) => [r.contenderId, r]));
 
     // Group 15816 uses SSF Buchholz (tiebreakSystem 3), which we reproduce.

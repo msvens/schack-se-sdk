@@ -79,6 +79,12 @@ describe('computeRoundStandings (unit)', () => {
     expect(snapshots.map((s) => s.round)).toEqual([1, 2, 3]);
   });
 
+  test('individual with no known tiebreak system is flagged as an estimate', () => {
+    const snap = computeRoundStandings(roundRobin, { mode: 'individual' })[0];
+    expect(snap.secondaryBasis).toBe('indicative');
+    expect(snap.estimated).toBe(true);
+  });
+
   test('cumulative points are exact after each round', () => {
     const snapshots = computeRoundStandings(roundRobin, { mode: 'individual' });
 
@@ -201,6 +207,8 @@ describe('computeRoundStandings (team mode)', () => {
 
   test('ranks by match points, then board points', () => {
     const final = computeRoundStandings(teamData, { mode: 'team' }).find((s) => s.round === 2)!;
+    expect(final.secondaryBasis).toBe('exact');
+    expect(final.estimated).toBe(false);
     expect(final.rows.map((r) => r.contenderId)).toEqual([10, 40, 30, 20]);
     expect(final.rows.map((r) => r.matchPoints)).toEqual([4, 3, 1, 0]);
     expect(final.rows.map((r) => r.points)).toEqual([5.5, 5, 3.5, 2]);
@@ -324,6 +332,9 @@ describe('getRoundStandings (integration)', () => {
     }
 
     const final = replay.data[replay.data.length - 1];
+    // Team standings are exact, not an estimate.
+    expect(final.secondaryBasis).toBe('exact');
+    expect(final.estimated).toBe(false);
     // Team mode was detected: rows carry match points + teamNumber, no quality points.
     expect(final.rows[0].matchPoints).toBeDefined();
     expect(final.rows[0].teamNumber).toBeDefined();
@@ -337,5 +348,13 @@ describe('getRoundStandings (integration)', () => {
       expect(computed!.matchPoints).toBeCloseTo(official.points, 5);
       expect(computed!.points).toBeCloseTo(official.secPoints, 5);
     }
+
+    // The contract behind `estimated === false`: our ORDERING is the official
+    // standings order, position for position.
+    const ourOrder = final.rows.map((r) => `${r.contenderId}:${r.teamNumber}`);
+    const officialOrder = [...table.data]
+      .sort((a, b) => a.place - b.place)
+      .map((o) => `${o.contenderId}:${o.teamNumber}`);
+    expect(ourOrder).toEqual(officialOrder);
   }, 15000);
 });

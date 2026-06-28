@@ -27,8 +27,13 @@ import { getOpponentKind } from './resultFormatting';
 import {
   computeSsfSecPoints,
   isSsfSecPointsSupported,
-  type SbContribution
+  secondaryBasis,
+  isEstimated,
+  type SbContribution,
+  type SecondaryBasis
 } from './tiebreaks';
+
+export type { SecondaryBasis } from './tiebreaks';
 
 export type StandingsMode = 'individual' | 'team';
 export type QualityMetric = 'buchholz' | 'sonneborn-berger';
@@ -67,6 +72,16 @@ export interface RoundStandings {
   round: number;
   /** Contender rows, sorted best-first. */
   rows: RoundStandingRow[];
+  /**
+   * Whether the secondary (tie-break) ordering should be shown to users as an
+   * *estimate* rather than the trustworthy official result. Constant across a
+   * group's snapshots. The app's rule is one line: `if (snapshot.estimated)`.
+   * Today: `false` for team standings (exact), `true` for individual (the
+   * tie-break reproduction is reverse-engineered / pending SSF confirmation).
+   */
+  estimated: boolean;
+  /** Why — the basis of the secondary ordering (see {@link SecondaryBasis}). */
+  secondaryBasis: SecondaryBasis;
 }
 
 /** Internal — the service derives these from the tournament; not caller-facing. */
@@ -130,6 +145,23 @@ export function computeRoundStandings(
   }
   const rounds = [...byRound.keys()].sort((a, b) => a - b);
 
+  // Secondary-ordering confidence for this group (constant across rounds). The
+  // only unplayed-round case we can't reproduce exactly is multi-VUR (a player
+  // with >1 bye/walkover); round-robins have none, so this is naturally false.
+  let hasUnhandledUnplayed = false;
+  if (mode !== 'team') {
+    const unplayed = new Map<number, number>();
+    for (const p of roundResults) {
+      const hr = isRealContender(p.homeId);
+      const ar = isRealContender(p.awayId);
+      if (hr && !ar) unplayed.set(p.homeId, (unplayed.get(p.homeId) ?? 0) + 1);
+      if (ar && !hr) unplayed.set(p.awayId, (unplayed.get(p.awayId) ?? 0) + 1);
+    }
+    hasUnhandledUnplayed = [...unplayed.values()].some((c) => c > 1);
+  }
+  const basis = secondaryBasis({ mode, tiebreakSystem, hasUnhandledUnplayed });
+  const estimated = isEstimated(basis);
+
   // Identity: individuals by id; teams by id + teamNumber (one club may field
   // several teams). Map insertion order = first-seen order = stable final tiebreak.
   const keyOf = (id: number, teamNumber: number) => (team ? `${id}:${teamNumber}` : `${id}`);
@@ -190,7 +222,12 @@ export function computeRoundStandings(
       // Bye/walkover: points already credited; no game/match, opponent, or W/D/L.
     }
 
-    snapshots.push({ round, rows: buildRows(acc, keyOf, { team, qualityMetric, tiebreakSystem }) });
+    snapshots.push({
+      round,
+      rows: buildRows(acc, keyOf, { team, qualityMetric, tiebreakSystem }),
+      estimated,
+      secondaryBasis: basis
+    });
   }
 
   return snapshots;
