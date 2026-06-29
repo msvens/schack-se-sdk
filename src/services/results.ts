@@ -143,11 +143,13 @@ export class ResultsService extends BaseApiService {
     const orderedKeys = finalRows.map((row) => key(row.contenderId, row.teamNumber));
     if (!orderingMatchesOfficial(orderedKeys, officialPlace)) return;
 
-    for (const snap of snapshots) {
-      if (snap.estimated) {
-        snap.estimated = false;
-        snap.secondaryBasis = 'verified';
-      }
+    // Only the final/current round is ground-truthed against the official table;
+    // intermediate snapshots are reconstructions we can't independently verify
+    // (no official table per round), so they keep their estimate status.
+    const final = snapshots[snapshots.length - 1];
+    if (final.estimated) {
+      final.estimated = false;
+      final.secondaryBasis = 'verified';
     }
   }
 

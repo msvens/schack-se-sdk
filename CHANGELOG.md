@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Round-robin (Berger) groups now reproduce the official tie-break order**, instead of an indicative Sonneborn-Berger. `getRoundStandings` ranks them by the full SSF order (TB §7.2.1): **inbördes resultat (direct encounter) → Sonneborn-Berger → most wins → most games with black**. Because that leads with a *pairwise* head-to-head rule (not a single number), it uses a dedicated comparator. Validated against six live round-robin groups — all match the official place order position-for-position (vs Sonneborn-Berger alone, which mis-ordered the head-to-head ties). So round-robins now **self-verify to `estimated: false`** where before they stayed `estimated: true`. (`qualityPoints` still reports Sonneborn-Berger as the displayed value.)
+
+### Changed
+
+- Self-verification now flips **only the final/current round** to `verified` / `estimated: false`, not every snapshot. Intermediate rounds are reconstructions with no official table to check against, so they honestly keep `estimated: true` (the QP cut-1 and bye weighting differ round-to-round). Team standings are unaffected — they're `exact` at every round by construction.
+
 ## 0.10.0
 
 ### BREAKING

@@ -263,13 +263,25 @@ function buildRows(
 ): RoundStandingRow[] {
   const { team, qualityMetric, tiebreakSystem } = opts;
   const useSsf = !team && tiebreakSystem !== undefined && isSsfSecPointsSupported(tiebreakSystem);
+  // Round-robin (Berger) groups rank by the full SSF order — inbördes resultat →
+  // Sonneborn-Berger → wins → games-with-black (TB §7.2.1) — not a single number.
+  const berger = !team && qualityMetric === 'sonneborn-berger';
   const rows: RoundStandingRow[] = [];
+  // contenderId → (opponentId → summed result), for the inbördes head-to-head.
+  const resultsAgainst = new Map<number, Map<number, number>>();
+  const blackOf = new Map<number, number>();
 
   for (const a of acc.values()) {
     let qualityPoints: number | undefined;
     if (!team) {
       const opponentScores: number[] = [];
       const sbContributions: SbContribution[] = [];
+      if (berger) {
+        const r = new Map<number, number>();
+        for (const opp of a.opponents) r.set(opp.id, (r.get(opp.id) ?? 0) + opp.myResult);
+        resultsAgainst.set(a.contenderId, r);
+        blackOf.set(a.contenderId, a.gamesWithBlack);
+      }
       for (const opp of a.opponents) {
         const oppScore = acc.get(keyOf(opp.id, 0))?.points ?? 0;
         opponentScores.push(oppScore);
@@ -307,6 +319,27 @@ function buildRows(
     });
   }
 
+  // Inbördes resultat: a player's score against the others tied on points
+  // (head-to-head). Computed per points-group since it depends on who is tied.
+  const inbordesOf = new Map<number, number>();
+  if (berger) {
+    const idsByPoints = new Map<number, number[]>();
+    for (const r of rows) {
+      const g = idsByPoints.get(r.points) ?? [];
+      g.push(r.contenderId);
+      idsByPoints.set(r.points, g);
+    }
+    for (const r of rows) {
+      const group = idsByPoints.get(r.points)!;
+      const mine = resultsAgainst.get(r.contenderId);
+      let s = 0;
+      if (mine && group.length > 1) {
+        for (const other of group) if (other !== r.contenderId) s += mine.get(other) ?? 0;
+      }
+      inbordesOf.set(r.contenderId, s);
+    }
+  }
+
   rows.sort((a, b) => {
     if (team) {
       if (b.matchPoints! !== a.matchPoints!) return b.matchPoints! - a.matchPoints!;
@@ -314,14 +347,32 @@ function buildRows(
       return 0;
     }
     if (b.points !== a.points) return b.points - a.points;
+    if (berger) {
+      // §7.2.1: inbördes → Sonneborn-Berger → wins → games-with-black.
+      const ia = inbordesOf.get(a.contenderId) ?? 0;
+      const ib = inbordesOf.get(b.contenderId) ?? 0;
+      if (ib !== ia) return ib - ia;
+      if (b.qualityPoints! !== a.qualityPoints!) return b.qualityPoints! - a.qualityPoints!;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return (blackOf.get(b.contenderId) ?? 0) - (blackOf.get(a.contenderId) ?? 0);
+    }
     if (b.qualityPoints! !== a.qualityPoints!) return b.qualityPoints! - a.qualityPoints!;
     return 0;
   });
 
-  const tiedWithPrev = (prev: RoundStandingRow, row: RoundStandingRow): boolean =>
-    team
-      ? prev.matchPoints === row.matchPoints && prev.points === row.points
-      : prev.points === row.points && prev.qualityPoints === row.qualityPoints;
+  const tiedWithPrev = (prev: RoundStandingRow, row: RoundStandingRow): boolean => {
+    if (team) return prev.matchPoints === row.matchPoints && prev.points === row.points;
+    if (berger) {
+      return (
+        prev.points === row.points &&
+        inbordesOf.get(prev.contenderId) === inbordesOf.get(row.contenderId) &&
+        prev.qualityPoints === row.qualityPoints &&
+        prev.wins === row.wins &&
+        blackOf.get(prev.contenderId) === blackOf.get(row.contenderId)
+      );
+    }
+    return prev.points === row.points && prev.qualityPoints === row.qualityPoints;
+  };
 
   // Standard competition ranking ("1224"): tied rows share the leader's rank.
   rows.forEach((row, i) => {

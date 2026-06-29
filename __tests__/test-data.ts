@@ -52,9 +52,10 @@ export const TEST_REGISTRATION_TOURNAMENT_ID = 5650;
 // =============================================================================
 // Results test data
 // =============================================================================
-export const TEST_RESULTS_GROUP_ID = 15816; // Individual tournament group
+export const TEST_RESULTS_GROUP_ID = 15816; // Individual tournament group (Swiss, SSF Buchholz)
 export const TEST_RESULTS_MEMBER_ID = 642062; // Player with tournament history
 export const TEST_RESULTS_TEAM_GROUP_ID = 15667; // Skollags SM 2025 (team tournament)
+export const TEST_RESULTS_BERGER_GROUP_ID = 7563; // Manhems Schackvecka 2019, GM (round-robin / Berger)
 
 // =============================================================================
 // Expected values for assertions

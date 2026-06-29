@@ -12,7 +12,7 @@ import { ResultsService, TiebreakSystem, getTiebreakSystemName } from '../src/in
 import { computeRoundStandings } from '../src/utils/roundStandings';
 import type { TournamentRoundResultDto } from '../src/types';
 import { CURRENT_TEST_API_URL } from '../src/constants';
-import { TEST_RESULTS_GROUP_ID, TEST_RESULTS_TEAM_GROUP_ID } from './test-data';
+import { TEST_RESULTS_GROUP_ID, TEST_RESULTS_TEAM_GROUP_ID, TEST_RESULTS_BERGER_GROUP_ID } from './test-data';
 
 /** Build a single individual pairing for a round. */
 function pairing(
@@ -254,6 +254,38 @@ describe('computeRoundStandings (team mode)', () => {
   });
 });
 
+describe('computeRoundStandings (Berger / round-robin)', () => {
+  // 4-player single round robin. A(1) B(2) C(3) D(4).
+  // R1: A>B (1-0), C=D (0.5-0.5)
+  // R2: A>C (1-0), B>D (1-0)
+  // R3: D>A (1-0), B>C (1-0)
+  // Final points: A=2, B=2, C=0.5, D=1.5 — A and B tie on points.
+  const rr: TournamentRoundResultDto[] = [
+    pairing(1, 1, 2, 1, 0),
+    pairing(1, 3, 4, 0.5, 0.5),
+    pairing(2, 1, 3, 1, 0),
+    pairing(2, 2, 4, 1, 0),
+    pairing(3, 4, 1, 1, 0),
+    pairing(3, 2, 3, 1, 0)
+  ];
+
+  test('ranks by inbördes resultat (direct encounter) before falling through', () => {
+    const final = computeRoundStandings(rr, { mode: 'individual', qualityMetric: 'sonneborn-berger' })
+      .find((s) => s.round === 3)!;
+    // A and B both have 2 points; A beat B head-to-head, so inbördes puts A first.
+    expect(final.rows.map((r) => r.contenderId)).toEqual([1, 2, 4, 3]);
+    expect(final.rows.find((r) => r.contenderId === 1)!.rank).toBe(1);
+    expect(final.rows.find((r) => r.contenderId === 2)!.rank).toBe(2);
+  });
+
+  test('still reports Sonneborn-Berger as the displayed qualityPoints', () => {
+    const final = computeRoundStandings(rr, { mode: 'individual', qualityMetric: 'sonneborn-berger' })
+      .find((s) => s.round === 3)!;
+    // SB_A = 1·s(B) + 1·s(C) + 0·s(D) = 2 + 0.5 + 0 = 2.5
+    expect(final.rows.find((r) => r.contenderId === 1)!.qualityPoints).toBe(2.5);
+  });
+});
+
 describe('getTiebreakSystemName', () => {
   test('maps known values to SSF labels', () => {
     expect(getTiebreakSystemName(TiebreakSystem.BUCHHOLZ)).toBe('Buchholz');
@@ -346,5 +378,27 @@ describe('getRoundStandings (integration)', () => {
       .sort((a, b) => a.place - b.place)
       .map((o) => `${o.contenderId}:${o.teamNumber}`);
     expect(ourOrder).toEqual(officialOrder);
+  }, 15000);
+
+  test('round-robin (Berger) group reproduces the official order and self-verifies', async () => {
+    const [replay, table] = await Promise.all([
+      resultsService.getRoundStandings(TEST_RESULTS_BERGER_GROUP_ID),
+      resultsService.getTournamentResults(TEST_RESULTS_BERGER_GROUP_ID)
+    ]);
+    if (!replay.data || replay.data.length === 0 || !table.data || table.data.length === 0) {
+      return;
+    }
+
+    const final = replay.data[replay.data.length - 1];
+    // Berger order (inbördes → SB → wins → black) matches the official place order,
+    // so the final round self-verifies; earlier rounds stay estimated.
+    const ourOrder = final.rows.map((r) => r.contenderId);
+    const officialOrder = [...table.data].sort((a, b) => a.place - b.place).map((o) => o.contenderId);
+    expect(ourOrder).toEqual(officialOrder);
+    expect(final.secondaryBasis).toBe('verified');
+    expect(final.estimated).toBe(false);
+    if (replay.data.length > 1) {
+      expect(replay.data[0].estimated).toBe(true); // intermediate rounds not verified
+    }
   }, 15000);
 });

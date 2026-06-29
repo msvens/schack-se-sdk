@@ -352,16 +352,22 @@ and only upgrades the ones we reproduce position-for-position.)
     ties" are players the official table separates only by *lots* — which can't be
     reproduced. (Reverse-engineered from SSF's output; bye/forfeit handling is
     best-effort and varies by era.)
-  - **All other systems**: `qualityPoints` is *indicative* — plain **Buchholz**,
-    or **Sonneborn-Berger** for round-robin groups (auto-selected via
-    `pairingSystemMember === BERGER`, since FIDE forbids Buchholz in round-robins).
+  - **Round-robin (Berger)** groups are *ranked* by the full official order
+    (TB §7.2.1): **inbördes resultat → Sonneborn-Berger → most wins → most games
+    with black**. This reproduces the official place order, so round-robins
+    **self-verify** to `estimated: false`. (`qualityPoints` shows the
+    Sonneborn-Berger value; the ranking also applies the head-to-head step, which
+    isn't a single number.)
+  - **All other systems**: `qualityPoints` is *indicative* — plain **Buchholz**.
     It equals the official secondary only when the group actually uses that metric;
-    the SDK does not (yet) reproduce SSF-Berger, Median, FIDE Buchholz 2024, etc.
+    the SDK does not (yet) reproduce Median, FIDE Buchholz 2024, etc.
     Use `getTiebreakSystemName(group.tiebreakSystem)` to show which method applies.
 
-This is an *estimated* reconstruction for intermediate rounds. For the
-**official** final standings (including the real `secPoints`), always use
-`getTournamentResults` / `getTeamTournamentResults`.
+This is an *estimated* reconstruction for **intermediate** rounds — only the
+final/current round is checked against the official table, so earlier snapshots
+keep `estimated: true` even when the final one verifies (team standings excepted —
+they're exact at every round). For the **official** final standings (including the
+real `secPoints`), always use `getTournamentResults` / `getTeamTournamentResults`.
 
 **Reference — official tie-break rules:** SSF Tävlingsbestämmelser 2025/26,
 [TB-2025-2026 (PDF)](https://schack.se/wp-content/uploads/2025/08/TB-2025-2026-2025_07_03-slutgiltig.pdf)
