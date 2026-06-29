@@ -99,11 +99,14 @@ export interface TiebreakContext {
   /** Games played with the black pieces as of this round (FIDE Art 7.3). */
   gamesWithBlack: number;
   /**
-   * Whether the player has at least one unplayed round (bye/walkover) — a FIDE
-   * Art 16 "voluntary unplayed round" (VUR). When true, the cut-1 is spent on the
-   * virtual (dummy) opponent rather than a real one (Art 16.5.1).
+   * Fictive-opponent scores for the player's byes/walkovers (one per unplayed
+   * round). Per SSF TB 2025/26 §7.2.2, a frirond counts toward the player's own
+   * kvalitetspoäng as a game against a fictive opponent whose score = the
+   * player's score before the bye + the player's points in the remaining rounds
+   * (≈ player's score − the bye's points). These are added to the opponent
+   * scores before the cut-1, so the cut drops the lowest of real + fictive.
    */
-  hasVoluntaryUnplayed: boolean;
+  byeFictiveScores: number[];
 }
 
 /** Scale factors for successive packed fields: ·10⁻², ·10⁻⁴, ·10⁻⁶, … */
@@ -146,10 +149,14 @@ function pack(base: number, fields: readonly number[]): number {
 export function computeSsfSecPoints(tiebreakSystem: number, ctx: TiebreakContext): number | null {
   switch (tiebreakSystem) {
     case TiebreakSystem.SSF_BUCHHOLZ: {
-      // A bye/walkover (VUR) makes the cut fall on the dummy opponent, leaving
-      // plain Buchholz of the real opponents (FIDE Art 16.5.1). NOTE: exact only
-      // for a single VUR — multi-VUR would keep all-but-one dummy (not yet modeled).
-      const base = ctx.hasVoluntaryUnplayed
+      // kvalitetspoäng = Buchholz Cut-1 over the real opponents. For a bye we use
+      // the simpler "drop the bye from the cut → plain Buchholz of the real
+      // opponents" rule. The rulebook's exact fictive-opponent rule (§7.2.2 —
+      // fictive scores are provided in `byeFictiveScores`) was tried and matched
+      // the STORED tables WORSE (e.g. LM 2016 37→33), because real stored tables
+      // vary by era; neither rule fits recent bye players either. Bye handling is
+      // therefore best-effort, and self-verification flags groups we don't match.
+      const base = ctx.byeFictiveScores.length
         ? buchholz(ctx.opponentScores)
         : buchholzCut1(ctx.opponentScores);
       return pack(base, [ctx.wins, ctx.gamesWithBlack]);
@@ -171,13 +178,15 @@ export function isSsfSecPointsSupported(tiebreakSystem: number): boolean {
 /**
  * How trustworthy a group's secondary (tie-break) ordering is:
  * - `'exact'`       — structurally the official numbers (team: match → board points).
+ * - `'verified'`    — our reconstruction's final-round ordering was checked against
+ *                     the official table and matches it, so it's proven for this group.
  * - `'official'`    — a reproduced system that SSF has confirmed bit-correct, on
  *                     data with no edge cases we can't model. (None yet — pending SSF.)
  * - `'reproduced'`  — we reproduce the official secondary (reverse-engineered), but
  *                     it's unconfirmed and/or has a residual; treat as an estimate.
  * - `'indicative'`  — only a rough Buchholz/Sonneborn-Berger stand-in.
  */
-export type SecondaryBasis = 'exact' | 'official' | 'reproduced' | 'indicative';
+export type SecondaryBasis = 'exact' | 'verified' | 'official' | 'reproduced' | 'indicative';
 
 /** Individual systems whose secondary we reproduce (reverse-engineered; pending SSF). */
 const REPRODUCED_SYSTEMS = new Set<number>([TiebreakSystem.SSF_BUCHHOLZ]);
@@ -215,4 +224,26 @@ export function secondaryBasis(opts: {
 /** Whether a basis should be shown to users as an estimate (vs. trustworthy). */
 export function isEstimated(basis: SecondaryBasis): boolean {
   return basis === 'reproduced' || basis === 'indicative';
+}
+
+/**
+ * Self-verification: does our reconstructed ordering agree with the official
+ * standings? `orderedKeys` is our rows best-first; `officialPlace` maps each
+ * contender key to its official `place`. Returns true iff every contender is
+ * present in the official table and our order never puts a worse place before a
+ * better one (equal places — official ties — are allowed in either order).
+ */
+export function orderingMatchesOfficial(
+  orderedKeys: readonly string[],
+  officialPlace: ReadonlyMap<string, number>
+): boolean {
+  if (orderedKeys.length === 0) return false;
+  let prevPlace = Number.NEGATIVE_INFINITY;
+  for (const key of orderedKeys) {
+    const place = officialPlace.get(key);
+    if (place === undefined) return false; // contender missing from official table
+    if (place < prevPlace) return false; // our order contradicts official place
+    prevPlace = place;
+  }
+  return true;
 }

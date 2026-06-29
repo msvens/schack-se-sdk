@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### BREAKING
+
+- `getRoundStandings(groupId, round)` (the single-round overload) is removed; `getRoundStandings(groupId)` always returns every round's snapshot. For a single round use `result.data?.find(s => s.round === n)`. The method already computed all rounds (and now always fetches the official table to self-verify), so the overload saved nothing.
+
+### Added
+
+- `getRoundStandings` now **self-verifies**: it fetches the official table once and checks whether our reconstructed final-round ordering matches the official `place` order. When it does, the snapshots flip from an estimate to `secondaryBasis: 'verified'` / `estimated: false` — so the flag reflects whether we *actually* matched reality, not a hardcoded assumption, and it adapts automatically if SSF changes a tie-break method over time. Pure upgrade (never downgrades); best-effort (a missing official table leaves the static basis); the extra fetch is skipped when nothing is flagged as an estimate (e.g. team standings, already `exact`). New `SecondaryBasis` value `'verified'`. Note: today this rarely upgrades individual SSF Buchholz, because most groups have players tied on every criterion we compute (cut-1, wins, games-with-black) whom the official table separates only by **drawing of lots** (per the SSF tie-break rules — see README) — i.e. there is genuinely nothing left to reproduce, so we honestly keep `estimated: true`.
+
+### Docs
+
+- README links the official SSF tie-break rules (Tävlingsbestämmelser 2025/26). Those rules confirm the implemented individual formula: `kvalitetspoäng` = Buchholz **Cut-1**, then most wins, then most games with black, then **lots**. (We tried the rulebook's exact fictive-opponent bye rule from §7.2.2; it matched the *stored* tables worse than the simpler approximation, since stored tables vary by era — so byes keep the simpler rule, with self-verification flagging any mismatch.)
+
 ## 0.9.1
 
 ### Added

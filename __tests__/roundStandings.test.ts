@@ -290,16 +290,6 @@ describe('getRoundStandings (integration)', () => {
     }
   }, 10000);
 
-  test('single-round overload returns that snapshot', async () => {
-    const all = await resultsService.getRoundStandings(TEST_RESULTS_GROUP_ID);
-    if (!all.data || all.data.length === 0) return;
-
-    const target = all.data[0].round;
-    const single = await resultsService.getRoundStandings(TEST_RESULTS_GROUP_ID, target);
-    expect(single.status).toBe(200);
-    expect(single.data?.round).toBe(target);
-  }, 10000);
-
   test('final-round points exactly match the official standings table', async () => {
     const [replay, table] = await Promise.all([
       resultsService.getRoundStandings(TEST_RESULTS_GROUP_ID),

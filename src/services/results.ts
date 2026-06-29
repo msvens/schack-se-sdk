@@ -2,6 +2,7 @@ import { BaseApiService } from './base';
 import { isTeamPairing, PairingSystem } from '../types';
 import type { TournamentEndResultDto, TournamentRoundResultDto, TeamTournamentEndResultDto, GameDto, ApiResponse } from '../types';
 import { computeRoundStandings, type RoundStandings, type StandingsMode, type QualityMetric } from '../utils/roundStandings';
+import { orderingMatchesOfficial } from '../utils/tiebreaks';
 import { findTournamentGroup } from '../utils/tournamentGroupUtils';
 import { TournamentService } from './tournaments';
 
@@ -60,23 +61,13 @@ export class ResultsService extends BaseApiService {
    * official table exactly; individual quality points are indicative — the
    * official per-group tie-break variant is not reproduced (see `TiebreakSystem`).
    *
+   * Returns every round's snapshot; for a single round just
+   * `result.data?.find(s => s.round === n)`.
+   *
    * @param groupId - Tournament group ID
    * @returns One standings snapshot per round, ordered by round ascending
    */
-  async getRoundStandings(groupId: number): Promise<ApiResponse<RoundStandings[]>>;
-  /**
-   * Replay standings for a single round.
-   *
-   * @param groupId - Tournament group ID
-   * @param round - Round number to return the snapshot for
-   * @returns The standings snapshot after `round`, or a 404 error if that round
-   *   has no results
-   */
-  async getRoundStandings(groupId: number, round: number): Promise<ApiResponse<RoundStandings>>;
-  async getRoundStandings(
-    groupId: number,
-    round?: number
-  ): Promise<ApiResponse<RoundStandings | RoundStandings[]>> {
+  async getRoundStandings(groupId: number): Promise<ApiResponse<RoundStandings[]>> {
     // Derive everything from the tournament: one lookup yields the type
     // (team vs individual) and the group's pairing system (Buchholz vs SB).
     let mode: StandingsMode = 'individual';
@@ -108,19 +99,56 @@ export class ResultsService extends BaseApiService {
 
     const snapshots = computeRoundStandings(roundResults.data, { mode, qualityMetric, tiebreakSystem });
 
-    if (round === undefined) {
-      return { data: snapshots, status: roundResults.status, message: 'Success' };
+    // Self-verify: compare our final-round ordering against the official table.
+    // If it matches, the reconstruction is proven for this group, so flip any
+    // snapshot that was flagged as an estimate to 'verified'. Best-effort — a
+    // missing/empty official table just leaves the static basis in place. Skip
+    // the extra fetch entirely when nothing is flagged as an estimate (e.g. team
+    // standings, which are already 'exact').
+    if (snapshots.some((s) => s.estimated)) {
+      await this.verifyAgainstOfficial(groupId, mode, snapshots);
     }
 
-    const snapshot = snapshots.find((s) => s.round === round);
-    if (!snapshot) {
-      return {
-        error: `No results for round ${round} in group ${groupId}`,
-        status: 404,
-        message: 'Error'
-      };
+    return { data: snapshots, status: roundResults.status, message: 'Success' };
+  }
+
+  /**
+   * Check our reconstructed final-round ordering against the official standings
+   * table and, when it matches, mark estimated snapshots as `'verified'`. Pure
+   * upgrade: never downgrades (a missing official row or table is ignored).
+   */
+  private async verifyAgainstOfficial(
+    groupId: number,
+    mode: StandingsMode,
+    snapshots: RoundStandings[]
+  ): Promise<void> {
+    if (snapshots.length === 0) return;
+    const finalRows = snapshots[snapshots.length - 1].rows;
+    if (finalRows.length === 0) return;
+
+    const key = (contenderId: number, teamNumber?: number) =>
+      mode === 'team' ? `${contenderId}:${teamNumber}` : `${contenderId}`;
+
+    const officialPlace = new Map<string, number>();
+    if (mode === 'team') {
+      const table = await this.getTeamTournamentResults(groupId);
+      if (!table.data) return;
+      for (const r of table.data) officialPlace.set(key(r.contenderId, r.teamNumber), r.place);
+    } else {
+      const table = await this.getTournamentResults(groupId);
+      if (!table.data) return;
+      for (const r of table.data) officialPlace.set(key(r.contenderId), r.place);
     }
-    return { data: snapshot, status: roundResults.status, message: 'Success' };
+
+    const orderedKeys = finalRows.map((row) => key(row.contenderId, row.teamNumber));
+    if (!orderingMatchesOfficial(orderedKeys, officialPlace)) return;
+
+    for (const snap of snapshots) {
+      if (snap.estimated) {
+        snap.estimated = false;
+        snap.secondaryBasis = 'verified';
+      }
+    }
   }
 
   /**

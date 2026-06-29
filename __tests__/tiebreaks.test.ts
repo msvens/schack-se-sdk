@@ -15,7 +15,8 @@ import {
   computeSsfSecPoints,
   isSsfSecPointsSupported,
   secondaryBasis,
-  isEstimated
+  isEstimated,
+  orderingMatchesOfficial
 } from '../src/utils/tiebreaks';
 import { TiebreakSystem } from '../src/index';
 import { ResultsService } from '../src/index';
@@ -57,18 +58,18 @@ describe('SSF packing (reverse-engineered)', () => {
       sbContributions: [],
       wins: 6,
       gamesWithBlack: 4,
-      hasVoluntaryUnplayed: false
+      byeFictiveScores: []
     });
     expect(v).toBeCloseTo(11.0604, 10);
   });
 
-  test('a bye spends the cut on the dummy → plain Buchholz base (Art 16.5.1)', () => {
+  test('a bye drops from the cut → plain Buchholz of the real opponents', () => {
     const v = computeSsfSecPoints(TiebreakSystem.SSF_BUCHHOLZ, {
-      opponentScores: [4, 5, 6], // plain Buchholz = 15 (no real cut)
+      opponentScores: [4, 5, 6], // plain Buchholz = 15 (bye excluded, no real cut)
       sbContributions: [],
       wins: 3,
       gamesWithBlack: 4,
-      hasVoluntaryUnplayed: true
+      byeFictiveScores: [2] // a bye is present → base = plain Buchholz of real = 15
     });
     expect(v).toBeCloseTo(15.0304, 10);
   });
@@ -81,7 +82,7 @@ describe('SSF packing (reverse-engineered)', () => {
       sbContributions: [],
       wins: 1,
       gamesWithBlack: 1,
-      hasVoluntaryUnplayed: false
+      byeFictiveScores: []
     });
     expect(v).toBeNull();
   });
@@ -104,6 +105,32 @@ describe('secondaryBasis / estimated flag', () => {
     expect(secondaryBasis({ mode: 'individual', tiebreakSystem: TiebreakSystem.SSF_BERGER, hasUnhandledUnplayed: false })).toBe('indicative');
     expect(secondaryBasis({ mode: 'individual', tiebreakSystem: undefined, hasUnhandledUnplayed: false })).toBe('indicative');
     expect(isEstimated('indicative')).toBe(true);
+  });
+});
+
+describe('orderingMatchesOfficial (self-verification)', () => {
+  const official = new Map([['a', 1], ['b', 2], ['c', 3], ['d', 4]]);
+
+  test('true when our order agrees with official place order', () => {
+    expect(orderingMatchesOfficial(['a', 'b', 'c', 'd'], official)).toBe(true);
+  });
+
+  test('false when our order contradicts official (a swap)', () => {
+    expect(orderingMatchesOfficial(['a', 'c', 'b', 'd'], official)).toBe(false);
+  });
+
+  test('false when a contender is missing from the official table', () => {
+    expect(orderingMatchesOfficial(['a', 'b', 'x'], official)).toBe(false);
+  });
+
+  test('official ties (equal places) are allowed in either order', () => {
+    const tied = new Map([['a', 1], ['b', 1], ['c', 3]]);
+    expect(orderingMatchesOfficial(['a', 'b', 'c'], tied)).toBe(true);
+    expect(orderingMatchesOfficial(['b', 'a', 'c'], tied)).toBe(true);
+  });
+
+  test('empty ordering does not verify', () => {
+    expect(orderingMatchesOfficial([], official)).toBe(false);
   });
 });
 

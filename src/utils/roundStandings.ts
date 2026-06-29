@@ -111,8 +111,8 @@ interface Accumulator {
   gamesPlayed: number;
   /** Individual only — games played with the black pieces (FIDE Art 7.3). */
   gamesWithBlack: number;
-  /** Individual only — unplayed rounds (byes/walkovers), i.e. FIDE Art 16 VURs. */
-  unplayedRounds: number;
+  /** Individual only — the points awarded for each bye/walkover (unplayed round). */
+  byeResults: number[];
   /** Individual only — one entry per real game (kept for Buchholz / SB). */
   opponents: { id: number; myResult: number }[];
 }
@@ -145,21 +145,11 @@ export function computeRoundStandings(
   }
   const rounds = [...byRound.keys()].sort((a, b) => a - b);
 
-  // Secondary-ordering confidence for this group (constant across rounds). The
-  // only unplayed-round case we can't reproduce exactly is multi-VUR (a player
-  // with >1 bye/walkover); round-robins have none, so this is naturally false.
-  let hasUnhandledUnplayed = false;
-  if (mode !== 'team') {
-    const unplayed = new Map<number, number>();
-    for (const p of roundResults) {
-      const hr = isRealContender(p.homeId);
-      const ar = isRealContender(p.awayId);
-      if (hr && !ar) unplayed.set(p.homeId, (unplayed.get(p.homeId) ?? 0) + 1);
-      if (ar && !hr) unplayed.set(p.awayId, (unplayed.get(p.awayId) ?? 0) + 1);
-    }
-    hasUnhandledUnplayed = [...unplayed.values()].some((c) => c > 1);
-  }
-  const basis = secondaryBasis({ mode, tiebreakSystem, hasUnhandledUnplayed });
+  // Secondary-ordering confidence for this group (constant across rounds). Byes
+  // are now modelled per spec (fictive opponents); withdrawal/forfeit-loss edge
+  // cases (TB §7.3) are the residual we don't reproduce exactly, but those are
+  // ultimately caught by self-verification at the service layer.
+  const basis = secondaryBasis({ mode, tiebreakSystem, hasUnhandledUnplayed: false });
   const estimated = isEstimated(basis);
 
   // Identity: individuals by id; teams by id + teamNumber (one club may field
@@ -180,7 +170,7 @@ export function computeRoundStandings(
         losses: 0,
         gamesPlayed: 0,
         gamesWithBlack: 0,
-        unplayedRounds: 0,
+        byeResults: [],
         opponents: []
       };
       acc.set(key, a);
@@ -198,10 +188,11 @@ export function computeRoundStandings(
       if (homeReal) get(p.homeId, p.homeTeamNumber).points += p.homeResult;
       if (awayReal) get(p.awayId, p.awayTeamNumber).points += p.awayResult;
 
-      // An unplayed round for the real side (bye/walkover) is a FIDE Art 16 VUR.
+      // An unplayed round (bye/walkover): record the points awarded so we can
+      // build the fictive opponent for the player's kvalitetspoäng (TB §7.2.2).
       if (!team) {
-        if (homeReal && !awayReal) get(p.homeId, 0).unplayedRounds += 1;
-        if (awayReal && !homeReal) get(p.awayId, 0).unplayedRounds += 1;
+        if (homeReal && !awayReal) get(p.homeId, 0).byeResults.push(p.homeResult);
+        if (awayReal && !homeReal) get(p.awayId, 0).byeResults.push(p.awayResult);
       }
 
       if (homeReal && awayReal) {
@@ -286,13 +277,16 @@ function buildRows(
       }
       // Official SSF secPoints when we can reproduce this group's tie-break
       // system; otherwise the indicative Buchholz / Sonneborn-Berger metric.
+      // Fictive opponent per bye: score = player's score before the bye + points
+      // in remaining rounds ≈ player's current score − the bye's points (§7.2.2).
+      const byeFictiveScores = a.byeResults.map((br) => a.points - br);
       const ssf = useSsf
         ? computeSsfSecPoints(tiebreakSystem!, {
             opponentScores,
             sbContributions,
             wins: a.wins,
             gamesWithBlack: a.gamesWithBlack,
-            hasVoluntaryUnplayed: a.unplayedRounds > 0
+            byeFictiveScores
           })
         : null;
       qualityPoints = ssf ?? (qualityMetric === 'sonneborn-berger'

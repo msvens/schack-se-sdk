@@ -306,8 +306,8 @@ const all = await service.getRoundStandings(groupId);
 // all.data: [{ round: 1, rows: [...] }, { round: 2, rows: [...] }, ...]
 
 // Just the table as it stood after round 4
-const afterR4 = await service.getRoundStandings(groupId, 4);
-afterR4.data?.rows.forEach(r =>
+const afterR4 = all.data?.find(s => s.round === 4);
+afterR4?.rows.forEach(r =>
   console.log(r.rank, r.contenderId, r.points, r.qualityPoints ?? r.matchPoints)
 );
 ```
@@ -325,9 +325,16 @@ const snap = (await service.getRoundStandings(groupId, 4)).data;
 if (snap?.estimated) showEstimateNote(); // team → false (exact); individual → true (today)
 ```
 
-`secondaryBasis` says *why* (`'exact' | 'official' | 'reproduced' | 'indicative'`)
-if you want to tailor the note text. When `estimated` is `false`, the standings —
-order included — match the official table.
+`secondaryBasis` says *why* (`'exact' | 'verified' | 'official' | 'reproduced' |
+'indicative'`) if you want to tailor the note text. When `estimated` is `false`,
+the standings — order included — match the official table.
+
+The SDK also **self-verifies**: it checks our reconstructed final-round ordering
+against the official table, and if they match, flips the group to
+`secondaryBasis: 'verified'` (`estimated: false`) — so the flag reflects whether
+we actually matched reality, and adapts if SSF changes a tie-break method over
+time. (Team standings are already `exact`; this mainly affects individual events,
+and only upgrades the ones we reproduce position-for-position.)
 
 **What is and isn't exact:**
 
@@ -339,8 +346,12 @@ order included — match the official table.
   - **SSF Buchholz** (`tiebreakSystem === 3`, the common Swiss tie-break):
     `qualityPoints` reproduces the official `secPoints` —
     `Buchholz-Cut-1 + wins·0.01 + gamesWithBlack·0.0001` — matching live data to
-    ~5 decimals and the official ordering for all but the deepest ties. (This
-    part is reverse-engineered from SSF's output, pending confirmation from SSF.)
+    ~5 decimals and the official ordering for all but the deepest ties. This
+    mirrors the official SSF tie-break order (kvalitetspoäng = Buchholz cut-1 →
+    most wins → most games with black → **drawing of lots**), so those "deepest
+    ties" are players the official table separates only by *lots* — which can't be
+    reproduced. (Reverse-engineered from SSF's output; bye/forfeit handling is
+    best-effort and varies by era.)
   - **All other systems**: `qualityPoints` is *indicative* — plain **Buchholz**,
     or **Sonneborn-Berger** for round-robin groups (auto-selected via
     `pairingSystemMember === BERGER`, since FIDE forbids Buchholz in round-robins).
@@ -351,6 +362,11 @@ order included — match the official table.
 This is an *estimated* reconstruction for intermediate rounds. For the
 **official** final standings (including the real `secPoints`), always use
 `getTournamentResults` / `getTeamTournamentResults`.
+
+**Reference — official tie-break rules:** SSF Tävlingsbestämmelser 2025/26,
+[TB-2025-2026 (PDF)](https://schack.se/wp-content/uploads/2025/08/TB-2025-2026-2025_07_03-slutgiltig.pdf)
+— §7.2.1 (Berger / round-robin) and §7.2.2 (Schweizer / Swiss) define the
+särskiljning order.
 
 ## Team Tournaments and Schackfyran
 
