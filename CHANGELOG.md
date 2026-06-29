@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Team standings now self-verify too.** They were always labelled `secondaryBasis: 'exact'` / `estimated: false` on the assumption that match points → board points are structurally the official numbers. That holds for clean modern events, but not for legacy ones with incomplete round data or an older match-point system (e.g. Stockholmsserien 2011/12 scored a win as 1, not 2). `getRoundStandings` now checks the team order against the official table and, when it doesn't match, honestly downgrades the group to `estimated: true` (`secondaryBasis: 'indicative'`) instead of over-claiming `exact`. Clean team events are unaffected (still `exact`). Known limitation: teams tied on *both* match points and board points are ordered by our stable order, not the official board-by-board tie-break (TB §11.3) — those rare cases are flagged `estimated`.
+
 ## 0.11.0
 
 ### Added

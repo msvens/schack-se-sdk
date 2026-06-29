@@ -99,15 +99,12 @@ export class ResultsService extends BaseApiService {
 
     const snapshots = computeRoundStandings(roundResults.data, { mode, qualityMetric, tiebreakSystem });
 
-    // Self-verify: compare our final-round ordering against the official table.
-    // If it matches, the reconstruction is proven for this group, so flip any
-    // snapshot that was flagged as an estimate to 'verified'. Best-effort — a
-    // missing/empty official table just leaves the static basis in place. Skip
-    // the extra fetch entirely when nothing is flagged as an estimate (e.g. team
-    // standings, which are already 'exact').
-    if (snapshots.some((s) => s.estimated)) {
-      await this.verifyAgainstOfficial(groupId, mode, snapshots);
-    }
+    // Self-verify against the official table: confirm an individual estimate by
+    // upgrading its final round to 'verified', or catch a team standing whose
+    // structural "exact" assumption is violated (e.g. incomplete legacy data)
+    // by downgrading it to an estimate. Best-effort — a missing official table
+    // leaves the static basis in place.
+    await this.verifyAgainstOfficial(groupId, mode, snapshots);
 
     return { data: snapshots, status: roundResults.status, message: 'Success' };
   }
@@ -141,15 +138,32 @@ export class ResultsService extends BaseApiService {
     }
 
     const orderedKeys = finalRows.map((row) => key(row.contenderId, row.teamNumber));
-    if (!orderingMatchesOfficial(orderedKeys, officialPlace)) return;
+    const matches = orderingMatchesOfficial(orderedKeys, officialPlace);
 
-    // Only the final/current round is ground-truthed against the official table;
-    // intermediate snapshots are reconstructions we can't independently verify
-    // (no official table per round), so they keep their estimate status.
-    const final = snapshots[snapshots.length - 1];
-    if (final.estimated) {
-      final.estimated = false;
-      final.secondaryBasis = 'verified';
+    if (mode === 'team') {
+      // Team standings are 'exact' by construction — but only when the round
+      // data is complete and uses the assumed match-point system. If our order
+      // disagrees with the official table (e.g. legacy events that scored a win
+      // as 1 not 2, or have partial data), that assumption is wrong, so flag the
+      // whole group as an estimate rather than over-claim 'exact'.
+      if (!matches) {
+        for (const snap of snapshots) {
+          snap.estimated = true;
+          snap.secondaryBasis = 'indicative';
+        }
+      }
+      return;
+    }
+
+    // Individual: only the final/current round is ground-truthed against the
+    // official table; intermediate snapshots are reconstructions we can't
+    // independently verify, so they keep their estimate status.
+    if (matches) {
+      const final = snapshots[snapshots.length - 1];
+      if (final.estimated) {
+        final.estimated = false;
+        final.secondaryBasis = 'verified';
+      }
     }
   }
 

@@ -338,9 +338,14 @@ and only upgrades the ones we reproduce position-for-position.)
 
 **What is and isn't exact:**
 
-- **Team** standings reproduce the official table *exactly* — ranking is
-  `matchPoints → points` (board points), both verified against live data
-  (`matchPoints` = official `points`, board `points` = official `secPoints`).
+- **Team** standings rank by `matchPoints → points` (board points), which
+  reproduces the official table for clean events (`matchPoints` = official
+  `points`, board `points` = official `secPoints`) — those report `exact`. The
+  group is self-verified against the official table, so legacy events with
+  incomplete data or an older match-point system are honestly flagged
+  `estimated` rather than over-claiming `exact`. (Teams tied on *both* match and
+  board points use our stable order, not the official board-by-board tie-break —
+  rare, and flagged `estimated`.)
 - **Individual** cumulative `points` are *exact*. The secondary `qualityPoints`
   depends on the group's tie-break system:
   - **SSF Buchholz** (`tiebreakSystem === 3`, the common Swiss tie-break):

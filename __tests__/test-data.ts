@@ -56,6 +56,7 @@ export const TEST_RESULTS_GROUP_ID = 15816; // Individual tournament group (Swis
 export const TEST_RESULTS_MEMBER_ID = 642062; // Player with tournament history
 export const TEST_RESULTS_TEAM_GROUP_ID = 15667; // Skollags SM 2025 (team tournament)
 export const TEST_RESULTS_BERGER_GROUP_ID = 7563; // Manhems Schackvecka 2019, GM (round-robin / Berger)
+export const TEST_RESULTS_OLD_TEAM_GROUP_ID = 3190; // Stockholmsserien 2011/12 div IV — incomplete legacy data
 
 // =============================================================================
 // Expected values for assertions

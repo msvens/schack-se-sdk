@@ -12,7 +12,12 @@ import { ResultsService, TiebreakSystem, getTiebreakSystemName } from '../src/in
 import { computeRoundStandings } from '../src/utils/roundStandings';
 import type { TournamentRoundResultDto } from '../src/types';
 import { CURRENT_TEST_API_URL } from '../src/constants';
-import { TEST_RESULTS_GROUP_ID, TEST_RESULTS_TEAM_GROUP_ID, TEST_RESULTS_BERGER_GROUP_ID } from './test-data';
+import {
+  TEST_RESULTS_GROUP_ID,
+  TEST_RESULTS_TEAM_GROUP_ID,
+  TEST_RESULTS_BERGER_GROUP_ID,
+  TEST_RESULTS_OLD_TEAM_GROUP_ID
+} from './test-data';
 
 /** Build a single individual pairing for a round. */
 function pairing(
@@ -378,6 +383,16 @@ describe('getRoundStandings (integration)', () => {
       .sort((a, b) => a.place - b.place)
       .map((o) => `${o.contenderId}:${o.teamNumber}`);
     expect(ourOrder).toEqual(officialOrder);
+  }, 15000);
+
+  test('team event with incomplete legacy data is flagged as an estimate, not exact', async () => {
+    const replay = await resultsService.getRoundStandings(TEST_RESULTS_OLD_TEAM_GROUP_ID);
+    if (!replay.data || replay.data.length === 0) return;
+    const final = replay.data[replay.data.length - 1];
+    // Our order won't match the official table (legacy 1-point-per-win scoring /
+    // partial data), so self-verification must downgrade it from 'exact'.
+    expect(final.estimated).toBe(true);
+    expect(final.secondaryBasis).not.toBe('exact');
   }, 15000);
 
   test('round-robin (Berger) group reproduces the official order and self-verifies', async () => {
