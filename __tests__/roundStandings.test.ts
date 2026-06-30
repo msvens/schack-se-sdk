@@ -10,6 +10,7 @@
 import { ResultsService, TiebreakSystem, getTiebreakSystemName } from '../src/index';
 // The engine is internal (not part of the public API); test it via its module path.
 import { computeRoundStandings } from '../src/utils/roundStandings';
+import { calculatePoints } from '../src/utils/gameResults';
 import type { TournamentRoundResultDto } from '../src/types';
 import { CURRENT_TEST_API_URL } from '../src/constants';
 import {
@@ -60,6 +61,50 @@ function teamMatch(
   const p = pairing(roundNr, home[0], away[0], homeResult, awayResult, finalized);
   p.homeTeamNumber = home[1];
   p.awayTeamNumber = away[1];
+  return p;
+}
+
+/**
+ * White-perspective ResultCodes for a board match, from the HOME team's per-board
+ * outcomes. Models the SSF convention the engine derives: home plays White on odd
+ * (0-indexed) boards. `outcomes[i]` is the home team's result on board i.
+ */
+function homeBoards(outcomes: ('W' | 'L' | 'D')[]): number[] {
+  return outcomes.map((o, i) => {
+    if (o === 'D') return 0; // DRAW
+    const homeWhite = i % 2 === 1;
+    const whiteWins = homeWhite ? o === 'W' : o === 'L';
+    return whiteWins ? 1 : -1; // WHITE_WIN / BLACK_WIN
+  });
+}
+
+/** Team match with per-board games; `homeResult`/`awayResult` derived from the games. */
+function teamBoards(
+  roundNr: number,
+  home: [id: number, teamNumber: number],
+  away: [id: number, teamNumber: number],
+  boardResults: number[]
+): TournamentRoundResultDto {
+  let hr = 0;
+  let ar = 0;
+  const games = boardResults.map((result, tableNr) => {
+    const [wp, bp] = calculatePoints(result);
+    const homeWhite = tableNr % 2 === 1;
+    hr += homeWhite ? wp : bp;
+    ar += homeWhite ? bp : wp;
+    return {
+      id: 0,
+      tournamentResultID: 0,
+      tableNr,
+      whiteId: homeWhite ? home[0] : away[0],
+      blackId: homeWhite ? away[0] : home[0],
+      result,
+      pgn: '',
+      groupiD: 0
+    };
+  });
+  const p = teamMatch(roundNr, home, away, hr, ar);
+  p.games = games;
   return p;
 }
 
@@ -257,6 +302,61 @@ describe('computeRoundStandings (team mode)', () => {
     const t10 = final.rows.find((r) => r.contenderId === 10)!;
     expect(t10.matchPoints).toBe(6); // two wins at 3 each
   });
+
+  // --- TB §11.3 board-by-board tie-break -----------------------------------
+
+  test('board-group points break a tie equal on match + total board points', () => {
+    // A and B both win once (2 mp) with the same 6-2 total, and never meet, so
+    // inbördes is 0 for both → the first-half board group (boards 0-3) decides.
+    // A scored its 6 on the first 4 boards; B scored its 6 on the last 4.
+    const data = [
+      teamBoards(1, [1, 1], [3, 1], homeBoards(['W', 'W', 'W', 'W', 'D', 'D', 'D', 'D'])), // A 6-2
+      teamBoards(1, [2, 1], [4, 1], homeBoards(['D', 'D', 'D', 'D', 'W', 'W', 'W', 'W'])) // B 6-2
+    ];
+    const final = computeRoundStandings(data, { mode: 'team' }).find((s) => s.round === 1)!;
+    expect(final.rows.map((r) => r.contenderId)).toEqual([1, 2, 4, 3]);
+    // A above B on first-4 boards (4 vs 2); loser T2 above T1 likewise.
+    expect(final.rows.map((r) => r.rank)).toEqual([1, 2, 3, 4]);
+    expect(final.secondaryBasis).toBe('exact');
+    expect(final.estimated).toBe(false);
+  });
+
+  test('direct head-to-head (inbördes) breaks a tie equal on match + board points', () => {
+    // A and B both finish 2 mp / 8 board points; C beats A, B beats D (decisive
+    // matches establish the colour parity). A and B met once and A won, so the
+    // inbördes mini-table ranks A above B.
+    const data = [
+      teamBoards(1, [1, 1], [2, 1], homeBoards(['W', 'W', 'W', 'W', 'W', 'L', 'L', 'L'])), // A beats B 5-3
+      teamBoards(1, [3, 1], [4, 1], homeBoards(['W', 'W', 'W', 'W', 'W', 'L', 'L', 'L'])), // C beats D 5-3
+      teamBoards(2, [3, 1], [1, 1], homeBoards(['W', 'W', 'W', 'W', 'W', 'L', 'L', 'L'])), // C beats A 5-3
+      teamBoards(2, [2, 1], [4, 1], homeBoards(['W', 'W', 'W', 'W', 'W', 'L', 'L', 'L'])) // B beats D 5-3
+    ];
+    const final = computeRoundStandings(data, { mode: 'team' }).find((s) => s.round === 2)!;
+    const a = final.rows.find((r) => r.contenderId === 1)!;
+    const b = final.rows.find((r) => r.contenderId === 2)!;
+    expect(a.matchPoints).toBe(b.matchPoints); // both 2
+    expect(a.points).toBe(b.points); // both 8
+    expect(a.rank).toBeLessThan(b.rank); // A ranked above B on the head-to-head
+    expect(final.rows.map((r) => r.contenderId)).toEqual([3, 1, 2, 4]);
+  });
+
+  test('a board-inconsistent match leaves points exact and does not break the tie by boards', () => {
+    // The match games sum to 4-4 but the recorded board totals are 5-3, so no
+    // colour parity reconstructs them → unattributed. Two teams tied on match +
+    // board points that never met then fall back to stable (insertion) order.
+    const bad = teamBoards(1, [1, 1], [2, 1], homeBoards(['W', 'D', 'D', 'D', 'D', 'D', 'D', 'L']));
+    bad.homeResult = 5; // contradict the games (which sum 4-4)
+    bad.awayResult = 3;
+    const data = [
+      bad,
+      teamBoards(1, [3, 1], [4, 1], homeBoards(['W', 'W', 'W', 'W', 'W', 'L', 'L', 'L'])) // decisive → parity
+    ];
+    const final = computeRoundStandings(data, { mode: 'team' }).find((s) => s.round === 1)!;
+    // Points stay exact (taken from homeResult/awayResult, not the board split).
+    expect(final.rows.find((r) => r.contenderId === 1)!.points).toBe(5);
+    expect(final.rows.find((r) => r.contenderId === 2)!.points).toBe(3);
+    expect(() => computeRoundStandings(data, { mode: 'team' })).not.toThrow();
+  });
 });
 
 describe('computeRoundStandings (Berger / round-robin)', () => {
@@ -383,6 +483,29 @@ describe('getRoundStandings (integration)', () => {
       .sort((a, b) => a.place - b.place)
       .map((o) => `${o.contenderId}:${o.teamNumber}`);
     expect(ourOrder).toEqual(officialOrder);
+  }, 15000);
+
+  test('team event needing board-by-board tie-breaks reproduces the official order', async () => {
+    // Allsvenskan division with teams tied on match points AND total board
+    // points, separated by the TB §11.3 board chain (head-to-head → first-half
+    // boards → individual boards). Previously these fell to stable order and the
+    // group was downgraded to an estimate; the §11.3 chain now reproduces them.
+    const BOARD_TIE_TEAM_GROUP_ID = 14256;
+    const [replay, table] = await Promise.all([
+      resultsService.getRoundStandings(BOARD_TIE_TEAM_GROUP_ID),
+      resultsService.getTeamTournamentResults(BOARD_TIE_TEAM_GROUP_ID)
+    ]);
+    if (!replay.data || replay.data.length === 0 || !table.data || table.data.length === 0) return;
+
+    const final = replay.data[replay.data.length - 1];
+    const ourOrder = final.rows.map((r) => `${r.contenderId}:${r.teamNumber}`);
+    const officialOrder = [...table.data]
+      .sort((a, b) => a.place - b.place)
+      .map((o) => `${o.contenderId}:${o.teamNumber}`);
+    expect(ourOrder).toEqual(officialOrder);
+    // Order matches the official table → self-verify keeps it exact, not an estimate.
+    expect(final.estimated).toBe(false);
+    expect(final.secondaryBasis).toBe('exact');
   }, 15000);
 
   test('team event with incomplete legacy data is flagged as an estimate, not exact', async () => {
