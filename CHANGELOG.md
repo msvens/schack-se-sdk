@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Team standings now reproduce the full board-by-board tie-break (TB §11.3).** Teams tied on both match points and total board points are no longer left in stable order — `getRoundStandings` now applies the official chain: **inbördes möte (direct encounter) → board points on the first half of the boards → each remaining board individually** (the last board is decided by lots and not reproducible). The head-to-head mini-table is recomputed over each still-tied sub-pool, so multi-way ties (e.g. a three-way head-to-head cycle) resolve correctly. Per-board points are attributed from each match's individual games and validated against the match's board totals as a checksum; the colour convention (home plays White on odd boards) is derived once per group from its decisive matches. Validated against a live corpus of 90 team groups: every modern Allsvenskan event reproduces the official order position-for-position, so groups that were previously downgraded to `estimated` for an unbreakable match+board tie now stay `secondaryBasis: 'exact'`. Legacy events the chain can't reproduce (externally-managed pairing / incomplete board data) are still honestly downgraded by self-verification.
+
 ## 0.11.1
 
 ### Changed
