@@ -1,11 +1,14 @@
 import { BaseApiService } from './base';
-import type { PlayerInfoDto, ApiResponse, PlayerRatingHistory, MemberDateDto } from '../types';
+import type { PlayerInfoDto, ApiResponse, PlayerRatingHistory, MemberDateDto, RequestOptions } from '../types';
 import { chunkArray } from '../utils/batchUtils';
 
 /**
  * Options for batch processing
+ *
+ * Extends {@link RequestOptions}, so `timeoutMs` applies to each individual
+ * request within the batch.
  */
-export interface BatchOptions {
+export interface BatchOptions extends RequestOptions {
   /** Number of parallel requests to execute at once (default: 10, use Infinity for unlimited) */
   concurrency?: number;
 }
@@ -19,8 +22,8 @@ export type BatchItemResult<T> =
   | { data: null; error: string };
 
 export class PlayerService extends BaseApiService {
-  constructor(baseUrl?: string) {
-    super(baseUrl);
+  constructor(baseUrl?: string, timeoutMs?: number) {
+    super(baseUrl, undefined, timeoutMs);
   }
 
   // Player API methods
@@ -29,58 +32,65 @@ export class PlayerService extends BaseApiService {
    * Get player information by SSF ID and date
    * @param playerId - The Swedish Chess Federation player ID (number)
    * @param date - Optional date (defaults to current date)
+   * @param options - Per-request options (e.g. timeoutMs)
    *
    * @returns Player information
    */
   async getPlayerInfo(
     playerId: number,
-    date?: Date
+    date?: Date,
+    options?: RequestOptions
   ): Promise<ApiResponse<PlayerInfoDto>> {
     const targetDate = date ? this.formatDateToString(date) : this.getCurrentDate();
     const endpoint = `/player/${playerId}/date/${targetDate}`;
 
-    return this.get<PlayerInfoDto>(endpoint);
+    return this.get<PlayerInfoDto>(endpoint, options);
   }
 
   /**
    * Get player information by FIDE ID and date
    * @param fideId - The FIDE player ID (number)
    * @param date - Optional date (defaults to current date)
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Player information
    */
   async getPlayerByFIDEId(
     fideId: number,
-    date?: Date
+    date?: Date,
+    options?: RequestOptions
   ): Promise<ApiResponse<PlayerInfoDto>> {
     const targetDate = date ? this.formatDateToString(date) : this.getCurrentDate();
     const endpoint = `/player/fideid/${fideId}/date/${targetDate}`;
 
-    return this.get<PlayerInfoDto>(endpoint);
+    return this.get<PlayerInfoDto>(endpoint, options);
   }
 
   /**
    * Search for players by first name and last name
    * @param fornamn - The first name (Swedish: fornamn)
    * @param efternamn - The last name (Swedish: efternamn)
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of matching players
    */
   async searchPlayer(
     fornamn: string,
-    efternamn: string
+    efternamn: string,
+    options?: RequestOptions
   ): Promise<ApiResponse<PlayerInfoDto[]>> {
     const endpoint = `/player/fornamn/${encodeURIComponent(fornamn)}/efternamn/${encodeURIComponent(efternamn)}`;
 
-    return this.get<PlayerInfoDto[]>(endpoint);
+    return this.get<PlayerInfoDto[]>(endpoint, options);
   }
 
   /**
    * Fetch player information for multiple players in a single API call
    *
    * @param members - Array of { id, date } objects
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of player information
    */
-  async getPlayerList(members: MemberDateDto[]): Promise<ApiResponse<PlayerInfoDto[]>> {
-    return this.post<PlayerInfoDto[]>('/player/list/', members);
+  async getPlayerList(members: MemberDateDto[], options?: RequestOptions): Promise<ApiResponse<PlayerInfoDto[]>> {
+    return this.post<PlayerInfoDto[]>('/player/list/', members, options);
   }
 
   /**
@@ -101,7 +111,7 @@ export class PlayerService extends BaseApiService {
     date?: Date,
     options: BatchOptions = {}
   ): Promise<BatchItemResult<PlayerInfoDto>[]> {
-    const { concurrency = 10 } = options;
+    const { concurrency = 10, timeoutMs } = options;
     const chunks = chunkArray(playerIds, concurrency);
 
     const results: BatchItemResult<PlayerInfoDto>[] = [];
@@ -110,7 +120,7 @@ export class PlayerService extends BaseApiService {
     for (const chunk of chunks) {
       // Within each chunk, process requests in parallel
       const responses = await Promise.allSettled(
-        chunk.map(id => this.getPlayerInfo(id, date))
+        chunk.map(id => this.getPlayerInfo(id, date, { timeoutMs }))
       );
 
       // Collect results in order
@@ -158,7 +168,8 @@ export class PlayerService extends BaseApiService {
   async getPlayerEloHistory(
     playerId: number,
     startMonth?: string,
-    endMonth?: string
+    endMonth?: string,
+    options?: RequestOptions
   ): Promise<ApiResponse<PlayerRatingHistory[]>> {
     try {
       // Parse start/end months or use defaults (12 months back to current month)
@@ -184,7 +195,7 @@ export class PlayerService extends BaseApiService {
         date: this.formatDateToString(d)
       }));
 
-      const response = await this.getPlayerList(members);
+      const response = await this.getPlayerList(members, options);
 
       if (response.error || !response.data) {
         return {

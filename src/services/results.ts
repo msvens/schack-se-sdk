@@ -1,14 +1,14 @@
 import { BaseApiService } from './base';
 import { isTeamPairing, PairingSystem } from '../types';
-import type { TournamentEndResultDto, TournamentRoundResultDto, TeamTournamentEndResultDto, GameDto, ApiResponse } from '../types';
+import type { TournamentEndResultDto, TournamentRoundResultDto, TeamTournamentEndResultDto, GameDto, ApiResponse, RequestOptions } from '../types';
 import { computeRoundStandings, type RoundStandings, type StandingsMode, type QualityMetric } from '../utils/roundStandings';
 import { orderingMatchesOfficial } from '../utils/tiebreaks';
 import { findTournamentGroup } from '../utils/tournamentGroupUtils';
 import { TournamentService } from './tournaments';
 
 export class ResultsService extends BaseApiService {
-  constructor(baseUrl?: string) {
-    super(baseUrl);
+  constructor(baseUrl?: string, timeoutMs?: number) {
+    super(baseUrl, undefined, timeoutMs);
   }
 
   // Tournament Results API methods
@@ -20,12 +20,13 @@ export class ResultsService extends BaseApiService {
    * Polling faster than that returns stale data; back off accordingly.
    *
    * @param groupId - Tournament group ID (e.g., 15816)
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Tournament results with player standings
    */
-  async getTournamentResults(groupId: number): Promise<ApiResponse<TournamentEndResultDto[]>> {
+  async getTournamentResults(groupId: number, options?: RequestOptions): Promise<ApiResponse<TournamentEndResultDto[]>> {
     const endpoint = `/tournamentresults/table/id/${groupId}`;
 
-    return this.get<TournamentEndResultDto[]>(endpoint);
+    return this.get<TournamentEndResultDto[]>(endpoint, options);
   }
 
   /**
@@ -35,12 +36,13 @@ export class ResultsService extends BaseApiService {
    * Polling faster than that returns stale data; back off accordingly.
    *
    * @param groupId - Tournament group ID (e.g., 15816)
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Tournament round results with individual games
    */
-  async getTournamentRoundResults(groupId: number): Promise<ApiResponse<TournamentRoundResultDto[]>> {
+  async getTournamentRoundResults(groupId: number, options?: RequestOptions): Promise<ApiResponse<TournamentRoundResultDto[]>> {
     const endpoint = `/tournamentresults/roundresults/id/${groupId}`;
 
-    return this.get<TournamentRoundResultDto[]>(endpoint);
+    return this.get<TournamentRoundResultDto[]>(endpoint, options);
   }
 
   /**
@@ -65,15 +67,17 @@ export class ResultsService extends BaseApiService {
    * `result.data?.find(s => s.round === n)`.
    *
    * @param groupId - Tournament group ID
+   * @param options - Per-request options (e.g. timeoutMs), applied to every
+   *   underlying request this method makes.
    * @returns One standings snapshot per round, ordered by round ascending
    */
-  async getRoundStandings(groupId: number): Promise<ApiResponse<RoundStandings[]>> {
+  async getRoundStandings(groupId: number, options?: RequestOptions): Promise<ApiResponse<RoundStandings[]>> {
     // Derive everything from the tournament: one lookup yields the type
     // (team vs individual) and the group's pairing system (Buchholz vs SB).
     let mode: StandingsMode = 'individual';
     let qualityMetric: QualityMetric = 'buchholz';
     let tiebreakSystem: number | undefined;
-    const tournament = await new TournamentService(this.baseUrl).getTournamentFromGroup(groupId);
+    const tournament = await new TournamentService(this.baseUrl).getTournamentFromGroup(groupId, options);
     if (tournament.data) {
       mode = isTeamPairing(tournament.data.type) ? 'team' : 'individual';
       if (mode === 'individual') {
@@ -87,8 +91,8 @@ export class ResultsService extends BaseApiService {
     // Detection failure is best-effort: fall through to individual/Buchholz.
 
     const roundResults = mode === 'team'
-      ? await this.getTeamRoundResults(groupId)
-      : await this.getTournamentRoundResults(groupId);
+      ? await this.getTeamRoundResults(groupId, options)
+      : await this.getTournamentRoundResults(groupId, options);
     if (roundResults.error || !roundResults.data) {
       return {
         error: roundResults.error ?? 'No round results',
@@ -104,7 +108,7 @@ export class ResultsService extends BaseApiService {
     // structural "exact" assumption is violated (e.g. incomplete legacy data)
     // by downgrading it to an estimate. Best-effort — a missing official table
     // leaves the static basis in place.
-    await this.verifyAgainstOfficial(groupId, mode, snapshots);
+    await this.verifyAgainstOfficial(groupId, mode, snapshots, options);
 
     return { data: snapshots, status: roundResults.status, message: 'Success' };
   }
@@ -117,7 +121,8 @@ export class ResultsService extends BaseApiService {
   private async verifyAgainstOfficial(
     groupId: number,
     mode: StandingsMode,
-    snapshots: RoundStandings[]
+    snapshots: RoundStandings[],
+    options?: RequestOptions
   ): Promise<void> {
     if (snapshots.length === 0) return;
     const finalRows = snapshots[snapshots.length - 1].rows;
@@ -128,11 +133,11 @@ export class ResultsService extends BaseApiService {
 
     const officialPlace = new Map<string, number>();
     if (mode === 'team') {
-      const table = await this.getTeamTournamentResults(groupId);
+      const table = await this.getTeamTournamentResults(groupId, options);
       if (!table.data) return;
       for (const r of table.data) officialPlace.set(key(r.contenderId, r.teamNumber), r.place);
     } else {
-      const table = await this.getTournamentResults(groupId);
+      const table = await this.getTournamentResults(groupId, options);
       if (!table.data) return;
       for (const r of table.data) officialPlace.set(key(r.contenderId), r.place);
     }
@@ -170,46 +175,50 @@ export class ResultsService extends BaseApiService {
   /**
    * Get team tournament results by group ID
    * @param groupId - Tournament group ID
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Team tournament results with club standings
    */
-  async getTeamTournamentResults(groupId: number): Promise<ApiResponse<TeamTournamentEndResultDto[]>> {
+  async getTeamTournamentResults(groupId: number, options?: RequestOptions): Promise<ApiResponse<TeamTournamentEndResultDto[]>> {
     const endpoint = `/tournamentresults/team/table/id/${groupId}`;
 
-    return this.get<TeamTournamentEndResultDto[]>(endpoint);
+    return this.get<TeamTournamentEndResultDto[]>(endpoint, options);
   }
 
   /**
    * Get team tournament round results by group ID
    * @param groupId - Tournament group ID
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Team tournament round results
    */
-  async getTeamRoundResults(groupId: number): Promise<ApiResponse<TournamentRoundResultDto[]>> {
+  async getTeamRoundResults(groupId: number, options?: RequestOptions): Promise<ApiResponse<TournamentRoundResultDto[]>> {
     const endpoint = `/tournamentresults/team/roundresults/id/${groupId}`;
 
-    return this.get<TournamentRoundResultDto[]>(endpoint);
+    return this.get<TournamentRoundResultDto[]>(endpoint, options);
   }
 
   /**
    * Get individual tournament results for a specific member
    * @param memberId - Member ID
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of tournament results for the member
    */
-  async getMemberTournamentResults(memberId: number): Promise<ApiResponse<TournamentEndResultDto[]>> {
+  async getMemberTournamentResults(memberId: number, options?: RequestOptions): Promise<ApiResponse<TournamentEndResultDto[]>> {
     const endpoint = `/tournamentresults/table/memberid/${memberId}`;
 
-    return this.get<TournamentEndResultDto[]>(endpoint);
+    return this.get<TournamentEndResultDto[]>(endpoint, options);
   }
 
   /**
    * Get team tournament round results for a specific member
    * @param groupId - Tournament group ID
    * @param memberId - Member ID
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Team tournament round results for the specific member
    */
-  async getTeamMemberRoundResults(groupId: number, memberId: number): Promise<ApiResponse<TournamentRoundResultDto[]>> {
+  async getTeamMemberRoundResults(groupId: number, memberId: number, options?: RequestOptions): Promise<ApiResponse<TournamentRoundResultDto[]>> {
     const endpoint = `/tournamentresults/team/roundresults/id/${groupId}/memberid/${memberId}`;
 
-    return this.get<TournamentRoundResultDto[]>(endpoint);
+    return this.get<TournamentRoundResultDto[]>(endpoint, options);
   }
 
   /**
@@ -217,11 +226,12 @@ export class ResultsService extends BaseApiService {
    * Returns all games (individual and team tournaments) for the specified member.
    * Useful for player profiles showing complete game history.
    * @param memberId - Member ID
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of all games played by the member
    */
-  async getMemberGames(memberId: number): Promise<ApiResponse<GameDto[]>> {
+  async getMemberGames(memberId: number, options?: RequestOptions): Promise<ApiResponse<GameDto[]>> {
     const endpoint = `/tournamentresults/game/memberid/${memberId}`;
 
-    return this.get<GameDto[]>(endpoint);
+    return this.get<GameDto[]>(endpoint, options);
   }
 }

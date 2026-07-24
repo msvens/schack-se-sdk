@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Request timeouts.** Every service request now aborts if it takes too long, instead of hanging indefinitely on a wedged upstream (e.g. a stalled ChessTools/FIDE scrape). On timeout the call resolves with `{ status: 408, error: "Request timed out after Nms" }` — surfaced through the existing `status` channel (`0` = other transport failure, real codes = HTTP), so a timeout is distinguishable without a try/catch and `error` stays a plain `string` (non-breaking). Configurable at three levels, high→low precedence: per-call (`fide.getPlayer(id, { timeoutMs })`), per-service (`new FideService(baseUrl, timeoutMs)`), and global (`configure({ timeoutMs })`), defaulting to `DEFAULT_TIMEOUT` (10 s). A new `RequestOptions` type is exported and accepted as an optional trailing argument by every service method; batch methods accept it via `BatchOptions`, applying the timeout to each item's request.
+
 ## 0.11.2
 
 ### Added
