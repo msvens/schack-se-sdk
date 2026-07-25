@@ -22,6 +22,11 @@ import { TiebreakSystem } from '../src/index';
 import { ResultsService } from '../src/index';
 import { CURRENT_TEST_API_URL } from '../src/constants';
 import { TEST_RESULTS_GROUP_ID } from './test-data';
+import { ssfUnreachable } from './helpers/liveProbe';
+
+// Only the integration block below hits the network; skip it when SSF is
+// unreachable (outage → skipped, not failed). The unit blocks always run.
+const SSF_DOWN = await ssfUnreachable();
 
 describe('FIDE base methods', () => {
   test('buchholz sums opponent scores', () => {
@@ -134,7 +139,7 @@ describe('orderingMatchesOfficial (self-verification)', () => {
   });
 });
 
-describe('getRoundStandings reproduces official secPoints (integration)', () => {
+describe.skipIf(SSF_DOWN)('getRoundStandings reproduces official secPoints (integration)', () => {
   test('SSF Buchholz group: qualityPoints match official secPoints', async () => {
     const service = new ResultsService(CURRENT_TEST_API_URL);
     const [replay, table] = await Promise.all([
