@@ -23,9 +23,14 @@ import {
   TEST_SKOLLAGS_TEAM_TOURNAMENT_ID,
   TEST_SKOL_SM_INDIVIDUAL_TOURNAMENT_ID,
 } from './test-data';
+import { ssfUnreachable } from './helpers/liveProbe';
 
+// Skip the live suite when member.schack.se is unreachable so an outage yellows
+// the run instead of failing it; a contract drift (host up, shape changed) still
+// fails. See __tests__/helpers/liveProbe.ts.
+const SSF_DOWN = await ssfUnreachable();
 
-describe('Tournament Service Integration Tests', () => {
+describe.skipIf(SSF_DOWN)('Tournament Service Integration Tests', () => {
   let tournamentService: TournamentService;
 
   beforeEach(() => {

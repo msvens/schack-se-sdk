@@ -1,11 +1,11 @@
 import { BaseApiService } from './base';
-import type { TournamentDto, GroupSearchAnswerDto, ApiResponse } from '../types';
+import type { TournamentDto, GroupSearchAnswerDto, ApiResponse, RequestOptions } from '../types';
 import type { BatchOptions, BatchItemResult } from './players';
 import { chunkArray } from '../utils/batchUtils';
 
 export class TournamentService extends BaseApiService {
-  constructor(baseUrl?: string) {
-    super(baseUrl);
+  constructor(baseUrl?: string, timeoutMs?: number) {
+    super(baseUrl, undefined, timeoutMs);
   }
 
   // Tournament Structure API methods
@@ -13,58 +13,63 @@ export class TournamentService extends BaseApiService {
   /**
    * Get detailed tournament information by tournament ID
    * @param tournamentId - Tournament ID
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Comprehensive tournament information including classes and groups
    */
-  async getTournament(tournamentId: number): Promise<ApiResponse<TournamentDto>> {
+  async getTournament(tournamentId: number, options?: RequestOptions): Promise<ApiResponse<TournamentDto>> {
     const endpoint = `/tournament/tournament/id/${tournamentId}`;
 
-    return this.get<TournamentDto>(endpoint);
+    return this.get<TournamentDto>(endpoint, options);
   }
 
   /**
    * Get tournament information by group ID
    * @param groupId - Tournament group ID
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Tournament information for the tournament containing this group
    */
-  async getTournamentFromGroup(groupId: number): Promise<ApiResponse<TournamentDto>> {
+  async getTournamentFromGroup(groupId: number, options?: RequestOptions): Promise<ApiResponse<TournamentDto>> {
     const endpoint = `/tournament/group/id/${groupId}`;
 
-    return this.get<TournamentDto>(endpoint);
+    return this.get<TournamentDto>(endpoint, options);
   }
 
   /**
    * Get tournament information by class/division ID
    * @param classId - Tournament class ID
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Tournament information for the tournament containing this class
    */
-  async getTournamentFromClass(classId: number): Promise<ApiResponse<TournamentDto>> {
+  async getTournamentFromClass(classId: number, options?: RequestOptions): Promise<ApiResponse<TournamentDto>> {
     const endpoint = `/tournament/class/id/${classId}`;
 
-    return this.get<TournamentDto>(endpoint);
+    return this.get<TournamentDto>(endpoint, options);
   }
 
   /**
    * Search for tournament groups by name or location
    * @param searchWord - Search term for tournament/group name or location
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of matching tournament groups with basic information
    */
-  async searchGroups(searchWord: string): Promise<ApiResponse<GroupSearchAnswerDto[]>> {
+  async searchGroups(searchWord: string, options?: RequestOptions): Promise<ApiResponse<GroupSearchAnswerDto[]>> {
     const endpoint = `/tournament/group/search/${encodeURIComponent(searchWord)}`;
 
-    return this.get<GroupSearchAnswerDto[]>(endpoint);
+    return this.get<GroupSearchAnswerDto[]>(endpoint, options);
   }
 
   /**
    * Get upcoming tournaments
    * @param districtId - Optional district ID to filter by district and club tournaments
+   * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of upcoming tournaments
    */
-  async searchComingTournaments(districtId?: number): Promise<ApiResponse<TournamentDto[]>> {
+  async searchComingTournaments(districtId?: number, options?: RequestOptions): Promise<ApiResponse<TournamentDto[]>> {
     const endpoint = districtId !== undefined
       ? `/tournament/group/coming/${districtId}`
       : '/tournament/group/coming';
 
-    return this.get<TournamentDto[]>(endpoint);
+    return this.get<TournamentDto[]>(endpoint, options);
   }
 
   /**
@@ -81,13 +86,14 @@ export class TournamentService extends BaseApiService {
   async searchUpdatedTournaments(
     startDate: string,
     endDate: string,
-    districtId?: number
+    districtId?: number,
+    options?: RequestOptions
   ): Promise<ApiResponse<TournamentDto[]>> {
     const endpoint = districtId !== undefined
       ? `/tournament/tournament/updated/${encodeURIComponent(startDate)}/${encodeURIComponent(endDate)}/${districtId}`
       : `/tournament/tournament/updated/${encodeURIComponent(startDate)}/${encodeURIComponent(endDate)}`;
 
-    return this.get<TournamentDto[]>(endpoint);
+    return this.get<TournamentDto[]>(endpoint, options);
   }
 
   /**
@@ -104,13 +110,14 @@ export class TournamentService extends BaseApiService {
   async searchUpdatedGroups(
     startDate: string,
     endDate: string,
-    districtId?: number
+    districtId?: number,
+    options?: RequestOptions
   ): Promise<ApiResponse<GroupSearchAnswerDto[]>> {
     const endpoint = districtId !== undefined
       ? `/tournament/group/updated/${encodeURIComponent(startDate)}/${encodeURIComponent(endDate)}/${districtId}`
       : `/tournament/group/updated/${encodeURIComponent(startDate)}/${encodeURIComponent(endDate)}`;
 
-    return this.get<GroupSearchAnswerDto[]>(endpoint);
+    return this.get<GroupSearchAnswerDto[]>(endpoint, options);
   }
 
   /**
@@ -142,7 +149,7 @@ export class TournamentService extends BaseApiService {
     tournamentIds: number[],
     options: BatchOptions = {}
   ): Promise<BatchItemResult<TournamentDto>[]> {
-    const { concurrency = 10 } = options;
+    const { concurrency = 10, timeoutMs } = options;
     const chunks = chunkArray(tournamentIds, concurrency);
 
     const results: BatchItemResult<TournamentDto>[] = [];
@@ -151,7 +158,7 @@ export class TournamentService extends BaseApiService {
     for (const chunk of chunks) {
       // Within each chunk, process requests in parallel
       const responses = await Promise.allSettled(
-        chunk.map(id => this.getTournament(id))
+        chunk.map(id => this.getTournament(id, { timeoutMs }))
       );
 
       // Collect results in order
@@ -202,7 +209,7 @@ export class TournamentService extends BaseApiService {
     groupIds: number[],
     options: BatchOptions = {}
   ): Promise<BatchItemResult<TournamentDto>[]> {
-    const { concurrency = 10 } = options;
+    const { concurrency = 10, timeoutMs } = options;
     const chunks = chunkArray(groupIds, concurrency);
 
     const results: BatchItemResult<TournamentDto>[] = [];
@@ -211,7 +218,7 @@ export class TournamentService extends BaseApiService {
     for (const chunk of chunks) {
       // Within each chunk, process requests in parallel
       const responses = await Promise.allSettled(
-        chunk.map(id => this.getTournamentFromGroup(id))
+        chunk.map(id => this.getTournamentFromGroup(id, { timeoutMs }))
       );
 
       // Collect results in order

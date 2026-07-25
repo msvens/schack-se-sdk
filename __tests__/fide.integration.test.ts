@@ -4,6 +4,13 @@
  *
  * Each endpoint test verifies the exact set of response keys matches our types.
  * This catches both missing fields and unexpected new fields from the API.
+ *
+ * These are LIVE tests against a flaky third-party host, so they are excluded
+ * from `pnpm test` (the PR gate) and run via `pnpm test:integration` (nightly +
+ * on demand). A reachability probe below skips the whole suite when ChessTools
+ * is unreachable — the skip keys on transport status only (0 = no response,
+ * 408 = our client timeout), so a genuine contract drift (host up, shape wrong)
+ * still fails loudly instead of being masked as "down".
  */
 
 import { FideService } from '../src';
@@ -14,6 +21,12 @@ import {
   EXPECTED_FIDE_CARLSEN_NAME,
   EXPECTED_FIDE_CRAMLING_NAME,
 } from './test-data';
+import { fideUnreachable } from './helpers/liveProbe';
+
+// Skip the live suite when ChessTools is unreachable (outage → skipped, not
+// failed); a contract drift with the host up still fails. See
+// __tests__/helpers/liveProbe.ts.
+const FIDE_UNREACHABLE = await fideUnreachable();
 
 /** Expected keys for each FIDE response type, sorted for comparison */
 const FIDE_PLAYER_KEYS = [
@@ -36,7 +49,7 @@ const FIDE_RATING_PERIOD_KEYS = [
   'date', 'period', 'rapid_games', 'rapid_rating',
 ];
 
-describe('FIDE Service Integration Tests', () => {
+describe.skipIf(FIDE_UNREACHABLE)('FIDE Service Integration Tests', () => {
   let fideService: FideService;
 
   beforeEach(() => {

@@ -1,0 +1,31 @@
+name: Integration (live APIs)
+
+# Live integration tests against the third-party ChessTools/FIDE API. Kept out
+# of the PR gate (ci.yml) so a flaky upstream can't block merges; run here on a
+# schedule + on demand instead. The suite self-skips when the host is
+# unreachable (see __tests__/helpers/liveProbe.ts), so a down host shows as
+# passed-with-skips, and only a genuine contract drift fails the run.
+on:
+  schedule:
+    - cron: '0 6 * * *' # 06:00 UTC daily
+  workflow_dispatch: {} # manual "Run workflow" button
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Live FIDE integration tests
+        run: pnpm test:integration

@@ -15,7 +15,7 @@ CHESSTOOLS_URL="https://api.chesstools.org/openapi.json"
 changed=0
 
 echo "Checking SSF API spec..."
-if curl -sf "$SSF_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$TMP_DIR/ssf-api.json" 2>/dev/null; then
+if curl -sf --max-time 30 "$SSF_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$TMP_DIR/ssf-api.json" 2>/dev/null; then
   if ! diff -q "$SPECS_DIR/ssf-api.json" "$TMP_DIR/ssf-api.json" > /dev/null 2>&1; then
     echo "  CHANGED - SSF API spec differs from stored version"
     ssf_diff=$(diff --unified=3 "$SPECS_DIR/ssf-api.json" "$TMP_DIR/ssf-api.json" || true)
@@ -35,7 +35,7 @@ fi
 
 echo ""
 echo "Checking ChessTools API spec..."
-if curl -sf "$CHESSTOOLS_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$TMP_DIR/chesstools-api.json" 2>/dev/null; then
+if curl -sf --max-time 30 "$CHESSTOOLS_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$TMP_DIR/chesstools-api.json" 2>/dev/null; then
   if ! diff -q "$SPECS_DIR/chesstools-api.json" "$TMP_DIR/chesstools-api.json" > /dev/null 2>&1; then
     echo "  CHANGED - ChessTools API spec differs from stored version"
     ct_diff=$(diff --unified=3 "$SPECS_DIR/chesstools-api.json" "$TMP_DIR/chesstools-api.json" || true)

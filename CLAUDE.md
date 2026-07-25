@@ -7,7 +7,9 @@ Consumed via git tag, not npm. Full usage docs: README.md. Release: RELEASE.md.
 # Commands
 
 - Check (CI gate — run before committing): `pnpm check`  # typecheck + test + build
-- Test: `pnpm test` (Vitest) · Build: `pnpm build` · Typecheck: `pnpm typecheck`
+- Test: `pnpm test` (Vitest; excludes the live FIDE suite) · Build: `pnpm build` · Typecheck: `pnpm typecheck`
+- Pre-PR (run before opening a PR): `pnpm preflight`  # check + live FIDE integration; also reports ChessTools/FIDE status
+- Live FIDE integration only: `pnpm test:integration`  # hits api.chesstools.org; skips cleanly if it's down
 - Release (tag-only): `pnpm release X.Y.Z`
 - API spec drift: `pnpm api:check`
 
@@ -22,7 +24,15 @@ Consumed via git tag, not npm. Full usage docs: README.md. Release: RELEASE.md.
 - Named exports only (no default exports).
 - Service methods return `ApiResponse<T>` (`{ data?, error?, status }`); callers
   check `response.data` / `response.error`.
-- Tests live in `__tests__/` (Vitest).
+- Tests live in `__tests__/` (Vitest). Most hit live APIs. Live suites self-skip
+  when their host is unreachable (`__tests__/helpers/liveProbe.ts`), so an outage
+  yellows the run instead of reding it; a real contract drift (host up, shape
+  changed) still fails. The live FIDE suite (`*.integration.test.ts`) is excluded
+  from `pnpm test`/PR CI and runs via `pnpm test:integration` (nightly workflow +
+  on demand); the live SSF suites stay in `pnpm test`.
+- Before opening a PR, run `pnpm preflight` — it runs the live FIDE integration
+  suite for a final check and surfaces current ChessTools/FIDE server status.
+  (Integration is intentionally *not* part of the per-commit `pnpm check`.)
 - Feature PRs: don't bump `package.json` version; add notes under `## Unreleased`
   in CHANGELOG.md. Releasing is git-tag only — never tag a merge commit; use
   `pnpm release` (see RELEASE.md).

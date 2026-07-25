@@ -559,6 +559,7 @@ The `status` field uses three categories so callers can distinguish *what kind* 
 |--------|---------|------|
 | `200`–`299` | Success | `data` is populated, `error` is undefined |
 | `400`–`599` | HTTP error | The server responded with an error status. The real status (404, 429, 500, etc.) is preserved. `error` contains a message extracted from the response body or status text. |
+| `408` | Request timed out | The SDK aborted the request after the configured timeout (default 10s) — see [Request timeouts](#request-timeouts). `error` reads `"Request timed out after Nms"`. This is SDK-generated; the SSF and ChessTools APIs don't return a genuine 408, so there's no ambiguity. |
 | `0` | No HTTP response | `fetch` rejected (DNS failure, connection refused, offline, CORS blocked) **or** the response body wasn't valid JSON. There is no usable response from the server. |
 
 This lets you handle different failure modes appropriately:
@@ -574,6 +575,8 @@ if (response.data) {
   // Player doesn't exist
 } else if (response.status === 429) {
   // Rate limited — back off
+} else if (response.status === 408) {
+  // Timed out — the upstream was too slow; consider retrying
 } else if (response.status >= 500) {
   // Server problem — show "Service unavailable, try later"
 } else {
@@ -582,6 +585,30 @@ if (response.data) {
 ```
 
 > **Note on `status: 0`:** This convention comes from `XMLHttpRequest`, where `xhr.status === 0` indicates the request never completed (no HTTP response was received). The SDK uses the same value for the same meaning.
+
+### Request timeouts
+
+Every request is bounded by a timeout so a slow or wedged upstream can't hang your app indefinitely — this matters most for the ChessTools/FIDE endpoints, several of which are live scrapes with no server-side timeout. When a request exceeds its deadline the SDK aborts it and returns `{ status: 408, error: "Request timed out after Nms" }` (see the table above); methods still never throw.
+
+The default is **10 seconds** (`DEFAULT_TIMEOUT`). You can override it at three levels — the most specific wins:
+
+```typescript
+import { configure, FideService } from '@msvens/schack-se-sdk';
+
+// 1. Globally, for every service that doesn't set its own:
+configure({ timeoutMs: 5000 });
+
+// 2. Per service, at construction (second constructor argument, after the base URL):
+const fide = new FideService(undefined, 8000); // 8s for all calls on this instance
+
+// 3. Per call, overriding both of the above:
+const res = await fide.getPlayerHistory(1503014, { timeoutMs: 30000 });
+if (res.status === 408) {
+  // this specific call was allowed 30s and still didn't finish
+}
+```
+
+Every service method accepts an optional trailing `options` argument (`{ timeoutMs?: number }`, the exported `RequestOptions` type). Batch methods take it via their `BatchOptions`, applying the timeout to each item's request.
 
 ## Known Issues & Gotchas
 

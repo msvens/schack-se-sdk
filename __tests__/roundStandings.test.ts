@@ -19,6 +19,11 @@ import {
   TEST_RESULTS_BERGER_GROUP_ID,
   TEST_RESULTS_OLD_TEAM_GROUP_ID
 } from './test-data';
+import { ssfUnreachable } from './helpers/liveProbe';
+
+// Only the integration block below hits the network; skip it when SSF is
+// unreachable (outage → skipped, not failed). The unit blocks always run.
+const SSF_DOWN = await ssfUnreachable();
 
 /** Build a single individual pairing for a round. */
 function pairing(
@@ -405,7 +410,7 @@ describe('getTiebreakSystemName', () => {
   });
 });
 
-describe('getRoundStandings (integration)', () => {
+describe.skipIf(SSF_DOWN)('getRoundStandings (integration)', () => {
   let resultsService: ResultsService;
 
   beforeEach(() => {
