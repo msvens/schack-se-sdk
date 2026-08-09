@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- **Structured result parsing.** New `parseResultDisplay(code)` returns a `ParsedResultDisplay` (`{ home, away, kind, pointSystem, informative }`) instead of a display string — scores as numbers (`½` vs `0.5` is the consumer's call), the result's nature as a `ResultKind` (`normal` / `walkover` / `tourist_bye` / `adjudicated` / `postponed` / `none`), and an `informative` flag that is `false` only for `NOT_SET` and unknown codes. `postponed` / `none` carry `null` scores (they are not a result).
+- **Row-level resolvers that own the `NOT_SET` rule.** `resolveIndividualResult(row)` prefers the game's code and falls back to the row's `homeResult`/`awayResult` when the code is `NOT_SET`/unknown (treating `0 - 0` there as "not played"), so a legitimately-zero result (e.g. a `NO_WIN_WO` double forfeit) is no longer swallowed. `resolveTeamMatchResult(row)` uses the match score and never reads `games[]` (those are boards). Dispatch by tournament type; a multi-board row passed to the individual resolver returns `kind: 'none'` rather than board 1's result.
+- **New predicates** filling gaps that get reinvented by hand: `isAdjudicatedResult`, `isPostponed`, `isResultCodeInformative`. (Reminder: `isWalkoverResultCode` and `isTouristBye` already exist — prefer them over `Math.abs(result) === 2`.)
+
 ### Fixed
 
 - **`formatTeamName` no longer drops a lone team's Roman numeral.** A team whose own number is > 1 (e.g. "Helsingborg SA III") kept its numeral only when the club fielded *another* team in the same group; a club's single team in a division was rendered as the bare club name, diverging from resultat.schack.se. The numeral is now shown whenever `teamNumber > 1` **or** the club has multiple teams in the group — a strict superset of the previous rule, so multi-team group separation is unchanged.

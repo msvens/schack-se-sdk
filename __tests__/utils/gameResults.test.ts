@@ -20,8 +20,21 @@ import {
   parseGameResult,
   getPlayerOutcome,
   getPlayerPoints,
-  getPointSystemName
+  getPointSystemName,
+  isAdjudicatedResult,
+  isPostponed,
+  isResultCodeInformative,
+  parseResultDisplay,
+  resolveIndividualResult,
+  resolveTeamMatchResult
 } from '../../src/utils/gameResults';
+import type { GameDto } from '../../src/types';
+
+/** Minimal GameDto carrying just a result code (the only field the resolvers read). */
+const g = (result: number): GameDto => ({
+  id: 0, tournamentResultID: 0, tableNr: 0, whiteId: 0, blackId: 0,
+  result, pgn: '', groupiD: 0,
+});
 
 describe('gameResults', () => {
   describe('getPointSystemFromResult', () => {
@@ -395,6 +408,128 @@ describe('gameResults', () => {
       expect(getPointSystemName(PointSystem.DEFAULT)).toBe('Standard (1-½-0)');
       expect(getPointSystemName(PointSystem.SCHACK4AN)).toBe('Schackfyran (3-2-1)');
       expect(getPointSystemName(PointSystem.POINT310)).toBe('3-1-0');
+    });
+  });
+
+  describe('isAdjudicatedResult', () => {
+    it('is true for both-win and both-no-result across all systems', () => {
+      for (const c of [
+        ResultCode.BOTH_WIN, ResultCode.BOTH_NO_RESULT,
+        ResultCode.SCHACK4AN_BOTH_WIN, ResultCode.SCHACK4AN_BOTH_NO_RESULT,
+        ResultCode.POINT310_BOTH_WIN, ResultCode.POINT310_BOTH_NO_RESULT,
+      ]) {
+        expect(isAdjudicatedResult(c)).toBe(true);
+      }
+    });
+    it('is false for ordinary results, walkovers, and NOT_SET', () => {
+      for (const c of [ResultCode.WHITE_WIN, ResultCode.DRAW, ResultCode.NO_WIN_WO, ResultCode.NOT_SET, 999]) {
+        expect(isAdjudicatedResult(c)).toBe(false);
+      }
+    });
+  });
+
+  describe('isPostponed', () => {
+    it('is true only for POSTPONED', () => {
+      expect(isPostponed(ResultCode.POSTPONED)).toBe(true);
+      expect(isPostponed(ResultCode.NOT_SET)).toBe(false);
+      expect(isPostponed(ResultCode.WHITE_WIN)).toBe(false);
+    });
+  });
+
+  describe('isResultCodeInformative', () => {
+    it('is false for NOT_SET and unknown codes, true for every known code', () => {
+      expect(isResultCodeInformative(ResultCode.NOT_SET)).toBe(false);
+      expect(isResultCodeInformative(999)).toBe(false);      // unknown
+      expect(isResultCodeInformative(ResultCode.WHITE_WIN)).toBe(true);
+      expect(isResultCodeInformative(ResultCode.POSTPONED)).toBe(true);  // postponed still tells you something
+      expect(isResultCodeInformative(ResultCode.NO_WIN_WO)).toBe(true);  // double forfeit is a real result
+    });
+  });
+
+  describe('parseResultDisplay', () => {
+    it('parses ordinary results with scores in the code\'s point system', () => {
+      expect(parseResultDisplay(ResultCode.WHITE_WIN)).toEqual({
+        home: 1, away: 0, kind: 'normal', pointSystem: PointSystem.DEFAULT, informative: true,
+      });
+      expect(parseResultDisplay(ResultCode.DRAW)).toMatchObject({ home: 0.5, away: 0.5, kind: 'normal' });
+      expect(parseResultDisplay(ResultCode.SCHACK4AN_DRAW)).toMatchObject({
+        home: 2, away: 2, kind: 'normal', pointSystem: PointSystem.SCHACK4AN,
+      });
+      expect(parseResultDisplay(ResultCode.POINT310_WHITE_WIN)).toMatchObject({
+        home: 3, away: 0, kind: 'normal', pointSystem: PointSystem.POINT310,
+      });
+    });
+
+    it('classifies walkovers, including the 0-0 double forfeit', () => {
+      expect(parseResultDisplay(ResultCode.WHITE_WIN_WO)).toMatchObject({ home: 1, away: 0, kind: 'walkover' });
+      expect(parseResultDisplay(ResultCode.NO_WIN_WO)).toMatchObject({ home: 0, away: 0, kind: 'walkover', informative: true });
+    });
+
+    it('classifies tourist byes as half a point', () => {
+      expect(parseResultDisplay(ResultCode.WHITE_TOURIST_WO)).toMatchObject({ home: 0.5, away: 0, kind: 'tourist_bye' });
+      expect(parseResultDisplay(ResultCode.SCHACK4AN_WHITE_TOURIST_WO)).toMatchObject({ home: 2, away: 0, kind: 'tourist_bye' });
+    });
+
+    it('classifies adjudications (score kept — BOTH_WIN counts)', () => {
+      expect(parseResultDisplay(ResultCode.BOTH_WIN)).toMatchObject({ home: 1, away: 1, kind: 'adjudicated' });
+      expect(parseResultDisplay(ResultCode.BOTH_NO_RESULT)).toMatchObject({ home: 0, away: 0, kind: 'adjudicated' });
+    });
+
+    it('gives postponed and no-result a null score', () => {
+      expect(parseResultDisplay(ResultCode.POSTPONED)).toEqual({
+        home: null, away: null, kind: 'postponed', pointSystem: PointSystem.DEFAULT, informative: true,
+      });
+      expect(parseResultDisplay(ResultCode.NOT_SET)).toMatchObject({ home: null, away: null, kind: 'none', informative: false });
+      expect(parseResultDisplay(999)).toMatchObject({ home: null, away: null, kind: 'none', informative: false });
+    });
+  });
+
+  describe('resolveIndividualResult', () => {
+    it('uses the game code for a normal single-game row', () => {
+      expect(resolveIndividualResult({ homeResult: 1, awayResult: 0, games: [g(ResultCode.WHITE_WIN)] }))
+        .toMatchObject({ home: 1, away: 0, kind: 'normal' });
+    });
+
+    it('renders a 0-0 double forfeit as a walkover, not a swallowed dash', () => {
+      // The row is 0-0, but the code says NO_WIN_WO — must not be dropped.
+      expect(resolveIndividualResult({ homeResult: 0, awayResult: 0, games: [g(ResultCode.NO_WIN_WO)] }))
+        .toMatchObject({ home: 0, away: 0, kind: 'walkover' });
+    });
+
+    it('falls back to row points when the code is NOT_SET but points exist', () => {
+      // group 3941: Schackfyran draw with games[0].result == -100 but homeResult/awayResult == 2/2.
+      expect(resolveIndividualResult({ homeResult: 2, awayResult: 2, games: [g(ResultCode.NOT_SET)] }))
+        .toMatchObject({ home: 2, away: 2, kind: 'normal', informative: true });
+    });
+
+    it('treats a NOT_SET row with no points as not played', () => {
+      expect(resolveIndividualResult({ homeResult: 0, awayResult: 0, games: [g(ResultCode.NOT_SET)] }))
+        .toMatchObject({ home: null, away: null, kind: 'none' });
+    });
+
+    it('falls back to points when there is no game row', () => {
+      expect(resolveIndividualResult({ homeResult: 1, awayResult: 0, games: [] }))
+        .toMatchObject({ home: 1, away: 0, kind: 'normal' });
+    });
+
+    it('guards a team (multi-board) row instead of returning board 1', () => {
+      // group 3958 r1: match 1.5-3.5 across 5 boards; must NOT report board 1 (a 1-0).
+      const teamRow = {
+        homeResult: 1.5, awayResult: 3.5,
+        games: [g(1), g(1), g(1), g(-1), g(0)],
+      };
+      expect(resolveIndividualResult(teamRow)).toMatchObject({ home: null, away: null, kind: 'none' });
+    });
+  });
+
+  describe('resolveTeamMatchResult', () => {
+    it('uses the match score, never the boards (group 3958 r1 -> 1.5 - 3.5)', () => {
+      expect(resolveTeamMatchResult({ homeResult: 1.5, awayResult: 3.5 }))
+        .toMatchObject({ home: 1.5, away: 3.5, kind: 'normal' });
+    });
+    it('treats a 0-0 match as not played', () => {
+      expect(resolveTeamMatchResult({ homeResult: 0, awayResult: 0 }))
+        .toMatchObject({ home: null, away: null, kind: 'none' });
     });
   });
 });

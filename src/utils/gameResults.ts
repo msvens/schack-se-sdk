@@ -7,6 +7,8 @@
  * - POINT310 (2): 3-1-0 system (Win=3, Draw=1, Loss=0)
  */
 
+import type { TournamentRoundResultDto } from '../types';
+
 // =============================================================================
 // Point System Constants
 // =============================================================================
@@ -150,6 +152,40 @@ export interface ParsedGameResult {
   displayString: string;
 }
 
+/**
+ * The nature of a result, separated from its score.
+ * - `normal`      played to a conclusion
+ * - `walkover`    w.o — includes the 0-0 double forfeit (`NO_WIN_WO`)
+ * - `tourist_bye` ½ bye / 2 bye / 1 bye
+ * - `adjudicated` adj (`BOTH_WIN` / `BOTH_NO_RESULT`)
+ * - `postponed`   uppskjutet (`POSTPONED`)
+ * - `none`        no usable result — `NOT_SET`, an unknown code, or a 0-0 fallback
+ */
+export type ResultKind =
+  | 'normal'
+  | 'walkover'
+  | 'tourist_bye'
+  | 'adjudicated'
+  | 'postponed'
+  | 'none';
+
+/**
+ * A result code parsed into structured facts, so consumers don't have to
+ * re-derive the score/nature/point-system from the display string by hand.
+ */
+export interface ParsedResultDisplay {
+  /** Home/white points in the code's own point system; `null` when there is no score. */
+  home: number | null;
+  /** Away/black points in the code's own point system; `null` when there is no score. */
+  away: number | null;
+  /** What kind of result this is, independent of the score. */
+  kind: ResultKind;
+  /** Which point system the score is expressed in. */
+  pointSystem: PointSystemType;
+  /** `false` only for `NOT_SET` and unknown codes — "this code tells you nothing". */
+  informative: boolean;
+}
+
 // =============================================================================
 // Result Sets for Classification
 // =============================================================================
@@ -211,6 +247,19 @@ const NON_COUNTABLE_CODES: Set<number> = new Set([
   ResultCode.SCHACK4AN_BOTH_NO_RESULT,
   ResultCode.POINT310_BOTH_NO_RESULT,
 ]);
+
+/** Result codes decided by adjudication (both-win or both-no-result), all systems */
+const ADJUDICATED_CODES: Set<number> = new Set([
+  ResultCode.BOTH_NO_RESULT,
+  ResultCode.BOTH_WIN,
+  ResultCode.SCHACK4AN_BOTH_NO_RESULT,
+  ResultCode.SCHACK4AN_BOTH_WIN,
+  ResultCode.POINT310_BOTH_NO_RESULT,
+  ResultCode.POINT310_BOTH_WIN,
+]);
+
+/** Every code the SDK recognises — used to tell a known code from an unknown one */
+const KNOWN_CODES: Set<number> = new Set(Object.values(ResultCode));
 
 // =============================================================================
 // Core Functions
@@ -449,4 +498,106 @@ export function getPointSystemName(pointSystem: PointSystemType): string {
     default:
       return 'Standard (1-½-0)';
   }
+}
+
+// =============================================================================
+// Structured result parsing
+// =============================================================================
+
+/**
+ * Whether a result code was decided by adjudication (both-win / both-no-result),
+ * across all three point systems.
+ */
+export function isAdjudicatedResult(resultCode: number): boolean {
+  return ADJUDICATED_CODES.has(resultCode);
+}
+
+/**
+ * Whether a result code marks the game as postponed (uppskjutet).
+ */
+export function isPostponed(resultCode: number): boolean {
+  return resultCode === ResultCode.POSTPONED;
+}
+
+/**
+ * Whether a result code carries any information. `false` only for `NOT_SET` and
+ * codes the SDK doesn't recognise — the signal that a consumer should fall back
+ * to the pairing row's points rather than trust the code.
+ */
+export function isResultCodeInformative(resultCode: number): boolean {
+  return KNOWN_CODES.has(resultCode) && resultCode !== ResultCode.NOT_SET;
+}
+
+/**
+ * Parse a single result code into structured facts (score, nature, point system)
+ * instead of a display string. Scores are numbers in the code's own point system
+ * (`½` vs `0.5` is the consumer's presentation choice); `postponed` and `none`
+ * carry `null` scores because they are not a result.
+ */
+export function parseResultDisplay(resultCode: number): ParsedResultDisplay {
+  const pointSystem = getPointSystemFromResult(resultCode);
+  const informative = isResultCodeInformative(resultCode);
+
+  let kind: ResultKind;
+  if (isTouristBye(resultCode)) kind = 'tourist_bye';
+  else if (isWalkoverResultCode(resultCode)) kind = 'walkover';
+  else if (isAdjudicatedResult(resultCode)) kind = 'adjudicated';
+  else if (isPostponed(resultCode)) kind = 'postponed';
+  else if (!informative) kind = 'none'; // NOT_SET or unknown code
+  else kind = 'normal';
+
+  if (kind === 'postponed' || kind === 'none') {
+    return { home: null, away: null, kind, pointSystem, informative };
+  }
+  const [home, away] = calculatePoints(resultCode);
+  return { home, away, kind, pointSystem, informative };
+}
+
+/**
+ * Result of a row whose usable score is its points (not a game code): the team
+ * match score, or an individual row falling back from a non-informative code.
+ * `0 - 0` means "not played". The point system can't be recovered from points
+ * alone, so it is reported as DEFAULT.
+ */
+function resultFromRowPoints(homeResult: number, awayResult: number): ParsedResultDisplay {
+  if (homeResult === 0 && awayResult === 0) {
+    return { home: null, away: null, kind: 'none', pointSystem: PointSystem.DEFAULT, informative: false };
+  }
+  return { home: homeResult, away: awayResult, kind: 'normal', pointSystem: PointSystem.DEFAULT, informative: true };
+}
+
+/**
+ * Resolve the result of an **individually-paired** round row. Prefers the game's
+ * result code; when that code is `NOT_SET` or unknown, falls back to the row's
+ * `homeResult`/`awayResult` (treating `0 - 0` there as "not played").
+ *
+ * Dispatch team-vs-individual by tournament type — do **not** pass a team match
+ * row here; those keep the boards in `games[]` and the match score in
+ * `homeResult`/`awayResult` (use {@link resolveTeamMatchResult}). As a safety
+ * net a multi-board row returns `kind: 'none'` rather than board 1's result.
+ */
+export function resolveIndividualResult(
+  row: Pick<TournamentRoundResultDto, 'homeResult' | 'awayResult' | 'games'>
+): ParsedResultDisplay {
+  const games = row.games ?? [];
+  if (games.length > 1) {
+    return { home: null, away: null, kind: 'none', pointSystem: PointSystem.DEFAULT, informative: false };
+  }
+  if (games.length === 1) {
+    const parsed = parseResultDisplay(games[0].result);
+    if (parsed.informative) return parsed;
+    // code was NOT_SET / unknown — fall through to the row's points
+  }
+  return resultFromRowPoints(row.homeResult, row.awayResult);
+}
+
+/**
+ * Resolve the result of a **team match** row. The match score is the row's
+ * `homeResult`/`awayResult`; `games[]` holds the individual boards and is not
+ * read here. `0 - 0` means the match has not been played.
+ */
+export function resolveTeamMatchResult(
+  row: Pick<TournamentRoundResultDto, 'homeResult' | 'awayResult'>
+): ParsedResultDisplay {
+  return resultFromRowPoints(row.homeResult, row.awayResult);
 }
