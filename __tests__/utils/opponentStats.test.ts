@@ -346,5 +346,15 @@ describe('opponentStats', () => {
       );
       expect(result[0].blackName).toBe('Hämtar (200)');
     });
+
+    it('exposes the raw resultCode alongside the formatted string (for localization)', () => {
+      const games: GameDto[] = [
+        makeGame({ id: 1, whiteId: 100, blackId: 200, result: ResultCode.WHITE_TOURIST_WO }),
+      ];
+      const result = gamesToDisplayFormat(games, 100, playerMap, tournamentMap, 'Me');
+      // The English "½ bye" is still there, but the code lets the consumer localize it.
+      expect(result[0].result).toBe('½ bye');
+      expect(result[0].resultCode).toBe(ResultCode.WHITE_TOURIST_WO);
+    });
   });
 });

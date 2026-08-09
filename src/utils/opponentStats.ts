@@ -34,7 +34,13 @@ export interface GameDisplay {
   whiteName: string;
   blackId: number;
   blackName: string;
-  result: string;  // "1-0", "½-½", "0-1"
+  result: string;  // Pre-formatted display string, e.g. "1 - 0", "½ - ½", "½ bye"
+  /**
+   * Raw result code behind `result`. Exposed so consumers can localize the
+   * label (e.g. "bye"/"adj") via `parseResultDisplay` instead of the baked-in
+   * English `result` string.
+   */
+  resultCode: number;
   groupId: number;
   tournamentId: number;
   tournamentName: string;
@@ -371,6 +377,7 @@ export function gamesToDisplayFormat(
       blackId: game.blackId,
       blackName,
       result: formatGameResult(game.result),
+      resultCode: game.result,
       groupId: game.groupiD,
       tournamentId: tournament?.id || 0,
       tournamentName: tournament?.name || `Group ${game.groupiD}`

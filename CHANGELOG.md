@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`GameDisplay.resultCode`.** `gamesToDisplayFormat` now returns the raw result code alongside the pre-formatted `result` string, so consumers can localize the label (e.g. "bye"/"adj") via `parseResultDisplay` instead of being stuck with the baked-in English. Additive — existing fields are unchanged. (Walkover and postponed games are still filtered out of these tables, as before.)
+
 ## 0.13.0
 
 ### Added
