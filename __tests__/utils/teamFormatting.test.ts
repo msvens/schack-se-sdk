@@ -6,7 +6,8 @@ import {
   toRomanNumeral,
   countTeamsByClub,
   formatTeamName,
-  createTeamNameFormatter
+  createTeamNameFormatter,
+  createRoundResultsTeamNameFormatter
 } from '../../src/utils/teamFormatting';
 
 describe('teamFormatting', () => {
@@ -90,6 +91,21 @@ describe('teamFormatting', () => {
     it('should handle team count of 0', () => {
       expect(formatTeamName('SK Rockaden', 1, 0)).toBe('SK Rockaden');
     });
+
+    it('keeps the numeral for a lone team whose own number is > 1 (regression: Helsingborg SA III)', () => {
+      // The team is the only one of its club in this group (clubTeamCount === 1),
+      // but "III" is its identity, not a within-group disambiguator, so it must
+      // not be dropped.
+      expect(formatTeamName('Helsingborg SA', 3, 1)).toBe('Helsingborg SA III');
+      expect(formatTeamName('Helsingborg SA', 2, 1)).toBe('Helsingborg SA II');
+      // Lone first team stays bare.
+      expect(formatTeamName('Helsingborg SA', 1, 1)).toBe('Helsingborg SA');
+    });
+
+    it('still numbers every team when a club fields several in one group (unchanged)', () => {
+      expect(formatTeamName('SK Rockaden', 1, 2)).toBe('SK Rockaden I');
+      expect(formatTeamName('SK Rockaden', 2, 2)).toBe('SK Rockaden II');
+    });
   });
 
   describe('createTeamNameFormatter', () => {
@@ -120,6 +136,23 @@ describe('teamFormatting', () => {
 
       // Club 999 not in results - should default to 1 team (no numeral)
       expect(formatter(999, 1)).toBe('Club 999');
+    });
+  });
+
+  describe('createRoundResultsTeamNameFormatter', () => {
+    it('keeps a lone team\'s numeral from round-results data (the UI path)', () => {
+      // One Helsingborg SA team (its III) plays in this group — only teamNumber 3
+      // ever appears for club 100, so clubTeamCount is 1, yet the III must stay.
+      const roundResults = [
+        { homeId: 100, awayId: 200, homeTeamNumber: 3, awayTeamNumber: 1 },
+        { homeId: 200, awayId: 100, homeTeamNumber: 1, awayTeamNumber: 3 },
+      ];
+      const getClubName = (id: number) => (id === 100 ? 'Helsingborg SA' : 'Lund ASK');
+
+      const formatter = createRoundResultsTeamNameFormatter(roundResults, getClubName);
+
+      expect(formatter(100, 3)).toBe('Helsingborg SA III');
+      expect(formatter(200, 1)).toBe('Lund ASK');
     });
   });
 });

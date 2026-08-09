@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`formatTeamName` no longer drops a lone team's Roman numeral.** A team whose own number is > 1 (e.g. "Helsingborg SA III") kept its numeral only when the club fielded *another* team in the same group; a club's single team in a division was rendered as the bare club name, diverging from resultat.schack.se. The numeral is now shown whenever `teamNumber > 1` **or** the club has multiple teams in the group — a strict superset of the previous rule, so multi-team group separation is unchanged.
+
 ## 0.12.0
 
 ### Added

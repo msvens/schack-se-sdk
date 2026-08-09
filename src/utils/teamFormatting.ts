@@ -58,24 +58,29 @@ export function countTeamsByClub<T extends { contenderId: number; teamNumber: nu
 }
 
 /**
- * Format a team name with Roman numeral suffix if the club has multiple teams
+ * Format a team name with its Roman numeral suffix.
+ *
+ * The numeral is shown when either the team's own number identifies it
+ * (`teamNumber > 1` — e.g. "Helsingborg SA III", part of the team's
+ * cross-division identity regardless of how many of the club's teams play in
+ * this group) OR the club fields several teams in this group and they must be
+ * told apart (`clubTeamCount > 1`). Only a lone first team (`teamNumber === 1`,
+ * single team in the group) renders as the bare club name.
+ *
  * @param clubName - The base club name
  * @param teamNumber - The team number (1, 2, 3, etc.)
- * @param clubTeamCount - How many teams this club has in the tournament
- * @returns Formatted team name (e.g., "SK Rockaden" or "SK Rockaden II")
+ * @param clubTeamCount - How many teams this club has in this group
+ * @returns Formatted team name (e.g., "SK Rockaden" or "SK Rockaden III")
  */
 export function formatTeamName(
   clubName: string,
   teamNumber: number,
   clubTeamCount: number
 ): string {
-  // If club only has one team, don't show team number
-  if (clubTeamCount <= 1) {
-    return clubName;
+  if (teamNumber > 1 || clubTeamCount > 1) {
+    return `${clubName} ${toRomanNumeral(teamNumber)}`;
   }
-
-  // Append Roman numeral for multi-team clubs
-  return `${clubName} ${toRomanNumeral(teamNumber)}`;
+  return clubName;
 }
 
 /**
