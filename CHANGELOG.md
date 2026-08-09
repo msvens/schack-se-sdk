@@ -4,7 +4,8 @@
 
 ### Added
 
-- **`GameDisplay.resultCode`.** `gamesToDisplayFormat` now returns the raw result code alongside the pre-formatted `result` string, so consumers can localize the label (e.g. "bye"/"adj") via `parseResultDisplay` instead of being stuck with the baked-in English. Additive — existing fields are unchanged. (Walkover and postponed games are still filtered out of these tables, as before.)
+- **`GameDisplay.resultCode`.** `gamesToDisplayFormat` now returns the raw result code alongside the pre-formatted `result` string, so consumers can localize the label (e.g. "bye"/"adj") via `parseResultDisplay` instead of being stuck with the baked-in English. Additive — existing fields are unchanged.
+- **`gamesToDisplayFormat` `includeWalkovers` option.** A trailing `includeWalkovers` argument (default `false`, so existing behaviour is unchanged) opts walkover games into the display list, rendered as e.g. `"1 - 0 w.o"`. Other non-countable results (postponed, not-set, adjudicated-no-result) are still excluded, and the stats helpers (`calculatePlayerResult`, etc.) remain countable-only — so a consumer can show walkovers in a game-history table while keeping them out of win/draw/loss stats.
 
 ## 0.13.0
 

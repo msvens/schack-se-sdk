@@ -310,6 +310,29 @@ describe('opponentStats', () => {
       expect(gamesToDisplayFormat(games, 100, playerMap, tournamentMap, 'Me')).toEqual([]);
     });
 
+    it('includes walkovers when includeWalkovers is true (rendered w.o, with code)', () => {
+      const games: GameDto[] = [
+        makeGame({ id: 1, whiteId: 100, blackId: 200, result: ResultCode.WHITE_WIN_WO }),
+      ];
+      const result = gamesToDisplayFormat(
+        games, 100, playerMap, tournamentMap, 'Me', false, 'Retrieving', 'Unknown', true
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].result).toBe('1 - 0 w.o');
+      expect(result[0].resultCode).toBe(ResultCode.WHITE_WIN_WO);
+    });
+
+    it('opting into walkovers still excludes postponed / not-set', () => {
+      const games: GameDto[] = [
+        makeGame({ id: 1, result: ResultCode.POSTPONED }),
+        makeGame({ id: 2, result: ResultCode.NOT_SET }),
+      ];
+      const result = gamesToDisplayFormat(
+        games, 100, playerMap, tournamentMap, 'Me', false, 'Retrieving', 'Unknown', true
+      );
+      expect(result).toEqual([]);
+    });
+
     it('filters out games with negative player IDs', () => {
       const games: GameDto[] = [
         makeGame({ id: 1, whiteId: -1, blackId: 100, result: ResultCode.DRAW }),
