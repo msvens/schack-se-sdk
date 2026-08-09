@@ -246,6 +246,39 @@ const outcome = getPlayerOutcome(resultCode, isWhite); // 'win', 'draw', 'loss',
 const isWO = isWalkover(homeId, awayId, result);
 ```
 
+#### Structured result parsing
+
+`parseResultDisplay` turns a raw result code into structured facts — score as
+numbers, the result's *kind*, and the point system — instead of a display
+string, so you can localize labels and style walkovers/adjudications yourself:
+
+```typescript
+import { parseResultDisplay } from '@msvens/schack-se-sdk';
+
+const r = parseResultDisplay(resultCode);
+// { home, away, kind, pointSystem, informative }
+// kind: 'normal' | 'walkover' | 'tourist_bye' | 'adjudicated' | 'postponed' | 'none'
+// home/away are null for 'postponed' and 'none'; informative is false only for
+// NOT_SET and unknown codes.
+```
+
+To resolve a whole round-result *row*, dispatch by tournament type and use the
+matching resolver — they own the rule that the API sometimes leaves the game
+code `NOT_SET` while publishing real points on the row:
+
+```typescript
+import { resolveIndividualResult, resolveTeamMatchResult, isTeamPairing } from '@msvens/schack-se-sdk';
+
+const parsed = isTeamPairing(tournament.type)
+  ? resolveTeamMatchResult(row)     // match score from homeResult/awayResult
+  : resolveIndividualResult(row);   // game code, falling back to row points on NOT_SET
+```
+
+Predicates for classifying codes: `isWalkoverResultCode`, `isTouristBye`,
+`isAdjudicatedResult`, `isPostponed`, `isResultCodeInformative` — prefer these
+over hand-rolled checks like `Math.abs(result) === 2` (which misses `NO_WIN_WO`,
+the Schackfyran/3-1-0 walkovers, and tourist byes).
+
 ### Rating Utilities
 
 ```typescript
