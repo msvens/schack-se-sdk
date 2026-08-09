@@ -34,7 +34,13 @@ export interface GameDisplay {
   whiteName: string;
   blackId: number;
   blackName: string;
-  result: string;  // "1-0", "½-½", "0-1"
+  result: string;  // Pre-formatted display string, e.g. "1 - 0", "½ - ½", "½ bye"
+  /**
+   * Raw result code behind `result`. Exposed so consumers can localize the
+   * label (e.g. "bye"/"adj") via `parseResultDisplay` instead of the baked-in
+   * English `result` string.
+   */
+  resultCode: number;
   groupId: number;
   tournamentId: number;
   tournamentName: string;
@@ -316,6 +322,11 @@ export function formatGameResult(result: number): string {
  * @param playersLoading - Whether player data is still loading
  * @param retrievingText - Text to show while loading (e.g., "Retrieving" or "Hämtar")
  * @param unknownText - Text to show for unknown players (e.g., "Unknown" or "Okänd")
+ * @param includeWalkovers - Include walkover games (rendered e.g. "1 - 0 w.o");
+ *   default `false` keeps them hidden, as before. Other non-countable results
+ *   (postponed, not-set, adjudicated-no-result) are always excluded regardless.
+ *   Stats helpers (`calculatePlayerResult`, etc.) are unaffected — they stay
+ *   countable-only.
  * @returns Array of games ready for display (latest-first order)
  */
 export function gamesToDisplayFormat(
@@ -326,15 +337,21 @@ export function gamesToDisplayFormat(
   currentPlayerName: string,
   playersLoading: boolean = false,
   retrievingText: string = 'Retrieving',
-  unknownText: string = 'Unknown'
+  unknownText: string = 'Unknown',
+  includeWalkovers: boolean = false
 ): GameDisplay[] {
   const displayGames: GameDisplay[] = [];
 
   games.forEach(game => {
-    // Skip non-countable results and walkovers (show only real played games)
-    if (!isCountableResult(game.result) || isWalkoverResultCode(game.result)) return;
+    // Walkovers are shown only when opted in; every other non-countable result
+    // (postponed, not-set, adjudicated-no-result) is always excluded.
+    if (isWalkoverResultCode(game.result)) {
+      if (!includeWalkovers) return;
+    } else if (!isCountableResult(game.result)) {
+      return;
+    }
 
-    // Skip W.O games with missing players (negative IDs indicate walkover)
+    // Skip games with a missing player (negative IDs indicate a bye/no opponent)
     if (game.whiteId < 0 || game.blackId < 0) return;
 
     // Get player names
@@ -371,6 +388,7 @@ export function gamesToDisplayFormat(
       blackId: game.blackId,
       blackName,
       result: formatGameResult(game.result),
+      resultCode: game.result,
       groupId: game.groupiD,
       tournamentId: tournament?.id || 0,
       tournamentName: tournament?.name || `Group ${game.groupiD}`
