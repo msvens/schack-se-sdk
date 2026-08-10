@@ -66,7 +66,7 @@ export interface PlayerInfoDto {
     lastName: string;
     /** Date of birth */
     birthdate: string;
-    /** Sex (1=Male, 2=Female, etc.) */
+    /** Sex (0=Male, 1=Female) — verified against live data (e.g. girls-only groups are all 1) */
     sex: number;
     /** FIDE ID */
     fideid: number;

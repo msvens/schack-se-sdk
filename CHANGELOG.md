@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`PlayerInfoDto.sex` doc corrected.** The JSDoc claimed `1=Male, 2=Female`; the actual SSF encoding is **`0=Male, 1=Female`** (verified against live data — girls-only groups are uniformly `1`, mixed groups split cleanly `0`/`1`). Doc-only change; the field type is unchanged and the upstream spec only types it as `integer` (no enum), so `api:check` is unaffected.
+
 ## 0.13.1
 
 ### Added
