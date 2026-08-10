@@ -45,6 +45,8 @@ export {
   getPrimaryRatingType,
   getPlayerRatingStrict,
   isJuniorPlayer,
+  isFemale,
+  SEX_FEMALE,
   parseTimeControl,
   RoundRatedType,
   type PlayerRating,

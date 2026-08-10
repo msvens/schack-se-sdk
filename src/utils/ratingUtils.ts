@@ -541,3 +541,22 @@ export function formatPlayerName(
   }
   return fullName;
 }
+
+/**
+ * The SSF `sex` code for female. See {@link isFemale} and the `sex` field on
+ * `PlayerInfoDto` for the full encoding.
+ */
+export const SEX_FEMALE = 1;
+
+/**
+ * Whether a player is female, i.e. `sex === 1` exactly.
+ *
+ * Strict by design: `2` means "unrecorded" (a gender mix, common in bulk
+ * school-club registrations) and must never be read as female, and `0` doubles
+ * as the placeholder default consumers use when fabricating a player — so there
+ * is deliberately no `isMale` counterpart (`sex === 0` does not prove male).
+ * Null/undefined players or an unset `sex` return `false`.
+ */
+export function isFemale(player: { sex?: number | null } | null | undefined): boolean {
+  return player?.sex === SEX_FEMALE;
+}

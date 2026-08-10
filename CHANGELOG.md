@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`isFemale(player)` + `SEX_FEMALE`.** A strict, null-safe helper (`sex === 1`) so consumers stop re-deriving gender from the `sex` field. Deliberately no `isMale`: `0` doubles as the placeholder default consumers use when fabricating a player, so `sex === 0` does not prove male.
+
+### Fixed
+
+- **`PlayerInfoDto.sex` doc corrected and completed.** The JSDoc claimed `1=Male, 2=Female, etc.`; verified against live data the SSF encoding is **`0`=male, `1`=female, `2`=unrecorded (never filled in — common in bulk school-club registrations, a gender mix, **not** female), `-1`=synthetic walkover/"Frirond" row (not a real member)**. Doc-only for the type; the field type is unchanged and the upstream spec only types it as `integer` (no enum), so `api:check` is unaffected. `2` must not be treated as female — use `isFemale`.
+
 ## 0.13.1
 
 ### Added

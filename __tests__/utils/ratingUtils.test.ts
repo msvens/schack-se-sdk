@@ -7,7 +7,9 @@ import {
   parseTimeControl,
   formatRatingWithType,
   getKFactorForRating,
-  getPlayerRatingByAlgorithm
+  getPlayerRatingByAlgorithm,
+  isFemale,
+  SEX_FEMALE
 } from '../../src/utils/ratingUtils';
 import { RatingAlgorithm } from '../../src/types/ratingAlgorithm';
 import type { MemberFIDERatingDTO } from '../../src/types';
@@ -284,6 +286,32 @@ describe('ratingUtils', () => {
       const result = getPlayerRatingByAlgorithm(mockElo as MemberFIDERatingDTO, 999);
       expect(result.rating).toBe(1500);
       expect(result.ratingType).toBe('standard');
+    });
+  });
+
+  describe('isFemale', () => {
+    it('is true only for sex === 1', () => {
+      expect(SEX_FEMALE).toBe(1);
+      expect(isFemale({ sex: 1 })).toBe(true);
+    });
+
+    it('is false for male (0)', () => {
+      expect(isFemale({ sex: 0 })).toBe(false);
+    });
+
+    it('is false for unrecorded (2) — must never put a boy in the girls list', () => {
+      expect(isFemale({ sex: 2 })).toBe(false);
+    });
+
+    it('is false for the synthetic walkover value (-1)', () => {
+      expect(isFemale({ sex: -1 })).toBe(false);
+    });
+
+    it('is false for null/undefined players and unset sex', () => {
+      expect(isFemale(null)).toBe(false);
+      expect(isFemale(undefined)).toBe(false);
+      expect(isFemale({})).toBe(false);
+      expect(isFemale({ sex: null })).toBe(false);
     });
   });
 });
