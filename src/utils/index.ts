@@ -65,7 +65,9 @@ export {
   getPlayerRatingByRoundType,
   getPrimaryRatingType,
   getPlayerRatingStrict,
-  formatPlayerName
+  formatPlayerName,
+  SEX_FEMALE,
+  isFemale
 } from './ratingUtils';
 export {
   getTournamentStatus,

@@ -66,7 +66,18 @@ export interface PlayerInfoDto {
     lastName: string;
     /** Date of birth */
     birthdate: string;
-    /** Sex (0=Male, 1=Female) — verified against live data (e.g. girls-only groups are all 1) */
+    /**
+     * SSF sex code (verified against live data):
+     * - `0`  male — but also the value consumers get when fabricating a
+     *        placeholder player, so `sex === 0` is not a reliable male marker.
+     * - `1`  female (girls-only groups are uniformly `1`).
+     * - `2`  unrecorded — the field was never filled in (common in bulk
+     *        school-club registrations); a gender mix, **not** a third category.
+     * - `-1` not a real member (synthetic walkover/"Frirond" row, id `-100`).
+     *
+     * `2` must not be treated as female. Prefer {@link isFemale} over comparing
+     * this field directly.
+     */
     sex: number;
     /** FIDE ID */
     fideid: number;
