@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`Sex` constants + `SexType`.** Named constants for the `PlayerInfoDto.sex` codes — `Sex.MALE` (0), `Sex.FEMALE` (1), `Sex.UNRECORDED` (2), `Sex.NON_MEMBER` (-1) — so consumers stop scattering magic numbers (e.g. in test fixtures). `MALE`/`FEMALE` are verified against live data; `UNRECORDED`/`NON_MEMBER` are inferred pending confirmation from schack.se — if that confirmation renames them, it will be a deliberate breaking change (surfacing at consumers' call sites, which is intended).
+
+### Removed
+
+- **`SEX_FEMALE`** (introduced in 0.14.0) — redundant with `Sex.FEMALE`. Use `Sex.FEMALE`, or `isFemale(player)` for the check.
+
 ## 0.14.0
 
 ### Added
