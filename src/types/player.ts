@@ -75,8 +75,8 @@ export interface PlayerInfoDto {
      *        school-club registrations); a gender mix, **not** a third category.
      * - `-1` not a real member (synthetic walkover/"Frirond" row, id `-100`).
      *
-     * `2` must not be treated as female. Prefer {@link isFemale} over comparing
-     * this field directly.
+     * `2` must not be treated as female. Prefer {@link isFemale} (or the
+     * {@link Sex} constants) over comparing this field directly.
      */
     sex: number;
     /** FIDE ID */

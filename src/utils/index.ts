@@ -66,7 +66,8 @@ export {
   getPrimaryRatingType,
   getPlayerRatingStrict,
   formatPlayerName,
-  SEX_FEMALE,
+  Sex,
+  type SexType,
   isFemale
 } from './ratingUtils';
 export {

@@ -9,7 +9,7 @@ import {
   getKFactorForRating,
   getPlayerRatingByAlgorithm,
   isFemale,
-  SEX_FEMALE
+  Sex
 } from '../../src/utils/ratingUtils';
 import { RatingAlgorithm } from '../../src/types/ratingAlgorithm';
 import type { MemberFIDERatingDTO } from '../../src/types';
@@ -289,22 +289,30 @@ describe('ratingUtils', () => {
     });
   });
 
+  describe('Sex', () => {
+    it('maps the SSF sex codes', () => {
+      expect(Sex.MALE).toBe(0);
+      expect(Sex.FEMALE).toBe(1);
+      expect(Sex.UNRECORDED).toBe(2);
+      expect(Sex.NON_MEMBER).toBe(-1);
+    });
+  });
+
   describe('isFemale', () => {
-    it('is true only for sex === 1', () => {
-      expect(SEX_FEMALE).toBe(1);
-      expect(isFemale({ sex: 1 })).toBe(true);
+    it('is true only for Sex.FEMALE', () => {
+      expect(isFemale({ sex: Sex.FEMALE })).toBe(true);
     });
 
-    it('is false for male (0)', () => {
-      expect(isFemale({ sex: 0 })).toBe(false);
+    it('is false for male (Sex.MALE)', () => {
+      expect(isFemale({ sex: Sex.MALE })).toBe(false);
     });
 
-    it('is false for unrecorded (2) — must never put a boy in the girls list', () => {
-      expect(isFemale({ sex: 2 })).toBe(false);
+    it('is false for unrecorded (Sex.UNRECORDED) — must never put a boy in the girls list', () => {
+      expect(isFemale({ sex: Sex.UNRECORDED })).toBe(false);
     });
 
-    it('is false for the synthetic walkover value (-1)', () => {
-      expect(isFemale({ sex: -1 })).toBe(false);
+    it('is false for the synthetic non-member value (Sex.NON_MEMBER)', () => {
+      expect(isFemale({ sex: Sex.NON_MEMBER })).toBe(false);
     });
 
     it('is false for null/undefined players and unset sex', () => {

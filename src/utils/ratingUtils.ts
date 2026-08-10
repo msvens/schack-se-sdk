@@ -543,20 +543,43 @@ export function formatPlayerName(
 }
 
 /**
- * The SSF `sex` code for female. See {@link isFemale} and the `sex` field on
- * `PlayerInfoDto` for the full encoding.
+ * SSF `sex` codes (see the `sex` field on `PlayerInfoDto`). Verified against
+ * live data for `MALE`/`FEMALE`; `UNRECORDED`/`NON_MEMBER` are inferred from
+ * sampling and pending confirmation from schack.se.
  */
-export const SEX_FEMALE = 1;
+export const Sex = {
+  /**
+   * Male — but also the value you get from a fabricated/placeholder player, so
+   * reading `sex === 0` from arbitrary data does not prove male (there is
+   * deliberately no `isMale`; this constant is for constructing/labelling).
+   */
+  MALE: 0,
+  /** Female. Girls-only groups are uniformly this value. */
+  FEMALE: 1,
+  /**
+   * Unrecorded — the field was never filled in (common in bulk school-club
+   * registrations); a gender mix, **not** female. Meaning inferred, to be
+   * confirmed with schack.se.
+   */
+  UNRECORDED: 2,
+  /**
+   * Not a real member — synthetic walkover/"Frirond" row (member id `-100`).
+   * Meaning inferred, to be confirmed with schack.se.
+   */
+  NON_MEMBER: -1,
+} as const;
+
+export type SexType = typeof Sex[keyof typeof Sex];
 
 /**
  * Whether a player is female, i.e. `sex === 1` exactly.
  *
- * Strict by design: `2` means "unrecorded" (a gender mix, common in bulk
- * school-club registrations) and must never be read as female, and `0` doubles
- * as the placeholder default consumers use when fabricating a player — so there
- * is deliberately no `isMale` counterpart (`sex === 0` does not prove male).
- * Null/undefined players or an unset `sex` return `false`.
+ * Strict by design: `2` ({@link Sex.UNRECORDED}) is a gender mix and must never
+ * be read as female, and `0` ({@link Sex.MALE}) doubles as the placeholder
+ * default consumers use when fabricating a player — so there is deliberately no
+ * `isMale` counterpart (`sex === 0` does not prove male). Null/undefined players
+ * or an unset `sex` return `false`.
  */
 export function isFemale(player: { sex?: number | null } | null | undefined): boolean {
-  return player?.sex === SEX_FEMALE;
+  return player?.sex === Sex.FEMALE;
 }
