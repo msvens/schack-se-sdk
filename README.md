@@ -321,6 +321,49 @@ const numeral = toRomanNumeral(4); // "IV"
 const formatter = createTeamNameFormatter(results, getClubName);
 ```
 
+### Prize categories ("Age & Ranking prizes")
+
+A tournament group can carry side prizes on `group.prizeCategories` — rating
+bands, age bands, a women's prize, a senior (60+) prize. The SDK interprets the
+federation's encoding and matches players, so you don't re-derive which `type`
+means ages vs Elo:
+
+```typescript
+import {
+  parsePrizeCategory,
+  resolvePrizeMembers,
+  isPrizeCategory,
+  PrizeCategoryType,
+  findTournamentGroup,
+} from '@msvens/schack-se-sdk';
+
+const group = findTournamentGroup(tournament, groupId)?.group;
+const prizes = (group?.prizeCategories ?? []).filter(isPrizeCategory);
+
+for (const category of prizes) {
+  const rule = parsePrizeCategory(category);
+  // rule.kind: 'rating' | 'age' | 'senior' | 'women' | 'smclass' | 'unknown'
+
+  // Eligible contender ids, from the standings you already fetched (pure — no network):
+  const memberIds = resolvePrizeMembers(category, standings, {
+    tournamentYear: 2025,
+    rankingAlgorithm: group.rankingAlgorithm,
+  });
+}
+```
+
+Matching uses the same rating the standings table shows
+(`getPlayerRatingByAlgorithm`, so a player's band membership and displayed rating
+always agree, including fallback ratings). An unrated player counts only toward a
+rating band starting at 0 (the organiser's catch-all). A women's prize matches
+every female (`isFemale`). `chessAge(birthdate, tournamentYear)` gives the SSF
+age (`tournamentYear − birthYear`) used by age and senior bands.
+
+> Two edge rules are documented as inferred, pending confirmation from schack.se:
+> the exact senior reference-year (the official site can list a player turning 60
+> the following year), and whether a women's prize with rating bounds ever
+> restricts by rating (no live example exists — bounds are currently not applied).
+
 ### Replaying standings (round-by-round)
 
 A best-effort "playback" of how a tournament's standings evolved after each

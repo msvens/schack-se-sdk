@@ -255,6 +255,32 @@ export function isJuniorPlayer(birthdate: string | null | undefined, gameDate?: 
 }
 
 /**
+ * A player's "chess age" for a tournament: `tournamentYear - birthYear`.
+ *
+ * This is the age convention used throughout SSF (age bands, senior/veteran
+ * prizes, junior classification) — the age you reach by the end of the
+ * tournament's calendar year, not the exact age on a given day.
+ *
+ * The year is taken from the first four characters of the birthdate string
+ * (SSF sends `"2014"` or `"2014-05-01"`), deliberately NOT via
+ * `new Date(birthdate).getFullYear()`, which shifts a year-only value to the
+ * previous year in negative-UTC timezones.
+ *
+ * @param birthdate - SSF birthdate string (year, or `YYYY-MM-DD`)
+ * @param tournamentYear - Calendar year the tournament is played in
+ * @returns The chess age, or `null` if the birthdate has no parseable year
+ */
+export function chessAge(
+  birthdate: string | null | undefined,
+  tournamentYear: number
+): number | null {
+  if (!birthdate) return null;
+  const birthYear = Number.parseInt(String(birthdate).slice(0, 4), 10);
+  if (!Number.isFinite(birthYear)) return null;
+  return tournamentYear - birthYear;
+}
+
+/**
  * Get the appropriate K-factor for ELO calculations based on rating type
  *
  * FIDE K-factor rules (same for standard, rapid, and blitz):

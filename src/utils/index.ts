@@ -68,7 +68,8 @@ export {
   formatPlayerName,
   Sex,
   type SexType,
-  isFemale
+  isFemale,
+  chessAge
 } from './ratingUtils';
 export {
   getTournamentStatus,
@@ -94,6 +95,15 @@ export {
   getGroupName,
   type TournamentGroupResult
 } from './tournamentGroupUtils';
+export {
+  PrizeCategoryType,
+  type PrizeCategoryTypeValue,
+  type PrizeRule,
+  type PrizeEligibilityOptions,
+  isPrizeCategory,
+  parsePrizeCategory,
+  resolvePrizeMembers
+} from './prizeCategories';
 export {
   getMonthStart,
   getMonthStartString,

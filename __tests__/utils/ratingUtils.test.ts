@@ -9,7 +9,8 @@ import {
   getKFactorForRating,
   getPlayerRatingByAlgorithm,
   isFemale,
-  Sex
+  Sex,
+  chessAge
 } from '../../src/utils/ratingUtils';
 import { RatingAlgorithm } from '../../src/types/ratingAlgorithm';
 import type { MemberFIDERatingDTO } from '../../src/types';
@@ -320,6 +321,31 @@ describe('ratingUtils', () => {
       expect(isFemale(undefined)).toBe(false);
       expect(isFemale({})).toBe(false);
       expect(isFemale({ sex: null })).toBe(false);
+    });
+  });
+
+  describe('chessAge', () => {
+    it('computes tournamentYear - birthYear from a year-only birthdate', () => {
+      expect(chessAge('2013', 2025)).toBe(12);
+      expect(chessAge('2000', 2025)).toBe(25);
+    });
+
+    it('reads the year from a full YYYY-MM-DD birthdate', () => {
+      expect(chessAge('2010-05-01', 2025)).toBe(15);
+      // Year is taken from the first 4 chars, not via Date parsing, so a
+      // December birthdate does not slip to the previous year in negative TZs.
+      expect(chessAge('2010-12-31', 2025)).toBe(15);
+    });
+
+    it('handles the synthetic walkover birthdate', () => {
+      expect(chessAge('1970', 2025)).toBe(55);
+    });
+
+    it('returns null when there is no parseable year', () => {
+      expect(chessAge('', 2025)).toBeNull();
+      expect(chessAge(null, 2025)).toBeNull();
+      expect(chessAge(undefined, 2025)).toBeNull();
+      expect(chessAge('abcd', 2025)).toBeNull();
     });
   });
 });
