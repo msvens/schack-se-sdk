@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Prize categories (interpretation + matching).** New helpers turn a tournament group's raw `prizeCategories` into described rules and match players to them, so consumers no longer re-derive the federation's own encoding (which `type` means ages vs Elo vs age≥60):
+  - `PrizeCategoryType` constants (AGE / WOMEN / SENIOR / RATING / SMCLASS), confirmed by schack.se.
+  - `isPrizeCategory(c)` — a prize (`usagetype 1`) vs an entry restriction from `registrationCategories`.
+  - `parsePrizeCategory(c): PrizeRule` — interpret a raw category (`rating` / `age` / `senior` / `women` / `smclass` / `unknown`).
+  - `resolvePrizeMembers(category, results, opts): number[]` — pure matcher over individual standings (no network). Rating bands (fallback ratings count, matching the standings table; unrated eligible only in a 0-start catch-all band), age bands (`chessAge`), senior (age ≥ 60), women (any female — bounds not applied). Verified against resultat.schack.se across the rating/age/women categories of five reference tournaments.
+  - `chessAge(birthdate, tournamentYear)` — `tournamentYear − birthYear`, the SSF age convention.
+- Known open questions (documented, pending schack.se): the exact senior reference-year rule (the official site can include a player turning 60 the following year), and whether a women's prize with rating bounds ever restricts by rating (no live example exists).
+
 ## 0.14.1
 
 ### Added

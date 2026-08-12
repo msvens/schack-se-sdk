@@ -45,6 +45,7 @@ export {
   getPrimaryRatingType,
   getPlayerRatingStrict,
   isJuniorPlayer,
+  chessAge,
   isFemale,
   Sex,
   type SexType,
@@ -77,6 +78,15 @@ export {
   getGroupName,
   type TournamentGroupResult
 } from './utils/tournamentGroupUtils';
+export {
+  PrizeCategoryType,
+  type PrizeCategoryTypeValue,
+  type PrizeRule,
+  type PrizeEligibilityOptions,
+  isPrizeCategory,
+  parsePrizeCategory,
+  resolvePrizeMembers
+} from './utils/prizeCategories';
 export {
   getTournamentStatus,
   isUpcoming,
