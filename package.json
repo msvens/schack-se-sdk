@@ -25,24 +25,30 @@
       "types": "./dist/utils/index.d.ts",
       "import": "./dist/utils/index.mjs",
       "require": "./dist/utils/index.js"
+    },
+    "./corpus": {
+      "types": "./dist/corpus/index.d.ts",
+      "import": "./dist/corpus/index.mjs",
+      "require": "./dist/corpus/index.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsup src/index.ts src/services/index.ts src/types/index.ts src/utils/index.ts --format cjs,esm && tsc -p tsconfig.build.json --emitDeclarationOnly --outDir dist",
+    "build": "rm -rf dist && tsup src/index.ts src/services/index.ts src/types/index.ts src/utils/index.ts src/corpus/index.ts --format cjs,esm && tsc -p tsconfig.build.json --emitDeclarationOnly --outDir dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude='**/*.integration.test.ts'",
     "test:integration": "vitest run integration --retry=2",
     "test:watch": "vitest",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "preflight": "pnpm check && pnpm test:integration",
-    "prepare": "rm -rf dist && tsup src/index.ts src/services/index.ts src/types/index.ts src/utils/index.ts --format cjs,esm && tsc -p tsconfig.build.json --emitDeclarationOnly --outDir dist",
+    "prepare": "rm -rf dist && tsup src/index.ts src/services/index.ts src/types/index.ts src/utils/index.ts src/corpus/index.ts --format cjs,esm && tsc -p tsconfig.build.json --emitDeclarationOnly --outDir dist",
     "prepublishOnly": "pnpm build",
     "clean": "rm -rf dist",
     "api:check": "bash scripts/api-check.sh",
     "api:update": "bash scripts/api-update.sh",
+    "corpus:verify": "node scripts/corpus-verify.mjs",
     "release": "bash scripts/release.sh"
   },
   "devDependencies": {

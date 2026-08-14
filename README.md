@@ -570,7 +570,62 @@ import type { PlayerInfoDto } from '@msvens/schack-se-sdk/types';
 
 // Just utilities
 import { calculateExpectedScore } from '@msvens/schack-se-sdk/utils';
+
+// The test-data corpus (not re-exported from the root — keeps it out of your bundle)
+import { findCorpusEntries } from '@msvens/schack-se-sdk/corpus';
 ```
+
+## Test-data corpus
+
+A curated catalogue of **real** SSF tournaments and groups that illustrate specific
+data shapes, encodings and anomalies — a rating-chain event, a `0 - 0` double
+forfeit, `sex = 2` (unrecorded), the senior 59-year-old boundary, and so on. It's a
+shared resource for writing tests and hunting anomalies against real data, used by
+both this SDK and its consumers.
+
+It's a **catalogue, not a fixture folder**: most entries answer *"show me a real
+example of X"*, keyed by tags. Every claim carries an `observed` date — SSF data
+drifts, so treat counts as as-of that date.
+
+```typescript
+import { findCorpusEntries, getCorpusEntry } from '@msvens/schack-se-sdk/corpus';
+
+// Everything tagged 'walkover'
+const walkovers = findCorpusEntries({ tags: ['walkover'] });
+
+// Entries carrying ALL of these tags
+const womenUnrated = findCorpusEntries({ allTags: ['prize-women', 'unrated-players'] });
+
+// Just the documented upstream anomalies
+const anomalies = findCorpusEntries({ anomaly: true });
+
+// By id
+const senior = getCorpusEntry('vasteras-open-2025-senior-boundary');
+// -> { tournamentId: 5835, groupId: 16642, tags: ['prize-senior', 'anomaly'], ... }
+```
+
+`findCorpusEntries(filter)` supports `tags` (match ANY), `allTags` (match ALL),
+`anomaly`, `hasGroupId`, and `hasTournamentId`. `corpusEntries` is the full array and
+`CORPUS_TAGS` the declared tag vocabulary.
+
+**Verifying / keeping it fresh.** `pnpm corpus:verify` checks every entry's ids
+against live SSF (does it still resolve?) and flags `observed` dates older than 90
+days. It's not part of `pnpm check`; run it manually or on a schedule.
+
+### Contributing an entry
+
+The corpus lives at `src/corpus/ssf-corpus.json` and is meant to grow. To add one,
+append an entry with a stable, kebab-case `id` and the fields the schema documents
+(`tournamentId`/`groupId` — `null` for a conceptual entry — `name`, `tags`,
+`illustrates`, `note`, `observed`, optional `anomaly`). Conventions:
+
+- Every tag must be declared in `_meta.tags`. Put the **numbers/ids that make it
+  useful** in `note`, and set `observed` to the date you verified it.
+- Counts drift — say what was true *as of* `observed`; don't assert exact counts you
+  can't keep current.
+
+Run `pnpm test` (validates the corpus is well-formed) and, ideally, `pnpm
+corpus:verify`, then open a PR.
 
 ## API URLs & CORS
 

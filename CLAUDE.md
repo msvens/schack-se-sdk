@@ -12,6 +12,7 @@ Consumed via git tag, not npm. Full usage docs: README.md. Release: RELEASE.md.
 - Live FIDE integration only: `pnpm test:integration`  # hits api.chesstools.org; skips cleanly if it's down
 - Release (tag-only): `pnpm release X.Y.Z`
 - API spec drift: `pnpm api:check`
+- Test-data corpus drift (live, not in CI): `pnpm corpus:verify`  # checks src/corpus/ssf-corpus.json ids still resolve
 
 # Conventions
 
