@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Test-data corpus (`@msvens/schack-se-sdk/corpus`).** A curated, shipped catalogue of real SSF tournaments/groups that illustrate specific data shapes and anomalies (rating chains, `0 - 0` double forfeits, `sex = 2` unrecorded, the senior 59-year-old boundary, …) — a shared resource for the SDK's tests and its consumers. Exposed on a new `./corpus` subpath (not the root, to keep it out of production bundles): `findCorpusEntries(filter)` (by `tags` ANY / `allTags` ALL / `anomaly` / `hasGroupId` / `hasTournamentId`), `getCorpusEntry(id)`, `corpusEntries`, `CORPUS_TAGS`, and the `CorpusEntry` type. It's a catalogue, not a fixture folder — every entry carries an `observed` date since SSF data drifts.
+- **`pnpm corpus:verify`** — checks each corpus entry's ids still resolve against live SSF and flags stale `observed` dates (not part of `pnpm check`). See the README "Test-data corpus" section for the query API and how to contribute an entry.
+
 ## 0.15.0
 
 ### Added
