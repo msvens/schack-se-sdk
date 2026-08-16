@@ -69,6 +69,7 @@ export {
   Sex,
   type SexType,
   isFemale,
+  birthYearOf,
   chessAge
 } from './ratingUtils';
 export {

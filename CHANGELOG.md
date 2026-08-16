@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`birthYearOf(birthdate)`** — extracts the birth year from an SSF birthdate string (`"2014"` or `"2014-05-01"`), taken from the first four characters (never via `new Date()`, which slips a year for year-only strings in negative-UTC timezones). Returns `number | null`. `chessAge` now derives its birth year from this helper, so the pair shares one implementation.
+
 ## 0.16.0
 
 ### Added

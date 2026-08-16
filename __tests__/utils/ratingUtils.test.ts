@@ -10,7 +10,8 @@ import {
   getPlayerRatingByAlgorithm,
   isFemale,
   Sex,
-  chessAge
+  chessAge,
+  birthYearOf
 } from '../../src/utils/ratingUtils';
 import { RatingAlgorithm } from '../../src/types/ratingAlgorithm';
 import type { MemberFIDERatingDTO } from '../../src/types';
@@ -346,6 +347,22 @@ describe('ratingUtils', () => {
       expect(chessAge(null, 2025)).toBeNull();
       expect(chessAge(undefined, 2025)).toBeNull();
       expect(chessAge('abcd', 2025)).toBeNull();
+    });
+  });
+
+  describe('birthYearOf', () => {
+    it('reads the year from year-only and full birthdate strings', () => {
+      expect(birthYearOf('2013')).toBe(2013);
+      expect(birthYearOf('2010-05-01')).toBe(2010);
+      // First 4 chars, not Date parsing — a December date does not slip a year.
+      expect(birthYearOf('2010-12-31')).toBe(2010);
+    });
+
+    it('returns null when there is no parseable year', () => {
+      expect(birthYearOf('')).toBeNull();
+      expect(birthYearOf(null)).toBeNull();
+      expect(birthYearOf(undefined)).toBeNull();
+      expect(birthYearOf('abcd')).toBeNull();
     });
   });
 });

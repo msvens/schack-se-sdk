@@ -45,6 +45,7 @@ export {
   getPrimaryRatingType,
   getPlayerRatingStrict,
   isJuniorPlayer,
+  birthYearOf,
   chessAge,
   isFemale,
   Sex,

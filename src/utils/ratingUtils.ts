@@ -255,16 +255,28 @@ export function isJuniorPlayer(birthdate: string | null | undefined, gameDate?: 
 }
 
 /**
+ * Extract the birth year from an SSF birthdate string.
+ *
+ * The year is taken from the first four characters (SSF sends `"2014"` or
+ * `"2014-05-01"`), deliberately NOT via `new Date(birthdate).getFullYear()`,
+ * which shifts a year-only value to the previous year in negative-UTC timezones.
+ *
+ * @param birthdate - SSF birthdate string (year, or `YYYY-MM-DD`)
+ * @returns The birth year, or `null` if there is no parseable year
+ */
+export function birthYearOf(birthdate: string | null | undefined): number | null {
+  if (!birthdate) return null;
+  const year = Number.parseInt(String(birthdate).slice(0, 4), 10);
+  return Number.isFinite(year) ? year : null;
+}
+
+/**
  * A player's "chess age" for a tournament: `tournamentYear - birthYear`.
  *
  * This is the age convention used throughout SSF (age bands, senior/veteran
  * prizes, junior classification) — the age you reach by the end of the
- * tournament's calendar year, not the exact age on a given day.
- *
- * The year is taken from the first four characters of the birthdate string
- * (SSF sends `"2014"` or `"2014-05-01"`), deliberately NOT via
- * `new Date(birthdate).getFullYear()`, which shifts a year-only value to the
- * previous year in negative-UTC timezones.
+ * tournament's calendar year, not the exact age on a given day. The birth year
+ * is parsed by {@link birthYearOf}.
  *
  * @param birthdate - SSF birthdate string (year, or `YYYY-MM-DD`)
  * @param tournamentYear - Calendar year the tournament is played in
@@ -274,10 +286,8 @@ export function chessAge(
   birthdate: string | null | undefined,
   tournamentYear: number
 ): number | null {
-  if (!birthdate) return null;
-  const birthYear = Number.parseInt(String(birthdate).slice(0, 4), 10);
-  if (!Number.isFinite(birthYear)) return null;
-  return tournamentYear - birthYear;
+  const birthYear = birthYearOf(birthdate);
+  return birthYear === null ? null : tournamentYear - birthYear;
 }
 
 /**
