@@ -7,6 +7,11 @@ import {
   TournamentService
 } from "./chunk-XGXV5SX5.mjs";
 import {
+  MemberCategory,
+  PlayerCategory,
+  RatingType
+} from "./chunk-M35RJ2XX.mjs";
+import {
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
   RoundRatedType,
@@ -82,11 +87,6 @@ import {
   isWalkover,
   isWalkoverResult
 } from "./chunk-T4K5ZM7T.mjs";
-import {
-  MemberCategory,
-  PlayerCategory,
-  RatingType
-} from "./chunk-M35RJ2XX.mjs";
 import {
   PairingSystem,
   PointSystem,
