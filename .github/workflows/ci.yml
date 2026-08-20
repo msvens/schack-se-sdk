@@ -29,5 +29,27 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # dist/ is committed, so consumers installing from a git tag run no build
+      # scripts. This checks the bytes the tag actually ships, so it must run
+      # BEFORE the build step overwrites them (install no longer runs `prepare`).
+      #
+      # Deliberately a load test, not a diff against a fresh build: esbuild emits
+      # chunk imports in a non-deterministic order, so dist/index.mjs is not
+      # byte-reproducible and an exact comparison would fail releases at random.
+      # scripts/release.sh is the real staleness guarantee — it always rebuilds
+      # and stages dist/ in the release commit.
+      - name: Smoke-test committed dist/ (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          test -s dist/index.d.ts || { echo "ERROR: dist/index.d.ts missing or empty" >&2; exit 1; }
+          node -e "const m = require('./dist/index.js'); if (!m.configure) throw new Error('CJS entry does not export configure'); console.log('CJS entry ok')"
+          node --input-type=module -e "
+            const m = await import('./dist/index.mjs');
+            if (!m.configure) throw new Error('ESM entry does not export configure');
+            const c = await import('./dist/corpus/index.mjs');
+            if (!c.corpusEntries) throw new Error('corpus subpath does not export corpusEntries');
+            console.log('ESM entry + corpus subpath ok');
+          "
+
       - name: Build
         run: pnpm build
