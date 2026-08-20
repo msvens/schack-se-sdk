@@ -1,0 +1,446 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/corpus/index.ts
+var corpus_exports = {};
+__export(corpus_exports, {
+  CORPUS_TAGS: () => CORPUS_TAGS,
+  corpusEntries: () => corpusEntries,
+  findCorpusEntries: () => findCorpusEntries,
+  getCorpusEntry: () => getCorpusEntry,
+  ssfCorpus: () => ssfCorpus
+});
+module.exports = __toCommonJS(corpus_exports);
+
+// src/corpus/ssf-corpus.json
+var ssf_corpus_default = {
+  _meta: {
+    purpose: "A curated catalogue of real SSF tournaments and groups that illustrate specific data shapes, encodings and anomalies. Intended for discovery, verifying new features, hunting anomalies \u2014 and, where useful, as a source of test fixtures. NOT a test-fixture folder: most entries exist to answer 'show me a real example of X'.",
+    seededBy: "sthlmschack-reimagined, 2026-08-08..11, while building result rendering, the women filter and prize categories",
+    schema: {
+      id: "stable kebab-case slug; never reuse",
+      tournamentId: "SSF tournament id (/tournament/tournament/id/{id})",
+      groupId: "SSF group id, null for tournament-level entries (/tournamentresults/table/id/{id})",
+      name: "human label as it appears in the API",
+      tags: "queryable topics; see _meta.tags",
+      illustrates: "one line: what this entry is an example OF",
+      note: "detail worth knowing \u2014 the numbers that make it useful",
+      observed: "ISO date the claim was last verified against live data",
+      anomaly: "true when the entry documents something broken or contradictory upstream"
+    },
+    conventions: [
+      "Every claim carries an `observed` date. SSF data drifts \u2014 a club vanished from a district listing mid-investigation on 2026-08-10 \u2014 so an unverified entry is a hypothesis, not a fact.",
+      "Counts are as-of `observed` and will move as results are published or ratings are recalculated.",
+      "Prize categories live on the GROUP but are only reachable via the tournament payload; use findTournamentGroup rather than walking one level."
+    ],
+    tags: [
+      "prize-categories",
+      "prize-age",
+      "prize-rating",
+      "prize-women",
+      "prize-senior",
+      "registration-categories",
+      "rating-algorithm",
+      "unrated-players",
+      "result-codes",
+      "postponed",
+      "walkover",
+      "adjudicated",
+      "gender",
+      "girls-only",
+      "schackfyran",
+      "team-tournament",
+      "loose-team",
+      "tournament-type",
+      "round-robin",
+      "legacy-data",
+      "jgp",
+      "org-data",
+      "anomaly"
+    ],
+    lastReviewed: "2026-08-13"
+  },
+  entries: [
+    {
+      id: "vasteras-open-2025-all-prize-types",
+      tournamentId: 5835,
+      groupId: 16642,
+      name: "V\xE4ster\xE5s Open 2025",
+      tags: [
+        "prize-categories",
+        "prize-rating",
+        "prize-age",
+        "prize-women",
+        "prize-senior"
+      ],
+      illustrates: "A group carrying all four prize types at once \u2014 the richest single example for prize work.",
+      note: "8 rating bands (R1 2094-2153 \u2026 R8 0-1783), Junior (age 0-20), Dam (bounds 0-0, unset), Veteran. 72 players; 14 are aged 60+, 3 are women, 0 are unrated. rankingAlgorithm=1 (standard).",
+      observed: "2026-08-11"
+    },
+    {
+      id: "vasteras-open-2025-senior-junk-bounds",
+      tournamentId: 5835,
+      groupId: 16643,
+      name: "Lilla V\xE4ster\xE5s Open 2025",
+      tags: [
+        "prize-senior",
+        "prize-rating",
+        "unrated-players",
+        "anomaly"
+      ],
+      illustrates: "SENIOR (type 3) bounds are meaningless, and the unrated-players catch-all band.",
+      note: "Veteran is declared -1--1 here but 0-50 in its sister group 16642 \u2014 same tournament, same prize. Proof the field is unused and the rule is the constant age>=60. Also carries R3 (0-1000) with 12 of 33 players unrated (rating:0) \u2014 the group that exposed the unrated-matching bug.",
+      observed: "2026-08-11",
+      anomaly: true
+    },
+    {
+      id: "vasteras-open-2025-senior-boundary",
+      tournamentId: 5835,
+      groupId: 16642,
+      name: "V\xE4ster\xE5s Open 2025 \u2014 VETERAN 59-year-old boundary",
+      tags: [
+        "prize-senior",
+        "anomaly"
+      ],
+      illustrates: "The official SENIOR list can include a player who only turns 60 the FOLLOWING calendar year \u2014 contradicting a strict age>=60 on tournamentYear.",
+      note: "Played 2025-09-19..21 (a 3-day event, no spill into 2026). Veteran (type 3, prizeCategoryId 4022). Lennarth Eriksson (born 1966) is listed, but tournamentYear - birthYear = 2025 - 1966 = 59; the next-younger (born 1967, 58) is NOT listed. Cutoff sits at born <= 1966 = turns 60 during the 2025/26 season. The other veteran category (sister group 16643, same tournament) matches age>=60 exactly, so this is the lone discrepancy. Open question for schack.se: the SENIOR reference year (season year vs calendar year vs a manual add). The SDK ships age>=60 on tournamentYear and misses just this boundary case. Official list: https://resultat.schack.se/ShowTournamentServlet?id=16642&tournamentprizecatid=4022",
+      observed: "2026-08-13",
+      anomaly: true
+    },
+    {
+      id: "manhemknatten-2025-age-bands",
+      tournamentId: 5437,
+      groupId: 15743,
+      name: "Manhemknatten & Junioren 2025 \u2014 Mellanstadiet (2012-2014)",
+      tags: [
+        "prize-categories",
+        "prize-age"
+      ],
+      illustrates: "Proves AGE bands are ages computed as tournamentYear - birthYear.",
+      note: "Tournament starts 2025-03-08. Bands: '2014' = 11-11, '2013' = 12-12, '2012' = 13-13. The group is populated by players born 2012-2014. Sister group 15742 (L\xE5gstadiet) declares '2016-' = 1-9 and '2015' = 10-10.",
+      observed: "2026-08-11"
+    },
+    {
+      id: "stockholm-gp-2025-dampris-with-bounds",
+      tournamentId: 5682,
+      groupId: 16129,
+      name: "Stockholm Grand Prix 2025",
+      tags: [
+        "prize-women",
+        "unrated-players"
+      ],
+      illustrates: "The ONLY women's prize found carrying bounds \u2014 RESOLVED: the type-2 bounds are decorative; a women's prize is 'best woman' (female only).",
+      note: "'Dampris' 1400-2500 (prizeCategoryId 4122), usagetype=1, andlogic=-1. Resolved against resultat.schack.se: the discriminating case Yeganeh Ranjbar (unrated, age 26) IS listed under Dampris despite the 1400-2500 band, so the bounds do not filter. The SDK matches women as female-only, ignoring bounds. Still open (no live example): whether a women's prize can EVER be genuinely rating-restricted (e.g. 'b\xE4sta dam under 1600'). Official list: https://resultat.schack.se/ShowTournamentServlet?id=16129&tournamentprizecatid=4122",
+      observed: "2026-08-13"
+    },
+    {
+      id: "avenyn-open-2025-richest-prize-set",
+      tournamentId: 5681,
+      groupId: 16127,
+      name: "Avenyn Open 2025",
+      tags: [
+        "prize-categories",
+        "prize-rating",
+        "prize-age",
+        "prize-women"
+      ],
+      illustrates: "The largest prize-category set found \u2014 good stress test for any UI listing them.",
+      note: "23 categories: 19 rating bands + 3 age + 1 Dam. Runners-up: SM-Blixten (5864/16718, 22) and Elite Hotels Open 2026 (5684/16134, 19).",
+      observed: "2026-08-11"
+    },
+    {
+      id: "paskturneringen-2026-rating-only",
+      tournamentId: 5685,
+      groupId: 16136,
+      name: "P\xE5skturneringen 2026",
+      tags: [
+        "prize-rating"
+      ],
+      illustrates: "A clean rating-bands-only group; also a tournament-level thinkingTime string.",
+      note: "11 bands, R1 1575-1718 \u2026 R11 2127-2203. 145 players, 1 unrated. thinkingTime 'R 1-2: Snabb, R 3-8: L\xE5ngparti' is set on the TOURNAMENT and inherited by both groups. Sister group 16135 has a single band 'Ranking_lilla' 1418-1583.",
+      observed: "2026-08-11"
+    },
+    {
+      id: "sm-blixt-2025-blitz-rating-chain",
+      tournamentId: 5815,
+      groupId: 16583,
+      name: "SM i blixt 2025",
+      tags: [
+        "rating-algorithm",
+        "prize-rating"
+      ],
+      illustrates: "rankingAlgorithm 8 = BLITZ_STANDARD_RAPID \u2014 a priority chain, not a single rating type.",
+      note: "Bands are expressed in blitz ratings. 2 players in R1 (2145-2220) would be misbanded if compared on standard rating. Blitz events commonly use 8, NOT the single-type BLITZ_ELO (7).",
+      observed: "2026-08-11"
+    },
+    {
+      id: "sm-snabbschack-2025-rapid-rating-chain",
+      tournamentId: 5816,
+      groupId: 16584,
+      name: "SM i snabbschack 2025",
+      tags: [
+        "rating-algorithm",
+        "prize-rating",
+        "unrated-players"
+      ],
+      illustrates: "rankingAlgorithm 10 = RAPID_STANDARD_BLITZ; also proves prize rating bands count a FALLBACK rating.",
+      note: "7 players in R1 (2091-2209) would be misbanded on standard rating. Harald Hammarstr\xF6m: standard 0 (unrated) but rapid 2145 \u2014 unrated on one axis, a contender on the other. Fallback confirmed against resultat.schack.se: Torbj\xF6rn Umeg\xE5rd (rapid 0, standard 2063 = a FALLBACK for algo 10) IS listed under R2 (1998-2090) shown as '2063E' \u2014 so a rating prize bands a player on their fallback rating, matching the standings table. R2 official list: https://resultat.schack.se/ShowTournamentServlet?id=16584&tournamentprizecatid=4053",
+      observed: "2026-08-13"
+    },
+    {
+      id: "sm-2026-smclass-registration",
+      tournamentId: 5864,
+      groupId: null,
+      name: "SM 2026",
+      tags: [
+        "registration-categories"
+      ],
+      illustrates: "SMCLASS (type 5) appearing as a registration restriction, never as a prize.",
+      note: "Groups M\xE4starklassen-Elit / M\xE4starklassen / Klass I-III carry registrationCategories with type=5, usagetype=2 and values 0-0, 1-1, 2-2, 3-3. registrationCategories are entry restrictions, NOT prizes \u2014 distinguishable by usagetype.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "rating-cap-registration-category",
+      tournamentId: 5685,
+      groupId: 16135,
+      name: "Lilla P\xE5skturneringen 2026",
+      tags: [
+        "registration-categories",
+        "prize-rating"
+      ],
+      illustrates: "A rating CAP as an entry restriction, easily confused with a rating prize.",
+      note: "registrationCategories carries type=4 'Rankingsp\xE4rr 1750+' 0-1750, usagetype=2. Same type as a rating prize; only usagetype separates them. Also seen on Avenyn Open, Malm\xF6 Open, Elite Hotels Open.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "tjejtraffen-2026-girls-only",
+      tournamentId: 6336,
+      groupId: 17724,
+      name: "Tjejtr\xE4ffen 2026 \u2014 \xD6ppen",
+      tags: [
+        "gender",
+        "girls-only"
+      ],
+      illustrates: "Proves PlayerInfoDto.sex 1 = FEMALE (the SDK's JSDoc once claimed the reverse).",
+      note: "All 32 players are sex=1. Sister group 17725 (Nyb\xF6rjar) is 13/13. A girls-only event is the only clean way to pin the encoding. Also the case where a 'women only' filter must be HIDDEN \u2014 filtering to the whole field is a no-op.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "sex-unrecorded-school-clubs",
+      tournamentId: null,
+      groupId: null,
+      name: "Bulk school-club registrations",
+      tags: [
+        "gender",
+        "anomaly"
+      ],
+      illustrates: "sex=2 means UNRECORDED, not female \u2014 a gender mix, mostly bulk school registrations.",
+      note: "18 of 5174 sampled standings rows. Names are mixed (Tove Parck, Amanda Karlsson, yusef huseyin, David Mehrabi) plus a literal 'NN NN'. 14 come from IES Liljeholmen / IES Helsingborg / IES \xD6ster\xE5ker / Wallbergsskolan. Consequence: a few real girls are invisible to any gender filter. sex=-1 appears only on the synthetic walkover row (member -100).",
+      observed: "2026-08-10",
+      anomaly: true
+    },
+    {
+      id: "seniorserien-vt24-mixed-small",
+      tournamentId: 4366,
+      groupId: 13633,
+      name: "Seniorserien VT 24, klass 4",
+      tags: [
+        "gender",
+        "walkover",
+        "result-codes"
+      ],
+      illustrates: "A small mixed field with senior women \u2014 and the largest cluster of 0-0 walkovers found.",
+      note: "11 players, 4 women (Elfia Salejeva, Vida Radon, Brita Trybom, Mari-Anne Elsasdotter \u2014 all senior, which is why a gender filter must not be labelled 'girls'). 21 NO_WIN_WO rows across rounds. No prize categories.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "postponed-in-standard-individual",
+      tournamentId: 5661,
+      groupId: 16069,
+      name: "Svarta H\xE4sten KM 2025",
+      tags: [
+        "result-codes",
+        "postponed"
+      ],
+      illustrates: "The ONLY POSTPONED (code 100) found in a standard individual tournament.",
+      note: "1 row, round 6. Across 467 sampled groups, 296 of 297 POSTPONED rows are in Schackfyran groups (13613 has 50, 13641 has 44, 18056 has 126, 18057 has 71). Postponed carries homeResult=awayResult=0, so a naive 0-0 'unplayed' check swallows it.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "double-forfeit-cluster",
+      tournamentId: null,
+      groupId: 13633,
+      name: "NO_WIN_WO (-3) clusters",
+      tags: [
+        "result-codes",
+        "walkover"
+      ],
+      illustrates: "0-0 double forfeits \u2014 the dominant real-world case of a legitimately-zero result.",
+      note: "Groups 13633 (21 rows), 13605 (10), 13650 (1), 5685 (1). Renders as '0 - 0 w.o'. These plus 0-0 adj are the ~36 rows in 467 groups that a 0-0-first check wrongly flattens to a dash.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "adjudicated-both-no-result",
+      tournamentId: 463,
+      groupId: 3944,
+      name: "KM 2015/2016",
+      tags: [
+        "result-codes",
+        "adjudicated"
+      ],
+      illustrates: "BOTH_NO_RESULT (-10), rendered '0 - 0 adj' / Swedish 'domslut'.",
+      note: "Round 4, Daniel Jildholt vs Peter Holmgren. Rare: 2 occurrences in 467 groups. NOTE the Swedish term is 'domslut' (a ruling), NOT 'avbruten' \u2014 confirmed against resultat.schack.se. 'adj' abbreviates adjudicated, not adjourned.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "not-set-code-with-real-points",
+      tournamentId: null,
+      groupId: 3941,
+      name: "Schackfyran group with unset game codes",
+      tags: [
+        "result-codes",
+        "schackfyran",
+        "anomaly"
+      ],
+      illustrates: "games[0].result = NOT_SET (-100) while the row still carries real points.",
+      note: "Rounds 1/4/5 have homeResult 2.0 / awayResult 2.0 with code -100 \u2014 a Schackfyran draw (3-2-1 point system) whose game code was never set. Also group 5673 (rounds 1/5). Means NOT_SET must mean 'this code carries no information', not 'no result exists'; fall back to the row's points.",
+      observed: "2026-08-10",
+      anomaly: true
+    },
+    {
+      id: "team-row-games0-footgun",
+      tournamentId: 471,
+      groupId: 3958,
+      name: "Team tournament \u2014 games[0] is board 1",
+      tags: [
+        "team-tournament",
+        "result-codes"
+      ],
+      illustrates: "On a team row, games[] holds the boards and homeResult/awayResult holds the MATCH score.",
+      note: "Round 1, match 3 (38439 vs 38647): 5 boards with results [1,1,1,-1,0] and a match score of 1.5-3.5. Reading games[0].result gives '1 - 0' \u2014 plausible and completely wrong. Round 7 additionally has 5 boards all NOT_SET with a 5-0 match score.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "schackfyran-individually-paired-team",
+      tournamentId: null,
+      groupId: null,
+      name: "Schackfyran (tournament type 9)",
+      tags: [
+        "schackfyran",
+        "team-tournament"
+      ],
+      illustrates: "Identity-wise a team event, but individually paired \u2014 isTeamTournament true, isTeamPairing false.",
+      note: "No team-standings endpoint exists upstream for this format. Groups 3941, 5673, 13613, 13641, 13608, 13656 are examples. Uses the 3-2-1 point system, so a '2 - 2' row is a draw. Nearly all POSTPONED rows live here.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "jgp-stockholm-2026-open",
+      tournamentId: null,
+      groupId: null,
+      name: "Stockholm JGP 2026 \u2014 open division",
+      tags: [
+        "jgp",
+        "org-data"
+      ],
+      illustrates: "A season assembled from many groups, filtered by Stockholm district membership.",
+      note: "Five counting tournaments (Tyres\xF6, Trojanska H\xE4sten V\xE5r, SIS Chess, Wasa, SS 4 Springare); the girls division adds Tjejtr\xE4ffen for six. Eligibility is per-player via club -> district 5821 with active=1, NOT via girls-only groups: the girls series scores the same mixed groups as the open one.",
+      observed: "2026-08-10"
+    },
+    {
+      id: "manhems-schackvecka-2019-berger",
+      tournamentId: 1789,
+      groupId: 7563,
+      name: "Manhems Schackvecka 2019 \u2014 GM",
+      tags: [
+        "round-robin",
+        "result-codes"
+      ],
+      illustrates: "A round-robin (Berger) group \u2014 pairingSystemMember = BERGER, where the SDK ranks by Sonneborn-Berger, not Buchholz.",
+      note: "10 players, all-play-all GM group. Round-robin is where getRoundStandings uses the SB tie-break chain (Buchholz is FIDE-invalid here). Contrast with a Swiss group like 15816 (SSF Buchholz).",
+      observed: "2026-08-13"
+    },
+    {
+      id: "stockholmsserien-2011-12-legacy-team",
+      tournamentId: 292,
+      groupId: 3190,
+      name: "Stockholmsserien 2011/2012 \u2014 div IV",
+      tags: [
+        "team-tournament",
+        "legacy-data",
+        "anomaly"
+      ],
+      illustrates: "An old team event with incomplete/legacy round data \u2014 the team-standings self-verification downgrade case.",
+      note: "type=2 (ALLSVENSKAN, team). Legacy season whose round data is incomplete / uses an older match-point convention, so getRoundStandings self-verifies the reconstructed order against the official table and honestly downgrades to estimated rather than over-claiming 'exact'.",
+      observed: "2026-08-13",
+      anomaly: true
+    },
+    {
+      id: "skollags-sm-2026-team-type-2",
+      tournamentId: 6649,
+      groupId: null,
+      name: "Skollags-SM 2026",
+      tags: [
+        "tournament-type",
+        "team-tournament"
+      ],
+      illustrates: "A real team school championship encoded as type=2 (ALLSVENSKAN), NOT type=5 \u2014 a classification reality check.",
+      note: "isTeamTournament true. The intuitive 'SCHOOL_SM = type 5' is wrong for the TEAM Skol-SM: it uses type=2. Pair with skol-sm-2023 (type=5, individual) to see the distinction.",
+      observed: "2026-08-13"
+    },
+    {
+      id: "skol-sm-2023-individual-type-5",
+      tournamentId: 3933,
+      groupId: null,
+      name: "Skol-SM 2023",
+      tags: [
+        "tournament-type"
+      ],
+      illustrates: "type=5 (SCHOOL_SM) as an INDIVIDUAL event (playerListType=-1) \u2014 the counterpart to the type-2 team Skol-SM.",
+      note: "isTeamTournament false. Confirms type 5 is individual here, so tournament type alone does not imply team vs individual \u2014 pair with skollags-sm-2026-team-type-2.",
+      observed: "2026-08-13"
+    }
+  ]
+};
+
+// src/corpus/index.ts
+var ssfCorpus = ssf_corpus_default;
+var corpusEntries = ssfCorpus.entries;
+var CORPUS_TAGS = ssfCorpus._meta.tags;
+function getCorpusEntry(id) {
+  return corpusEntries.find((e) => e.id === id);
+}
+function findCorpusEntries(filter = {}) {
+  const { tags, allTags, anomaly, hasGroupId, hasTournamentId } = filter;
+  return corpusEntries.filter((e) => {
+    if (tags && !tags.some((t) => e.tags.includes(t))) return false;
+    if (allTags && !allTags.every((t) => e.tags.includes(t))) return false;
+    if (anomaly !== void 0 && Boolean(e.anomaly) !== anomaly) return false;
+    if (hasGroupId !== void 0 && e.groupId !== null !== hasGroupId) return false;
+    if (hasTournamentId !== void 0 && e.tournamentId !== null !== hasTournamentId) return false;
+    return true;
+  });
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  CORPUS_TAGS,
+  corpusEntries,
+  findCorpusEntries,
+  getCorpusEntry,
+  ssfCorpus
+});

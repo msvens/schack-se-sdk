@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
+# NOTE: dist/ is intentionally NOT ignored — it is committed so consumers
+# installing from a git tag get prebuilt output without running build scripts.
+# It is regenerated and staged by scripts/release.sh. See RELEASE.md.
 
 # IDE
 .idea/

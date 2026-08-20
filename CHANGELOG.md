@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Consumers no longer run build scripts when installing this package.** `dist/` is now committed and the `prepare` script is gone, so a git-tag install unpacks prebuilt output instead of building on the consumer's machine. Installing repos can drop their `onlyBuiltDependencies` entry for `@msvens/schack-se-sdk` and any pnpm version pin that entry forced.
+
+  Background: since pnpm 10.26, building a git-hosted dependency requires an explicit allowlist entry, and the matching rule changed again in 10.34.2 — a bare package name works on ≤ 10.34.1 and fails on ≥ 10.34.2, while a sha-qualified key does the reverse (and would need updating on every release). On pnpm 11 no working configuration exists at all. This is deliberate upstream behaviour (pnpm/pnpm#12856: name-only rules are registry-only and do not approve git artifacts), so it will not be fixed by waiting.
+
+  `prepare` had to go, not just `dist/` get committed: pnpm decides a git package needs to run build scripts purely from whether `prepare` exists, regardless of whether `dist/` is present.
+
+  For contributors: local `pnpm install` no longer builds — run `pnpm build` once after cloning (`pnpm check` also builds). `dist/` is refreshed and staged by `scripts/release.sh` at release time only; feature PRs should not rebuild or commit it. CI smoke-tests the committed `dist/` on tag pushes. See RELEASE.md.
+
 ## 0.17.0
 
 ### Added

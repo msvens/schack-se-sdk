@@ -97,9 +97,14 @@ else
 fi
 
 # ---------- 6. Commit ----------
+# dist/ is committed so consumers installing from the git tag get prebuilt output
+# and never run build scripts (there is no `prepare`). It was just rebuilt by
+# `pnpm check` above, and nothing in it embeds the package version, so staging it
+# here — after the bump — is correct. -A so removed build artifacts are staged too.
 echo ""
 echo "Committing as 'Release $VERSION'..."
 git add package.json "$CHANGELOG"
+git add -A -- dist
 git commit -m "Release $VERSION"
 
 # ---------- 7. Tag ----------
