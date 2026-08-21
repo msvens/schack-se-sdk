@@ -5,7 +5,7 @@ import {
   RegistrationService,
   ResultsService,
   TournamentService
-} from "./chunk-XGXV5SX5.mjs";
+} from "./chunk-ZP5ELYRS.mjs";
 import {
   MemberCategory,
   PlayerCategory,

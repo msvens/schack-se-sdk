@@ -131,10 +131,16 @@ var TournamentService = class extends BaseApiService {
    * @param startDate - Start date in ISO format (YYYY-MM-DDTHH:mm:ss)
    * @param endDate - End date in ISO format (YYYY-MM-DDTHH:mm:ss)
    * @param districtId - Optional district ID to filter by district and club tournaments
-   * @returns Array of tournaments with results updated within the date range
+   * @returns Array of tournaments whose results were updated within the date range
    * @example
-   * // Find tournaments with updated results in December 2024
-   * searchUpdatedTournamentsByTournament('2024-12-01T00:00:00', '2024-12-31T23:59:59')
+   * // Find tournaments whose results were updated in December 2024
+   * searchUpdatedTournaments('2024-12-01T00:00:00', '2024-12-31T23:59:59')
+   *
+   * @remarks
+   * The date range matches when results were last updated, not when the tournament
+   * was played. In practice the two track closely, but long-running events (a
+   * season-long KM) surface in any window their results happen to be touched.
+   * The endpoint may also return the same tournament more than once — dedupe by id.
    */
   async searchUpdatedTournaments(startDate, endDate, districtId, options) {
     const endpoint = districtId !== void 0 ? `/tournament/tournament/updated/${encodeURIComponent(startDate)}/${encodeURIComponent(endDate)}/${districtId}` : `/tournament/tournament/updated/${encodeURIComponent(startDate)}/${encodeURIComponent(endDate)}`;
@@ -142,14 +148,14 @@ var TournamentService = class extends BaseApiService {
   }
   /**
    * Search for tournament groups with results updated within a date range
-   * @deprecated Use searchUpdatedTournamentsByTournament() instead - returns full TournamentDto[] instead of group summaries
+   * @deprecated Use searchUpdatedTournaments() instead - returns full TournamentDto[] instead of group summaries
    * @param startDate - Start date in ISO format (YYYY-MM-DDTHH:mm:ss)
    * @param endDate - End date in ISO format (YYYY-MM-DDTHH:mm:ss)
    * @param districtId - Optional district ID to filter by district and club tournaments
-   * @returns Array of tournament groups that started within the date range
+   * @returns Array of tournament groups whose results were updated within the date range
    * @example
-   * // Find tournaments that started in December 2024 (may still be running)
-   * searchUpdatedTournaments('2024-12-01T00:00:00', '2024-12-31T23:59:59')
+   * // Find groups whose results were updated in December 2024
+   * searchUpdatedGroups('2024-12-01T00:00:00', '2024-12-31T23:59:59')
    */
   async searchUpdatedGroups(startDate, endDate, districtId, options) {
     const endpoint = districtId !== void 0 ? `/tournament/group/updated/${encodeURIComponent(startDate)}/${encodeURIComponent(endDate)}/${districtId}` : `/tournament/group/updated/${encodeURIComponent(startDate)}/${encodeURIComponent(endDate)}`;
