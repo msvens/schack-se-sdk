@@ -37,6 +37,17 @@ Consumed via git tag, not npm. Full usage docs: README.md. Release: RELEASE.md.
 - Feature PRs: don't bump `package.json` version; add notes under `## Unreleased`
   in CHANGELOG.md. Releasing is git-tag only — never tag a merge commit; use
   `pnpm release` (see RELEASE.md).
+- **`dist/` is committed and there is no `prepare` script — never re-add one and
+  never re-ignore `dist/`.** Consumers install from a git tag; a `prepare` script
+  would force every one of them to allowlist this package in pnpm's
+  `onlyBuiltDependencies`, which no single entry satisfies across pnpm versions
+  and which has no working form at all on pnpm 11. pnpm gates on `prepare`
+  *existing*, not on whether `dist/` is present, so the two go together. Don't
+  "fix" the resulting build non-determinism by disabling tsup code splitting
+  either — the entry points share one copy of `config.ts`, and unsplitting would
+  give each subpath its own and silently break `configure()`. See RELEASE.md.
+- Don't rebuild or commit `dist/` in a feature PR. `scripts/release.sh` refreshes
+  and stages it in the release commit; CI smoke-tests it on tag pushes only.
 
 # Behavior Rules
 
