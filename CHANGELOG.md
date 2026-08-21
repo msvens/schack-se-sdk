@@ -6,6 +6,7 @@
 
 - **`TournamentService` date-search docstrings.** `searchUpdatedGroups` documented its date range as matching tournaments that *started* within it; both it and the endpoint it wraps actually filter on when results were last **updated** (SSF: *"grupper med resultat som uppdaterats mellan datum"*). Its `@example` also demonstrated `searchUpdatedTournaments` rather than itself. Separately, both methods pointed at `searchUpdatedTournamentsByTournament()` — a method that has never existed — from `@deprecated` and `@example`, so the documented call would have thrown. Docs only; no behaviour change.
 - Documented on `searchUpdatedTournaments` that the window tracks result updates rather than play dates (long-running events surface in any window they are touched) and that the endpoint can return a tournament more than once, so callers should dedupe by id.
+- **Dev install on pnpm 11.** `pnpm install` aborted asking for an interactive `pnpm approve-builds`, because pnpm 11 gates esbuild's postinstall and replaced `onlyBuiltDependencies` with `allowBuilds`. `pnpm-workspace.yaml` now declares both keys, so contributors on either pnpm major install without prompting. Affects this repo's own development only — consumers still run no build scripts.
 
 ## 0.17.1
 

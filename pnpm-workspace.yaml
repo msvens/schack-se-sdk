@@ -1,0 +1,13 @@
+# Build-script approval for dev dependencies.
+#
+# esbuild (via tsup) ships a postinstall that fetches its platform binary.
+# pnpm gates build scripts by default: pnpm 10 reads `onlyBuiltDependencies`,
+# pnpm 11 replaced it with `allowBuilds`. Both are listed so `pnpm install`
+# works without an interactive `pnpm approve-builds` on either major.
+#
+# Unrelated to consumers of this package — they run no build scripts at all,
+# since dist/ is committed and there is no `prepare`. See RELEASE.md.
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true
