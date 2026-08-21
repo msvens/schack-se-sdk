@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`TournamentService` date-search docstrings.** `searchUpdatedGroups` documented its date range as matching tournaments that *started* within it; both it and the endpoint it wraps actually filter on when results were last **updated** (SSF: *"grupper med resultat som uppdaterats mellan datum"*). Its `@example` also demonstrated `searchUpdatedTournaments` rather than itself. Separately, both methods pointed at `searchUpdatedTournamentsByTournament()` — a method that has never existed — from `@deprecated` and `@example`, so the documented call would have thrown. Docs only; no behaviour change.
+- Documented on `searchUpdatedTournaments` that the window tracks result updates rather than play dates (long-running events surface in any window they are touched) and that the endpoint can return a tournament more than once, so callers should dedupe by id.
+
 ## 0.17.1
 
 ### Changed
