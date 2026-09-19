@@ -28,6 +28,7 @@ __export(index_exports, {
   DEFAULT_TIMEOUT: () => DEFAULT_TIMEOUT,
   FideService: () => FideService,
   MemberCategory: () => MemberCategory,
+  NO_PLACE: () => NO_PLACE,
   OrganizationService: () => OrganizationService,
   PairingSystem: () => PairingSystem,
   PlayerCategory: () => PlayerCategory,
@@ -103,6 +104,7 @@ __export(index_exports, {
   getResultDisplayString: () => getResultDisplayString,
   getTiebreakSystemName: () => getTiebreakSystemName,
   getTournamentStatus: () => getTournamentStatus,
+  hasStandings: () => hasStandings,
   isAdjudicatedResult: () => isAdjudicatedResult,
   isBlackWin: () => isBlackWin,
   isCountableResult: () => isCountableResult,
@@ -120,6 +122,7 @@ __export(index_exports, {
   isTeamPairing: () => isTeamPairing,
   isTeamTournament: () => isTeamTournament,
   isTouristBye: () => isTouristBye,
+  isUnplaced: () => isUnplaced,
   isUpcoming: () => isUpcoming,
   isWalkover: () => isWalkover,
   isWalkoverResult: () => isWalkoverResult,
@@ -724,6 +727,18 @@ function isSchackfyran(type) {
 }
 function isSchackfyranLike(type, groupPointSystem) {
   return type === TournamentType.SCHACKFYRAN || groupPointSystem === PointSystem.SCHACK4AN;
+}
+
+// src/types/results.ts
+var NO_PLACE = 1e3;
+function isUnplaced(result) {
+  if (result === null || result === void 0) return true;
+  const place = typeof result === "number" ? result : result.place;
+  return place === NO_PLACE;
+}
+function hasStandings(results) {
+  if (!results || results.length === 0) return false;
+  return results.some((r) => !isUnplaced(r));
 }
 
 // src/types/ratings.ts
@@ -2766,6 +2781,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   DEFAULT_TIMEOUT,
   FideService,
   MemberCategory,
+  NO_PLACE,
   OrganizationService,
   PairingSystem,
   PlayerCategory,
@@ -2841,6 +2857,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   getResultDisplayString,
   getTiebreakSystemName,
   getTournamentStatus,
+  hasStandings,
   isAdjudicatedResult,
   isBlackWin,
   isCountableResult,
@@ -2858,6 +2875,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   isTeamPairing,
   isTeamTournament,
   isTouristBye,
+  isUnplaced,
   isUpcoming,
   isWalkover,
   isWalkoverResult,

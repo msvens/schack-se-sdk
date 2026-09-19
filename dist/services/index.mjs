@@ -6,7 +6,7 @@ import {
   ResultsService,
   TournamentService
 } from "../chunk-ZP5ELYRS.mjs";
-import "../chunk-M35RJ2XX.mjs";
+import "../chunk-BVK65LD7.mjs";
 import {
   BaseApiService,
   PlayerService

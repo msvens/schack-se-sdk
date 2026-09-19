@@ -21,6 +21,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var types_exports = {};
 __export(types_exports, {
   MemberCategory: () => MemberCategory,
+  NO_PLACE: () => NO_PLACE,
   PairingSystem: () => PairingSystem,
   PlayerCategory: () => PlayerCategory,
   RatingAlgorithm: () => RatingAlgorithm,
@@ -31,11 +32,13 @@ __export(types_exports, {
   TournamentState: () => TournamentState,
   TournamentType: () => TournamentType,
   getTiebreakSystemName: () => getTiebreakSystemName,
+  hasStandings: () => hasStandings,
   isLooseTeamTournament: () => isLooseTeamTournament,
   isSchackfyran: () => isSchackfyran,
   isSchackfyranLike: () => isSchackfyranLike,
   isTeamPairing: () => isTeamPairing,
-  isTeamTournament: () => isTeamTournament
+  isTeamTournament: () => isTeamTournament,
+  isUnplaced: () => isUnplaced
 });
 module.exports = __toCommonJS(types_exports);
 
@@ -232,6 +235,18 @@ function isSchackfyranLike(type, groupPointSystem) {
   return type === TournamentType.SCHACKFYRAN || groupPointSystem === PointSystem.SCHACK4AN;
 }
 
+// src/types/results.ts
+var NO_PLACE = 1e3;
+function isUnplaced(result) {
+  if (result === null || result === void 0) return true;
+  const place = typeof result === "number" ? result : result.place;
+  return place === NO_PLACE;
+}
+function hasStandings(results) {
+  if (!results || results.length === 0) return false;
+  return results.some((r) => !isUnplaced(r));
+}
+
 // src/types/ratings.ts
 var RatingType = /* @__PURE__ */ ((RatingType2) => {
   RatingType2[RatingType2["STANDARD"] = 1] = "STANDARD";
@@ -294,6 +309,7 @@ var RatingAlgorithm = {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   MemberCategory,
+  NO_PLACE,
   PairingSystem,
   PlayerCategory,
   RatingAlgorithm,
@@ -304,9 +320,11 @@ var RatingAlgorithm = {
   TournamentState,
   TournamentType,
   getTiebreakSystemName,
+  hasStandings,
   isLooseTeamTournament,
   isSchackfyran,
   isSchackfyranLike,
   isTeamPairing,
-  isTeamTournament
+  isTeamTournament,
+  isUnplaced
 });

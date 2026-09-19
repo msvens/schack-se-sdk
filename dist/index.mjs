@@ -8,9 +8,12 @@ import {
 } from "./chunk-ZP5ELYRS.mjs";
 import {
   MemberCategory,
+  NO_PLACE,
   PlayerCategory,
-  RatingType
-} from "./chunk-M35RJ2XX.mjs";
+  RatingType,
+  hasStandings,
+  isUnplaced
+} from "./chunk-BVK65LD7.mjs";
 import {
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
@@ -135,6 +138,7 @@ export {
   DEFAULT_TIMEOUT,
   FideService,
   MemberCategory,
+  NO_PLACE,
   OrganizationService,
   PairingSystem,
   PlayerCategory,
@@ -210,6 +214,7 @@ export {
   getResultDisplayString,
   getTiebreakSystemName,
   getTournamentStatus,
+  hasStandings,
   isAdjudicatedResult,
   isBlackWin,
   isCountableResult,
@@ -227,6 +232,7 @@ export {
   isTeamPairing,
   isTeamTournament,
   isTouristBye,
+  isUnplaced,
   isUpcoming,
   isWalkover,
   isWalkoverResult,

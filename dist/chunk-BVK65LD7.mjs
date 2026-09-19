@@ -1,3 +1,15 @@
+// src/types/results.ts
+var NO_PLACE = 1e3;
+function isUnplaced(result) {
+  if (result === null || result === void 0) return true;
+  const place = typeof result === "number" ? result : result.place;
+  return place === NO_PLACE;
+}
+function hasStandings(results) {
+  if (!results || results.length === 0) return false;
+  return results.some((r) => !isUnplaced(r));
+}
+
 // src/types/ratings.ts
 var RatingType = /* @__PURE__ */ ((RatingType2) => {
   RatingType2[RatingType2["STANDARD"] = 1] = "STANDARD";
@@ -35,6 +47,9 @@ var PlayerCategory = /* @__PURE__ */ ((PlayerCategory2) => {
 })(PlayerCategory || {});
 
 export {
+  NO_PLACE,
+  isUnplaced,
+  hasStandings,
   RatingType,
   MemberCategory,
   PlayerCategory
