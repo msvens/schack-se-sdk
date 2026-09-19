@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`NO_PLACE`, `isUnplaced()`, `hasStandings()`** — SSF returns `place: 1000` (with `points: 0`) for every player in a group that has not produced results yet. It is a placeholder, not a ranking, so sorting by `place` before play starts just yields the API's arbitrary row order — which is why a not-yet-started group renders unsorted. `hasStandings(results)` says whether placement order is meaningful; `isUnplaced(row)` covers the per-row case (e.g. rendering `-` instead of `1000`).
+
+  Verified all-or-nothing against live SSF: four upcoming groups carried `1000` for every row, while in-progress and finished groups carried real places `1..n` with no `1000` mixed in.
+
+  When `hasStandings()` is `false`, schack.se itself falls back to seeding order — descending by the rating matching the tournament's time control, which `getPlayerRatingForTournament(playerInfo.elo, tournament.thinkingTime)` already returns. Sorting that way reproduces the official start list exactly, unrated players last.
+
 ## 0.17.2
 
 ### Fixed

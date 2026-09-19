@@ -73,7 +73,7 @@ export interface TournamentEndResultDto {
     points: number;
     /** Secondary points (tie-break) */
     secPoints: number;
-    /** Final placement */
+    /** Final placement, or {@link NO_PLACE} when the tournament has no results yet */
     place: number;
     /** Contender ID */
     contenderId: number;
@@ -89,6 +89,60 @@ export interface TournamentEndResultDto {
     groupId: number;
     /** Player information */
     playerInfo: PlayerInfoDto;
+}
+
+/**
+ * Sentinel `place` value meaning "no placement yet".
+ *
+ * SSF returns `1000` for every player in a group that has not produced any
+ * results, alongside `points: 0`. It is a placeholder, not a ranking — sorting
+ * by `place` before play starts yields the API's arbitrary row order, which is
+ * why a not-yet-started group looks unsorted.
+ *
+ * Observed as all-or-nothing: groups that are in progress or finished carry real
+ * places (1..n) with no `1000` mixed in.
+ */
+export const NO_PLACE = 1000;
+
+/**
+ * True when a result carries no real placement (see {@link NO_PLACE}).
+ *
+ * @param result - A tournament end result, or a raw `place` value
+ * @example
+ * ```ts
+ * const label = isUnplaced(row) ? '-' : String(row.place);
+ * ```
+ */
+export function isUnplaced(
+    result: Pick<TournamentEndResultDto, 'place'> | number | null | undefined
+): boolean {
+    if (result === null || result === undefined) return true;
+    const place = typeof result === 'number' ? result : result.place;
+    return place === NO_PLACE;
+}
+
+/**
+ * True when a group has produced standings, i.e. at least one real placement.
+ *
+ * Use this to decide whether placement order is meaningful. When it is `false`,
+ * the tournament has not started and callers typically fall back to seeding
+ * order — descending by the rating matching the tournament's time control, via
+ * `getPlayerRatingForTournament(playerInfo.elo, tournament.thinkingTime)`, which
+ * is the order schack.se itself shows before play begins.
+ *
+ * @param results - Tournament end results for one group
+ * @example
+ * ```ts
+ * const rows = hasStandings(results)
+ *   ? sortTournamentEndResultsByPlace(results)
+ *   : seedByRating(results, tournament.thinkingTime);
+ * ```
+ */
+export function hasStandings(
+    results: ReadonlyArray<Pick<TournamentEndResultDto, 'place'>> | null | undefined
+): boolean {
+    if (!results || results.length === 0) return false;
+    return results.some(r => !isUnplaced(r));
 }
 
 /**
