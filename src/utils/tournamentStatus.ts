@@ -1,10 +1,12 @@
 /**
  * Derive a trustworthy tournament/group lifecycle status.
  *
- * The schack.se API exposes a `TournamentDto.state` field, but organizers
- * frequently leave it stale — events that finished months ago are still
- * marked `REGISTRATION`. These helpers derive status primarily from dates
- * (and round-results existence), treating `state` only as a weak hint.
+ * The schack.se API used to expose a `TournamentDto.state` field, but
+ * organizers frequently left it stale — events that finished months ago were
+ * still marked `REGISTRATION` — and SSF dropped it entirely in September 2026.
+ * These helpers derive status primarily from dates (and round-results
+ * existence), treating `state` only as a weak hint when a caller still holds
+ * an older cached payload that carries one.
  */
 
 import { TournamentState } from '../types/tournament';
@@ -65,7 +67,8 @@ function deriveStatus(input: NormalizedStatusInput, now: Date): TournamentStatus
  * {@link TournamentStatusSource} bag) into the private primitive shape.
  *
  * Group dates take precedence over tournament dates; `state` comes from the
- * tournament (a group DTO has none); "has results" is derived from a non-empty
+ * tournament when present (a group DTO has none, and live tournament payloads
+ * no longer carry one either); "has results" is derived from a non-empty
  * `roundResults` array.
  */
 function normalize(source: TournamentDto | TournamentStatusSource): NormalizedStatusInput {
@@ -88,8 +91,9 @@ function normalize(source: TournamentDto | TournamentStatusSource): NormalizedSt
 /**
  * Derive the lifecycle status of a tournament or group.
  *
- * Prefer this over the raw `TournamentDto.state` field, which organizers
- * frequently leave stale (e.g. finished events still marked `REGISTRATION`).
+ * This is the only reliable way to get a status: SSF no longer returns
+ * `TournamentDto.state`, and while it did, organizers frequently left it stale
+ * (e.g. finished events still marked `REGISTRATION`).
  *
  * Pass the raw objects you already hold:
  * - a bare `TournamentDto` (the common list case), or
@@ -110,7 +114,7 @@ function normalize(source: TournamentDto | TournamentStatusSource): NormalizedSt
  * getTournamentStatus(tournament);
  *
  * @example
- * // Group detail — pass the group, the tournament (for state), and the
+ * // Group detail — pass the group, the tournament (for its dates), and the
  * // results you already fetched:
  * getTournamentStatus({ tournament, group, roundResults });
  */

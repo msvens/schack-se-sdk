@@ -2,6 +2,8 @@
  * Utility functions for formatting team names in team tournaments
  */
 
+import type { TeamTournamentEndResultDto } from '../types/results';
+
 /**
  * Convert a number to Roman numerals
  * Supports numbers 1-20 which covers typical team counts
@@ -101,6 +103,81 @@ export function createTeamNameFormatter<T extends { contenderId: number; teamNum
     const clubName = getClubName(clubId);
     const teamCount = teamCounts.get(clubId) || 1;
     return formatTeamName(clubName, teamNumber, teamCount);
+  };
+}
+
+/**
+ * The display name carried by a team standings row, whichever field holds it.
+ *
+ * A row identifies its contender through exactly one of two fields: `club` for
+ * ordinary club-based team tournaments, or `team` for "loosely-coupled"
+ * (`TEAM_TEAMS`) ones such as real team Skol-SM, where a team is a school
+ * rather than a club. This reads whichever is set so callers don't have to
+ * branch.
+ *
+ * Returns the bare name with no team numeral — use
+ * {@link createStandingsTeamNameFormatter} when you want "SK Rockaden III".
+ *
+ * @param row - A team standings row (anything carrying `club` and `team`)
+ * @returns The club or team name, or `null` if the row carries neither
+ * @example
+ * ```ts
+ * const { data } = await results.getTeamTournamentResults(18228);
+ * data?.map(getTeamRowName); // ["Bilingual Montessori School of Lund", ...]
+ * ```
+ */
+export function getTeamRowName(
+  row: Pick<TeamTournamentEndResultDto, 'club' | 'team'>
+): string | null {
+  return row.team?.name ?? row.club?.name ?? null;
+}
+
+/**
+ * Build a team-name formatter from the standings rows themselves.
+ *
+ * Unlike {@link createTeamNameFormatter}, this needs no external club-name
+ * lookup: the names already travel on the rows (in `club` or `team`). It
+ * applies the same Roman-numeral rule via {@link formatTeamName}, so a club
+ * fielding several teams renders as "SK Rockaden II" while a lone team renders
+ * bare.
+ *
+ * This also solves naming for **team round results**, which carry only
+ * `homeId`/`awayId` and no names at all — those ids are the standings rows'
+ * `contenderId`, so the same formatter names both sides of a match. Unknown
+ * ids yield `null`, which covers the `-100` bye sentinel.
+ *
+ * Loose-team rows need no special handling: they carry `teamNumber: -1` and
+ * each team is its own `contenderId`, so the count is 1 and the name renders
+ * bare.
+ *
+ * @param rows - Team standings rows from `getTeamTournamentResults`
+ * @returns `(contenderId, teamNumber) => string | null`
+ * @example
+ * ```ts
+ * const table = await results.getTeamTournamentResults(groupId);
+ * const teamName = createStandingsTeamNameFormatter(table.data ?? []);
+ *
+ * const rounds = await results.getTeamRoundResults(groupId);
+ * for (const m of rounds.data ?? []) {
+ *   console.log(teamName(m.homeId, m.homeTeamNumber), 'vs',
+ *               teamName(m.awayId, m.awayTeamNumber));
+ * }
+ * ```
+ */
+export function createStandingsTeamNameFormatter(
+  rows: ReadonlyArray<Pick<TeamTournamentEndResultDto, 'contenderId' | 'teamNumber' | 'club' | 'team'>>
+): (contenderId: number, teamNumber: number) => string | null {
+  const teamCounts = countTeamsByClub([...rows]);
+  const names = new Map<number, string>();
+  for (const row of rows) {
+    const name = getTeamRowName(row);
+    if (name !== null && !names.has(row.contenderId)) names.set(row.contenderId, name);
+  }
+
+  return (contenderId: number, teamNumber: number): string | null => {
+    const name = names.get(contenderId);
+    if (name === undefined) return null;
+    return formatTeamName(name, teamNumber, teamCounts.get(contenderId) ?? 1);
   };
 }
 

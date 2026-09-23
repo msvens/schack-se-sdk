@@ -1,5 +1,11 @@
 {
   "openapi": "3.0.1",
+  "info": {
+    "title": "SSF Member API",
+    "description": "Public API for Sveriges Schackförbund member system",
+    "termsOfService": "https://halvarsson.no-ip.com/wordpressssf/anvandarvillkor/",
+    "version": "1.0.0"
+  },
   "servers": [
     {
       "url": "https://member.schack.se/",
@@ -92,7 +98,7 @@
         "tags": [
           "tournament-results-public-controller"
         ],
-        "summary": "Hämta turneringstabell (klubblagturnering) för en grupp i en turnering",
+        "summary": "Hämta turneringstabell (klubb/lagturnering) för en grupp i en turnering",
         "operationId": "getTeamResultTable",
         "parameters": [
           {
@@ -128,7 +134,7 @@
         "tags": [
           "tournament-results-public-controller"
         ],
-        "summary": "Hämta rondresultaten (klubblagturnering) för en grupp i en turnering",
+        "summary": "Hämta rondresultaten (klubb/lagturnering) för en grupp i en turnering",
         "operationId": "getTeamRoundResults",
         "parameters": [
           {
@@ -165,7 +171,7 @@
           "tournament-results-public-controller"
         ],
         "summary": "Hämta rondresultaten för en spelare i en turnering",
-        "operationId": "getTeamRoundResults_1",
+        "operationId": "getMemberRoundResults",
         "parameters": [
           {
             "name": "id",
@@ -246,7 +252,7 @@
         "tags": [
           "tournament-results-public-controller"
         ],
-        "summary": "Hämta turneringstabell (endast individuell än så länge) för en grupp i en turnering. 10 sec cache.",
+        "summary": "Hämta turneringstabell (individuell) för en grupp i en turnering. 10 sec cache.",
         "operationId": "getResultTable",
         "parameters": [
           {
@@ -282,7 +288,7 @@
         "tags": [
           "tournament-results-public-controller"
         ],
-        "summary": "Hämta rondresultaten (endast individuell än så länge) för en grupp i en turnering. 10 sec cache.",
+        "summary": "Hämta rondresultaten (individuell) för en grupp i en turnering. 10 sec cache.",
         "operationId": "getRoundResults",
         "parameters": [
           {
@@ -319,7 +325,7 @@
           "tournament-results-public-controller"
         ],
         "summary": "Hämta partier för en medlem",
-        "operationId": "getMemberTeamResults",
+        "operationId": "getMemberGames",
         "parameters": [
           {
             "name": "id",
@@ -1544,6 +1550,18 @@
           }
         }
       },
+      "TeamDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "TeamTournamentEndResultDto": {
         "type": "object",
         "properties": {
@@ -1581,6 +1599,9 @@
           },
           "club": {
             "$ref": "#/components/schemas/ClubDTO"
+          },
+          "team": {
+            "$ref": "#/components/schemas/TeamDTO"
           }
         }
       },
@@ -2032,10 +2053,6 @@
           },
           "thinkingTime": {
             "type": "string"
-          },
-          "state": {
-            "type": "integer",
-            "format": "int32"
           },
           "allowForeignPlayers": {
             "type": "integer",

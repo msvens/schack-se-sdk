@@ -32,7 +32,12 @@ export const TournamentType = {
 } as const;
 
 /**
- * Tournament state constants
+ * Tournament state constants — the possible values of the legacy
+ * {@link TournamentDto.state} field.
+ *
+ * SSF stopped returning `state` in September 2026, so these only decode
+ * previously cached payloads. For live data, derive the lifecycle status from
+ * dates via {@link getTournamentStatus}.
  */
 export const TournamentState = {
   REGISTRATION: 1,
@@ -50,13 +55,10 @@ export const TournamentState = {
  * - `RATINGLIST_TEAMS` (2): The team is drawn from the club's rating list.
  * - `TEAM_TEAMS` (3): "Loosely-coupled" teams that are not bound to a single
  *   club — the team is its own entity (e.g. real Skol-SM events, ad-hoc team
- *   competitions). For tournaments of this type, the `club` field on
- *   {@link TeamTournamentEndResultDto} may be `null`. Team names are not yet
- *   exposed in the public REST API — standings rows carry meaningful
- *   `contenderId` + `teamNumber` but lack a human-readable label until
- *   upstream catches up. App-side stopgap: link to
- *   `https://resultat.schack.se/ShowTournamentServlet?id={groupId}`.
- *   Use {@link isLooseTeamTournament} to detect this case.
+ *   competitions). For tournaments of this type the `club` field on
+ *   {@link TeamTournamentEndResultDto} is `null` and the `team` field carries
+ *   the team's id and name instead; `teamNumber` is `-1`. Use
+ *   {@link isLooseTeamTournament} to detect this case.
  *
  * For pure individual tournaments the field on TournamentDto is `-1`.
  */
@@ -177,8 +179,8 @@ export type Schack4anTeamPointSystemType = typeof Schack4anTeamPointSystem[keyof
 /**
  * Check if a team tournament uses "loosely-coupled" teams that are not bound
  * to a single club (e.g. real Skol-SM events). For these tournaments,
- * standings rows may have `club: null` and team names are not yet exposed in
- * the public REST API.
+ * standings rows carry `club: null` and a populated `team` ({@link TeamDTO})
+ * holding the team's name, with `teamNumber: -1`.
  *
  * @param playerListType The `teamtournamentPlayerListType` from a TournamentDto
  * @returns true if the tournament uses TEAM_TEAMS registration
@@ -459,8 +461,18 @@ export interface TournamentDto {
     secjudges: string;
     /** Thinking time */
     thinkingTime: string;
-    /** Tournament state */
-    state: number;
+    /**
+     * Tournament state — see {@link TournamentState}.
+     *
+     * @deprecated Removed from the SSF API: it is no longer returned by
+     * `/tournament/tournament/id/{id}` (dropped from the published spec in
+     * September 2026), so on freshly fetched payloads this is always
+     * `undefined`. It was unreliable well before that — organizers routinely
+     * left it stale. Derive status from the tournament dates instead, via
+     * {@link getTournamentStatus}. Kept as an optional field so consumers
+     * holding older cached payloads still type-check.
+     */
+    state?: number;
     /** Allow foreign players */
     allowForeignPlayers: number;
     /**
@@ -522,10 +534,10 @@ export interface GroupSearchAnswerDto {
 /**
  * Derived lifecycle status of a tournament or group.
  *
- * This is the *trustworthy* status to display. Prefer it over the raw
- * `TournamentDto.state` field, which organizers frequently leave stale
- * (e.g. events long finished are still marked `REGISTRATION`). See
- * {@link getTournamentStatus} for how it is derived.
+ * This is the *trustworthy* status to display. The raw `TournamentDto.state`
+ * field is no longer returned by SSF at all, and even when it was, organizers
+ * frequently left it stale (e.g. events long finished still marked
+ * `REGISTRATION`). See {@link getTournamentStatus} for how it is derived.
  *
  * - `upcoming`  — before the start date (registration phase).
  * - `ongoing`   — started but not past the end date (or round results exist).
@@ -544,7 +556,8 @@ export type TournamentStatus = 'upcoming' | 'ongoing' | 'finished' | 'unknown';
  *
  * The SDK extracts what it needs internally:
  * - dates: `group` dates take precedence over `tournament` dates;
- * - `state`: read from `tournament` (a group DTO has no state field);
+ * - `state`: read from `tournament` when present (a group DTO has no state
+ *   field, and SSF no longer returns one on tournaments either);
  * - "has results": derived from `roundResults` being non-empty.
  */
 export type TournamentStatusSource =
