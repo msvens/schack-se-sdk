@@ -9,6 +9,7 @@ import { CURRENT_TEST_API_URL } from '../src/constants';
 import {
   TEST_RESULTS_GROUP_ID,
   TEST_RESULTS_TEAM_GROUP_ID,
+  TEST_LOOSE_TEAM_GROUP_ID,
   TEST_RESULTS_MEMBER_ID
 } from './test-data';
 import { ssfUnreachable } from './helpers/liveProbe';
@@ -63,6 +64,43 @@ describe.skipIf(SSF_DOWN)('Results Service Integration Tests', () => {
           expect(typeof firstResult.place).toBe('number');
           expect(typeof firstResult.teamNumber).toBe('number');
         }
+      }
+    }, 10000);
+
+    // Contract guard for the TeamDTO rollout (SSF, September 2026). A team
+    // standings row identifies its contender through exactly one of `club` or
+    // `team`; these two tests pin both halves, so a regression on either side
+    // — loose names disappearing again, or both fields starting to populate —
+    // fails here rather than silently rendering wrong names downstream.
+    test('loose (TEAM_TEAMS) rows carry team names and no club', async () => {
+      const response = await resultsService.getTeamTournamentResults(TEST_LOOSE_TEAM_GROUP_ID);
+
+      expect(response.status).toBe(200);
+      const results = response.data as TeamTournamentEndResultDto[];
+      expect(Array.isArray(results)).toBe(true);
+      expect(results.length).toBeGreaterThan(0);
+
+      for (const row of results) {
+        expect(row.club).toBeNull();
+        expect(row.team).not.toBeNull();
+        expect(typeof row.team!.name).toBe('string');
+        expect(row.team!.name.trim().length).toBeGreaterThan(0);
+        // The team id is the row's contenderId — this is what lets the
+        // standings formatter name team round results, which carry only ids.
+        expect(row.team!.id).toBe(row.contenderId);
+      }
+    }, 10000);
+
+    test('club-based team rows carry a club and no team', async () => {
+      const response = await resultsService.getTeamTournamentResults(TEST_RESULTS_TEAM_GROUP_ID);
+
+      expect(response.status).toBe(200);
+      const results = response.data as TeamTournamentEndResultDto[];
+      expect(results.length).toBeGreaterThan(0);
+
+      for (const row of results) {
+        expect(row.team).toBeNull();
+        expect(row.club).not.toBeNull();
       }
     }, 10000);
 

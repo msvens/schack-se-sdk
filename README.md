@@ -308,7 +308,9 @@ const kFactor = getKFactorForRating('standard', 1500, player.elo, birthdate);
 import {
   formatTeamName,
   toRomanNumeral,
-  createTeamNameFormatter
+  createTeamNameFormatter,
+  getTeamRowName,
+  createStandingsTeamNameFormatter
 } from '@msvens/schack-se-sdk';
 
 // Format team name with Roman numeral
@@ -319,6 +321,36 @@ const numeral = toRomanNumeral(4); // "IV"
 
 // Create a formatter for results data
 const formatter = createTeamNameFormatter(results, getClubName);
+```
+
+A team standings row identifies its contender through exactly one of two
+fields: `club` for ordinary club-based team tournaments, `team` for
+"loosely-coupled" ones (see below). Two helpers read whichever is set, so you
+never branch on it — and because the names travel on the rows, neither needs an
+external club lookup:
+
+```typescript
+const { data: rows } = await results.getTeamTournamentResults(groupId);
+
+// The bare name, club or team
+getTeamRowName(rows[0]); // "Bilingual Montessori School of Lund"
+
+// Same, plus the Roman-numeral rule for clubs fielding several teams
+const teamName = createStandingsTeamNameFormatter(rows ?? []);
+teamName(contenderId, teamNumber); // "SK Rockaden II" | "Söraskolan L1" | null
+```
+
+Team **round results** carry only `homeId`/`awayId` and no names at all. Those
+ids are the standings rows' `contenderId`, so the same formatter names both
+sides of a match (unknown ids return `null`, which covers the `-100` bye
+sentinel):
+
+```typescript
+const { data: rounds } = await results.getTeamRoundResults(groupId);
+for (const m of rounds ?? []) {
+  console.log(teamName(m.homeId, m.homeTeamNumber), 'vs',
+              teamName(m.awayId, m.awayTeamNumber));
+}
 ```
 
 ### Prize categories ("Age & Ranking prizes")
@@ -501,14 +533,21 @@ if (isTeamPairing(tournament.type)) {
 Some team tournaments use "loosely-coupled" teams that are not bound to a club — e.g. real Skol-SM events where a team represents a school. These are detected by `teamtournamentPlayerListType === TEAM_TEAMS` (3), exposed as `isLooseTeamTournament(playerListType)`.
 
 For these tournaments:
-- `TeamTournamentEndResultDto.club` may be `null` (the team isn't a club).
-- **Team names are not yet exposed in the public REST API** — standings rows carry meaningful `contenderId` + `teamNumber`, but lack a human-readable label. This is an upstream gap that's expected to close eventually.
+- `TeamTournamentEndResultDto.club` is `null` (the team isn't a club).
+- `TeamTournamentEndResultDto.team` carries a `TeamDTO` (`{ id, name }`) with the team's real name. The two fields are mutually exclusive — exactly one is populated.
+- `team.id` equals the row's `contenderId`, which is also the id team round results use for `homeId`/`awayId`.
+- `teamNumber` is `-1`, not `1..n` — each team is its own entity, so there is no "club's second team" to number. The name helpers already account for this and render such teams bare.
 
-Recommended stopgap until upstream catches up — link out to schack.se's existing servlet:
+```typescript
+const { data: rows } = await results.getTeamTournamentResults(18228);
 
+rows?.map(getTeamRowName);
+// ["Bilingual Montessori School of Lund", "Söraskolan L1", "Europaskolan", ...]
 ```
-https://resultat.schack.se/ShowTournamentServlet?id={groupId}
-```
+
+> Team names landed upstream in September 2026 (`TeamDTO` on `TeamTournamentEndResultDto`). Earlier SDK versions documented this as an unresolved gap and recommended linking out to `resultat.schack.se/ShowTournamentServlet?id={groupId}` — that stopgap is no longer needed.
+
+Note that this does **not** cover Schackfyran. Those tournaments are also `TEAM_TEAMS`, but they're individually paired and have no team-standings endpoint at all — `/tournamentresults/team/table/id/{groupId}` returns HTTP 500 for them. See the Schackfyran section below.
 
 ### Schackfyran specifics
 
@@ -555,7 +594,6 @@ These pieces are intentionally not in the SDK yet:
 
 - **Schackfyran team aggregation.** The full algorithm needs `schack4anteampointsystem`, `s4minclasssize`, and `nrofTopArenaLeaders` from the API — none are exposed today. schack.se's official servlets already do this correctly; link out for now.
 - **`clubpresentationmode` handling** for team-name formatters. Field not exposed by the API.
-- **Loose-team team-name resolution.** The names exist server-side but the public API doesn't return them.
 
 ## Subpath Imports
 

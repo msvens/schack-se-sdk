@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Loose-team names (`TeamDTO`).** "Loosely-coupled" team tournaments (`teamtournamentPlayerListType === TEAM_TEAMS`, e.g. real team Skol-SM) had no human-readable label: standings rows carried `club: null` and nothing else to render, which the SDK documented as an upstream gap with a "link out to `resultat.schack.se`" stopgap. SSF closed it — `TeamTournamentEndResultDto.team` now carries a `TeamDTO` (`{ id, name }`).
+
+  Verified live on tournament 6649 (Skollags-SM 2026): all four groups, every row has `team` populated with `team.id === contenderId`, `club: null`, and `teamNumber: -1`. `club` and `team` are mutually exclusive — club events (3958, 3190) and older school events that registered schools *as* clubs (3730, 4120, 4123, 3733) all have `club` set and `team: null`. Both halves of that contract are now pinned by live tests.
+
+  This does **not** cover Schackfyran: those tournaments are also `TEAM_TEAMS` but individually paired, and their team-standings endpoint still returns HTTP 500 (verified on group 18056).
+
+- **`getTeamRowName(row)`** — the display name off a standings row, reading whichever of `club` / `team` is set, so callers don't branch.
+
+- **`createStandingsTeamNameFormatter(rows)`** — a team-name formatter built from the standings rows themselves. Unlike `createTeamNameFormatter` it needs no external club-name lookup, since the names now travel on the rows, and it applies the same Roman-numeral rule. It also solves naming for **team round results**, which carry only `homeId`/`awayId` and no names — those ids are the rows' `contenderId`. Unknown ids return `null`, covering the `-100` bye sentinel. Loose teams need no special handling: `teamNumber: -1` with one team per `contenderId` renders bare.
+
+  `createTeamNameFormatter` and `createRoundResultsTeamNameFormatter` are unchanged and remain correct for club events where the caller already has a club-name source.
+
+### Changed
+
+- **API spec refreshed** (`api-specs/ssf-api.json`). Adds `TeamDTO` and `TeamTournamentEndResultDto.team`, removes `TournamentDto.state`, adds the `info` block, and picks up three upstream `operationId` renames (`getTeamRoundResults_1` → `getMemberRoundResults`, `getMemberTeamResults` → `getMemberGames`) plus reworded Swedish summaries. The renamed ids are spec-internal; no SDK method is named after them. `chesstools-api.json` is unchanged.
+
+### Deprecated
+
+- **`TournamentDto.state`** is now `state?: number` and marked `@deprecated`. SSF stopped returning it, so on freshly fetched payloads it is always `undefined` — the previous required `state: number` typing was a lie at runtime. It was unreliable long before that (organizers routinely left it stale), which is why `getTournamentStatus()` has always been date-first and already tolerated its absence; no behaviour changes. The `TournamentState` constants stay exported for consumers decoding older cached payloads.
+
 ## 0.18.0
 
 ### Added

@@ -99,6 +99,8 @@ export {
   countTeamsByClub,
   formatTeamName,
   createTeamNameFormatter,
+  getTeamRowName,
+  createStandingsTeamNameFormatter,
   countTeamsFromRoundResults,
   createRoundResultsTeamNameFormatter
 } from './utils/teamFormatting';

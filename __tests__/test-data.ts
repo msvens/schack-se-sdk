@@ -54,7 +54,8 @@ export const TEST_REGISTRATION_TOURNAMENT_ID = 5650;
 // =============================================================================
 export const TEST_RESULTS_GROUP_ID = 15816; // Individual tournament group (Swiss, SSF Buchholz)
 export const TEST_RESULTS_MEMBER_ID = 642062; // Player with tournament history
-export const TEST_RESULTS_TEAM_GROUP_ID = 15667; // Skollags SM 2025 (team tournament)
+export const TEST_RESULTS_TEAM_GROUP_ID = 15667; // Skollags SM 2025 (team tournament; schools registered as clubs, so club is set and team is null)
+export const TEST_LOOSE_TEAM_GROUP_ID = 18228; // Skollags-SM 2026, Lågstadiet — TEAM_TEAMS: club null, team populated, teamNumber -1
 export const TEST_RESULTS_BERGER_GROUP_ID = 7563; // Manhems Schackvecka 2019, GM (round-robin / Berger)
 export const TEST_RESULTS_OLD_TEAM_GROUP_ID = 3190; // Stockholmsserien 2011/12 div IV — incomplete legacy data
 

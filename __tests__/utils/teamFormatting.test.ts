@@ -7,8 +7,29 @@ import {
   countTeamsByClub,
   formatTeamName,
   createTeamNameFormatter,
+  getTeamRowName,
+  createStandingsTeamNameFormatter,
   createRoundResultsTeamNameFormatter
 } from '../../src/utils/teamFormatting';
+import type { ClubDTO, TeamTournamentEndResultDto } from '../../src/types';
+
+/** Minimal team standings row — only the fields the name helpers read. */
+type NameRow = Pick<TeamTournamentEndResultDto, 'contenderId' | 'teamNumber' | 'club' | 'team'>;
+
+const clubRow = (contenderId: number, teamNumber: number, name: string): NameRow => ({
+  contenderId,
+  teamNumber,
+  club: { id: contenderId, name } as ClubDTO,
+  team: null,
+});
+
+/** A loose (TEAM_TEAMS) row: club null, team set, teamNumber -1 as SSF returns it. */
+const looseRow = (contenderId: number, name: string): NameRow => ({
+  contenderId,
+  teamNumber: -1,
+  club: null,
+  team: { id: contenderId, name },
+});
 
 describe('teamFormatting', () => {
   describe('toRomanNumeral', () => {
@@ -136,6 +157,76 @@ describe('teamFormatting', () => {
 
       // Club 999 not in results - should default to 1 team (no numeral)
       expect(formatter(999, 1)).toBe('Club 999');
+    });
+  });
+
+  describe('getTeamRowName', () => {
+    it('reads the club name on a club-based row', () => {
+      expect(getTeamRowName(clubRow(38431, 1, 'Lunds Schackklubb'))).toBe('Lunds Schackklubb');
+    });
+
+    it('reads the team name on a loose (TEAM_TEAMS) row', () => {
+      expect(getTeamRowName(looseRow(16196, 'Bilingual Montessori School of Lund')))
+        .toBe('Bilingual Montessori School of Lund');
+    });
+
+    it('prefers team over club if upstream ever populates both', () => {
+      expect(getTeamRowName({ ...clubRow(1, 1, 'Some SK'), team: { id: 1, name: 'Some School' } }))
+        .toBe('Some School');
+    });
+
+    it('returns null when the row carries neither', () => {
+      expect(getTeamRowName({ club: null, team: null })).toBeNull();
+    });
+  });
+
+  describe('createStandingsTeamNameFormatter', () => {
+    it('names loose teams bare, despite teamNumber -1', () => {
+      // Real shape from Skollags-SM 2026 group 18228: every team is its own
+      // contenderId, so no numeral may be appended.
+      const rows = [
+        looseRow(16196, 'Bilingual Montessori School of Lund'),
+        looseRow(16342, 'Söraskolan L1'),
+      ];
+      const name = createStandingsTeamNameFormatter(rows);
+
+      expect(name(16196, -1)).toBe('Bilingual Montessori School of Lund');
+      expect(name(16342, -1)).toBe('Söraskolan L1');
+    });
+
+    it('numbers a club fielding several teams and leaves a lone team bare', () => {
+      const rows = [
+        clubRow(1, 1, 'SK Rockaden'),
+        clubRow(1, 2, 'SK Rockaden'),
+        clubRow(2, 1, 'Stockholms SS'),
+      ];
+      const name = createStandingsTeamNameFormatter(rows);
+
+      expect(name(1, 1)).toBe('SK Rockaden I');
+      expect(name(1, 2)).toBe('SK Rockaden II');
+      expect(name(2, 1)).toBe('Stockholms SS');
+    });
+
+    it('keeps a lone team\'s own numeral (teamNumber > 1)', () => {
+      const name = createStandingsTeamNameFormatter([clubRow(100, 3, 'Helsingborgs SA')]);
+      expect(name(100, 3)).toBe('Helsingborgs SA III');
+    });
+
+    it('returns null for an unknown id — covers the -100 bye sentinel', () => {
+      const name = createStandingsTeamNameFormatter([looseRow(16196, 'Some School')]);
+      expect(name(-100, -1)).toBeNull();
+      expect(name(999, 1)).toBeNull();
+    });
+
+    it('names both sides of a team round-result match, which carries no names', () => {
+      // Round results only give homeId/awayId; those are the standings
+      // contenderIds, so the standings formatter resolves them.
+      const rows = [looseRow(16343, 'Engelska Skolan Norr L'), looseRow(16186, 'Mälarparksskolan Västerås')];
+      const name = createStandingsTeamNameFormatter(rows);
+      const match = { homeId: 16343, awayId: 16186, homeTeamNumber: -1, awayTeamNumber: -1 };
+
+      expect(name(match.homeId, match.homeTeamNumber)).toBe('Engelska Skolan Norr L');
+      expect(name(match.awayId, match.awayTeamNumber)).toBe('Mälarparksskolan Västerås');
     });
   });
 
