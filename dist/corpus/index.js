@@ -74,7 +74,7 @@ var ssf_corpus_default = {
       "org-data",
       "anomaly"
     ],
-    lastReviewed: "2026-08-13"
+    lastReviewed: "2026-09-23"
   },
   entries: [
     {
@@ -400,8 +400,21 @@ var ssf_corpus_default = {
         "team-tournament"
       ],
       illustrates: "A real team school championship encoded as type=2 (ALLSVENSKAN), NOT type=5 \u2014 a classification reality check.",
-      note: "isTeamTournament true. The intuitive 'SCHOOL_SM = type 5' is wrong for the TEAM Skol-SM: it uses type=2. Pair with skol-sm-2023 (type=5, individual) to see the distinction.",
-      observed: "2026-08-13"
+      note: "isTeamTournament true. The intuitive 'SCHOOL_SM = type 5' is wrong for the TEAM Skol-SM: it uses type=2. Pair with skol-sm-2023 (type=5, individual) to see the distinction. Also the reference TEAM_TEAMS event now that SSF returns team names \u2014 see skollags-sm-2026-loose-team-names for the row shape.",
+      observed: "2026-09-23"
+    },
+    {
+      id: "skollags-sm-2026-loose-team-names",
+      tournamentId: 6649,
+      groupId: 18228,
+      name: "Skollags-SM 2026, L\xE5gstadiet",
+      tags: [
+        "loose-team",
+        "team-tournament"
+      ],
+      illustrates: "A TEAM_TEAMS standings row carrying a TeamDTO \u2014 the loose-team name gap that SSF closed in September 2026.",
+      note: `All 15 rows: club null, team {id, name} populated (e.g. 16196 "Bilingual Montessori School of Lund"), team.id === contenderId, teamNumber -1 for every row. Same across the tournament's other three groups (18229/18230/18231). club and team are mutually exclusive \u2014 sampled club events 3958 and 3190, and older school events 3730/4120/4123/3733 that registered schools AS clubs, all have club set and team null. The team round results (/team/roundresults/id/18228) carry no names at all, only homeId/awayId matching these contenderIds, plus -100 for byes.`,
+      observed: "2026-09-23"
     },
     {
       id: "skol-sm-2023-individual-type-5",

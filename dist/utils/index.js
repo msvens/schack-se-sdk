@@ -43,6 +43,7 @@ __export(utils_exports, {
   countTeamsByClub: () => countTeamsByClub,
   countTeamsFromRoundResults: () => countTeamsFromRoundResults,
   createRoundResultsTeamNameFormatter: () => createRoundResultsTeamNameFormatter,
+  createStandingsTeamNameFormatter: () => createStandingsTeamNameFormatter,
   createTeamNameFormatter: () => createTeamNameFormatter,
   decimateRatingData: () => decimateRatingData,
   deduplicateIds: () => deduplicateIds,
@@ -74,6 +75,7 @@ __export(utils_exports, {
   getPrimaryRatingType: () => getPrimaryRatingType,
   getRatingTypeFromRoundRated: () => getRatingTypeFromRoundRated,
   getResultDisplayString: () => getResultDisplayString,
+  getTeamRowName: () => getTeamRowName,
   getTournamentStatus: () => getTournamentStatus,
   isAdjudicatedResult: () => isAdjudicatedResult,
   isBlackWin: () => isBlackWin,
@@ -1358,6 +1360,22 @@ function createTeamNameFormatter(results, getClubName) {
     return formatTeamName(clubName, teamNumber, teamCount);
   };
 }
+function getTeamRowName(row) {
+  return row.team?.name ?? row.club?.name ?? null;
+}
+function createStandingsTeamNameFormatter(rows) {
+  const teamCounts = countTeamsByClub([...rows]);
+  const names = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const name = getTeamRowName(row);
+    if (name !== null && !names.has(row.contenderId)) names.set(row.contenderId, name);
+  }
+  return (contenderId, teamNumber) => {
+    const name = names.get(contenderId);
+    if (name === void 0) return null;
+    return formatTeamName(name, teamNumber, teamCounts.get(contenderId) ?? 1);
+  };
+}
 function countTeamsFromRoundResults(roundResults) {
   const teamCounts = /* @__PURE__ */ new Map();
   roundResults.forEach((result) => {
@@ -1677,6 +1695,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   countTeamsByClub,
   countTeamsFromRoundResults,
   createRoundResultsTeamNameFormatter,
+  createStandingsTeamNameFormatter,
   createTeamNameFormatter,
   decimateRatingData,
   deduplicateIds,
@@ -1708,6 +1727,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   getPrimaryRatingType,
   getRatingTypeFromRoundRated,
   getResultDisplayString,
+  getTeamRowName,
   getTournamentStatus,
   isAdjudicatedResult,
   isBlackWin,

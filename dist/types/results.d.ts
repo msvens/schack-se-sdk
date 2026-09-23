@@ -127,6 +127,22 @@ export declare function isUnplaced(result: Pick<TournamentEndResultDto, 'place'>
  */
 export declare function hasStandings(results: ReadonlyArray<Pick<TournamentEndResultDto, 'place'>> | null | undefined): boolean;
 /**
+ * A team in a "loosely-coupled" team tournament — a team that is its own
+ * entity rather than a club, e.g. a school in a real Skol-SM event.
+ *
+ * The loose-team counterpart to {@link ClubDTO}: where a club-based team
+ * tournament identifies a contender by its club, a `TEAM_TEAMS` tournament
+ * identifies it by this. `id` is the same value as the standings row's
+ * `contenderId`, so it is also the id that team round results use for
+ * `homeId` / `awayId`.
+ */
+export interface TeamDTO {
+    /** Team ID — equal to the standings row's `contenderId`. */
+    id: number;
+    /** Team name, e.g. "Bilingual Montessori School of Lund". */
+    name: string;
+}
+/**
  * Final tournament result for team tournaments
  */
 export interface TeamTournamentEndResultDto {
@@ -149,15 +165,30 @@ export interface TeamTournamentEndResultDto {
     /**
      * Club information for the team.
      *
-     * May be `null` for "loosely-coupled" team tournaments where teams are
-     * not bound to a single club — i.e. tournaments whose
-     * `teamtournamentPlayerListType` is `TEAM_TEAMS` (3), such as Skol-SM
-     * (school team championships). For ordinary club-based team tournaments
-     * (`REGISTRATION_TEAMS` / `RATINGLIST_TEAMS`) this is always present.
+     * `null` for "loosely-coupled" team tournaments where teams are not bound
+     * to a single club — i.e. tournaments whose `teamtournamentPlayerListType`
+     * is `TEAM_TEAMS` (3), such as real team Skol-SM. Those rows carry
+     * {@link TeamTournamentEndResultDto.team} instead. For ordinary club-based
+     * team tournaments (`REGISTRATION_TEAMS` / `RATINGLIST_TEAMS`) this is
+     * always present.
      *
      * See `TeamTournamentPlayerListType` and `isLooseTeamTournament()` in
      * `../types/tournament` for detecting this case from a TournamentDto.
      */
     club: ClubDTO | null;
+    /**
+     * Team information for a loosely-coupled (`TEAM_TEAMS`) team tournament.
+     *
+     * Mutually exclusive with {@link TeamTournamentEndResultDto.club}: exactly
+     * one of the two is populated. Club-based team tournaments set `club` and
+     * leave this `null`; loose-team tournaments do the reverse.
+     *
+     * Note that loose-team rows carry `teamNumber: -1` rather than `1..n` —
+     * each team is its own entity, so there is no "club's second team" to
+     * number. Use `getTeamRowName()` / `createStandingsTeamNameFormatter()`
+     * from `../utils/teamFormatting` to get a display name without having to
+     * branch on which field is set.
+     */
+    team: TeamDTO | null;
 }
 //# sourceMappingURL=results.d.ts.map

@@ -7,14 +7,6 @@ import {
   TournamentService
 } from "./chunk-ZP5ELYRS.mjs";
 import {
-  MemberCategory,
-  NO_PLACE,
-  PlayerCategory,
-  RatingType,
-  hasStandings,
-  isUnplaced
-} from "./chunk-BVK65LD7.mjs";
-import {
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
   RoundRatedType,
@@ -32,6 +24,7 @@ import {
   countTeamsByClub,
   countTeamsFromRoundResults,
   createRoundResultsTeamNameFormatter,
+  createStandingsTeamNameFormatter,
   createTeamNameFormatter,
   decimateRatingData,
   filterGamesByTimeControl,
@@ -51,6 +44,7 @@ import {
   getPlayerRatingStrict,
   getPrimaryRatingType,
   getRatingTypeFromRoundRated,
+  getTeamRowName,
   getTournamentStatus,
   isFemale,
   isFinished,
@@ -67,7 +61,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-7SBWOOSR.mjs";
+} from "./chunk-QFG7QFP5.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -90,6 +84,14 @@ import {
   isWalkover,
   isWalkoverResult
 } from "./chunk-T4K5ZM7T.mjs";
+import {
+  MemberCategory,
+  NO_PLACE,
+  PlayerCategory,
+  RatingType,
+  hasStandings,
+  isUnplaced
+} from "./chunk-BVK65LD7.mjs";
 import {
   PairingSystem,
   PointSystem,
@@ -180,6 +182,7 @@ export {
   countTeamsByClub,
   countTeamsFromRoundResults,
   createRoundResultsTeamNameFormatter,
+  createStandingsTeamNameFormatter,
   createTeamNameFormatter,
   decimateRatingData,
   deduplicateIds,
@@ -212,6 +215,7 @@ export {
   getPrimaryRatingType,
   getRatingTypeFromRoundRated,
   getResultDisplayString,
+  getTeamRowName,
   getTiebreakSystemName,
   getTournamentStatus,
   hasStandings,

@@ -7,7 +7,7 @@ export { getTournamentStatus, isUpcoming, isOngoing, isFinished } from './tourna
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './sortingUtils';
 export type { RoundStandingRow, RoundStandings, SecondaryBasis } from './roundStandings';
-export { toRomanNumeral, countTeamsByClub, formatTeamName, createTeamNameFormatter, countTeamsFromRoundResults, createRoundResultsTeamNameFormatter } from './teamFormatting';
+export { toRomanNumeral, countTeamsByClub, formatTeamName, createTeamNameFormatter, getTeamRowName, createStandingsTeamNameFormatter, countTeamsFromRoundResults, createRoundResultsTeamNameFormatter } from './teamFormatting';
 export { findTournamentGroup, getGroupName, type TournamentGroupResult } from './tournamentGroupUtils';
 export { PrizeCategoryType, type PrizeCategoryTypeValue, type PrizeRule, type PrizeEligibilityOptions, isPrizeCategory, parsePrizeCategory, resolvePrizeMembers } from './prizeCategories';
 export { getMonthStart, getMonthStartString, normalizeEloLookupDate, getPlayerDateCacheKey, parseLocalDate } from './dateUtils';
