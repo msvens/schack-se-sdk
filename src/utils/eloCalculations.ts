@@ -64,46 +64,60 @@ export function calculateRatingChange(
 }
 
 /**
+ * FIDE dp table: rating difference for a fractional score p, for p = 0.50 … 1.00
+ * in steps of 0.01 (index = percent − 50). Below 50%, dp(p) = −dp(1 − p).
+ *
+ * Source: FIDE Rating Regulations, §8.1.1 —
+ * https://handbook.fide.com/chapter/B022024
+ */
+const FIDE_DP_TABLE = [
+  0, 7, 14, 21, 29, 36, 43, 50, 57, 65,            // .50 – .59
+  72, 80, 87, 95, 102, 110, 117, 125, 133, 141,    // .60 – .69
+  149, 158, 166, 175, 184, 193, 202, 211, 220, 230, // .70 – .79
+  240, 251, 262, 273, 284, 296, 309, 322, 336, 351, // .80 – .89
+  366, 383, 401, 422, 444, 470, 501, 538, 589, 677, // .90 – .99
+  800,                                               // 1.00
+] as const;
+
+/**
  * Calculate performance rating for a tournament
  *
- * Uses the inverse ELO formula to calculate performance rating.
+ * Matches the PERF column on member.schack.se / resultat.schack.se:
+ * Performance = ⌊average opponent rating⌋ + dp(p), with dp looked up in FIDE's
+ * table ({@link FIDE_DP_TABLE}) and p = score / games rounded half-up to two
+ * decimals. ±800 at 100% / 0% comes from the table.
  *
- * @param opponentRatings - Array of opponent ratings
- * @param score - Total score (wins + 0.5 x draws)
- * @returns Performance rating
+ * The table is FIDE's; the rounding of p and the truncation of the average are
+ * not FIDE-specified — they are what the official site does, verified exactly
+ * against its published values (__tests__/fixtures/official-performance.json).
  *
- * Formula: Performance = Average opponent rating + d
- * where d = -400 x log10((1/p) - 1) and p is the score percentage
+ * Callers pass rated games only: unrated opponents are left out, not counted
+ * as zero. The score is 1 / ½ / 0 per game even in 3/2/1 point-system groups.
  *
- * Special cases:
- * - 100% score: Use average opponent rating + 800
- * - 0% score: Use average opponent rating - 800
+ * @param opponentRatings - Ratings of the rated opponents, one per game
+ * @param score - Total score against them (wins + 0.5 × draws)
+ * @returns Performance rating, or 0 when there are no rated games
  */
 export function calculatePerformanceRating(
   opponentRatings: number[],
   score: number
 ): number {
-  if (opponentRatings.length === 0) {
+  const games = opponentRatings.length;
+  if (games === 0) {
     return 0;
   }
 
-  const averageOpponentRating = opponentRatings.reduce((sum, rating) => sum + rating, 0) / opponentRatings.length;
-  const scorePercentage = score / opponentRatings.length;
+  const averageOpponentRating = Math.floor(
+    opponentRatings.reduce((sum, rating) => sum + rating, 0) / games
+  );
 
-  // Special cases for 100% and 0%
-  if (scorePercentage === 1.0) {
-    return Math.round(averageOpponentRating + 800);
-  }
-  if (scorePercentage === 0.0) {
-    return Math.round(averageOpponentRating - 800);
-  }
+  // p as a whole percent, rounded half-up. Working in percent rather than
+  // rounding p to two decimals keeps .5 cases exact: 100 × 5 / 8 is exactly
+  // 62.5, whereas 0.625 rounded to two decimals can come out as 0.62.
+  const percent = Math.min(100, Math.max(0, Math.floor((100 * score) / games + 0.5)));
 
-  // Use inverse ELO formula: d = -400 * log10((1/p) - 1)
-  // This is derived by solving the expected score formula for rating difference
-  const ratingDifference = -400 * Math.log10((1 / scorePercentage) - 1);
-  const performanceRating = averageOpponentRating + ratingDifference;
-
-  return Math.round(performanceRating);
+  const dp = percent >= 50 ? FIDE_DP_TABLE[percent - 50] : -FIDE_DP_TABLE[50 - percent];
+  return averageOpponentRating + dp;
 }
 
 /**

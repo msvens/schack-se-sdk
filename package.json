@@ -48,6 +48,7 @@
     "api:check": "bash scripts/api-check.sh",
     "api:update": "bash scripts/api-update.sh",
     "corpus:verify": "node scripts/corpus-verify.mjs",
+    "perf:fixture": "node scripts/perf-fixture.mjs",
     "release": "bash scripts/release.sh"
   },
   "devDependencies": {
