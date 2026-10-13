@@ -113,8 +113,8 @@ export declare function isUnplaced(result: Pick<TournamentEndResultDto, 'place'>
  *
  * Use this to decide whether placement order is meaningful. When it is `false`,
  * the tournament has not started and callers typically fall back to seeding
- * order — descending by the rating matching the tournament's time control, via
- * `getPlayerRatingForTournament(playerInfo.elo, tournament.thinkingTime)`, which
+ * order — descending by the rating the group ranks on, via
+ * `getPlayerRatingByAlgorithm(playerInfo.elo, group.rankingAlgorithm)`, which
  * is the order schack.se itself shows before play begins.
  *
  * @param results - Tournament end results for one group
@@ -122,7 +122,7 @@ export declare function isUnplaced(result: Pick<TournamentEndResultDto, 'place'>
  * ```ts
  * const rows = hasStandings(results)
  *   ? sortTournamentEndResultsByPlace(results)
- *   : seedByRating(results, tournament.thinkingTime);
+ *   : seedByRating(results, group.rankingAlgorithm);
  * ```
  */
 export declare function hasStandings(results: ReadonlyArray<Pick<TournamentEndResultDto, 'place'>> | null | undefined): boolean;

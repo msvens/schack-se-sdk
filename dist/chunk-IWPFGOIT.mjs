@@ -317,6 +317,26 @@ function getPlayerRatingStrict(elo, rankingAlgorithm) {
       return { rating: null, isFallback: false, ratingType: null };
   }
 }
+function getPlayerRatingForRound(elo, rankingAlgorithm, roundRated) {
+  if (roundRated !== void 0 && roundRated !== RoundRatedType.UNRATED) {
+    return getPlayerRatingByRoundType(elo, roundRated);
+  }
+  return getPlayerRatingStrict(elo, rankingAlgorithm);
+}
+function formatPlayerRatingForRound(elo, rankingAlgorithm, roundRated, language = "sv") {
+  const { rating, ratingType } = getPlayerRatingForRound(elo, rankingAlgorithm, roundRated);
+  return formatRatingWithType(rating, ratingType, language);
+}
+function getGroupTimeControl(group) {
+  const rated = new Set(
+    (group.tournamentRounds ?? []).map((round) => getRatingTypeFromRoundRated(round.rated))
+  );
+  const roundTypes = ["standard", "rapid", "blitz"].filter((type) => rated.has(type));
+  if (roundTypes.length > 0) return { primary: roundTypes[0], roundTypes };
+  const fromAlgorithm = getPrimaryRatingType(group.rankingAlgorithm);
+  const primary = fromAlgorithm === "standard" || fromAlgorithm === "rapid" || fromAlgorithm === "blitz" ? fromAlgorithm : "unknown";
+  return { primary, roundTypes };
+}
 function formatPlayerName(firstName, lastName, title) {
   const fullName = `${firstName} ${lastName}`;
   if (title && title.trim()) {
@@ -726,7 +746,7 @@ function aggregateOpponentStats(games, playerId, playerMap, tournamentMap) {
   opponentRecords.forEach((record, opponentId) => {
     const opponent = playerMap.get(opponentId);
     const opponentName = opponent ? formatPlayerName(opponent.firstName, opponent.lastName, opponent.elo?.title) : `Unknown Player (${opponentId})`;
-    const opponentRating = opponent && opponent.elo ? formatPlayerRating(opponent.elo, null) : "-";
+    const opponentRating = opponent && opponent.elo ? formatPlayerRatingForRound(opponent.elo, RatingAlgorithm.STANDARD_ELO) : "-";
     const tournaments = Array.from(record.groupIds).map((groupId) => {
       const tournament = tournamentMap.get(groupId);
       return {
@@ -821,6 +841,9 @@ export {
   getPlayerRatingByRoundType,
   getPrimaryRatingType,
   getPlayerRatingStrict,
+  getPlayerRatingForRound,
+  formatPlayerRatingForRound,
+  getGroupTimeControl,
   formatPlayerName,
   Sex,
   isFemale,

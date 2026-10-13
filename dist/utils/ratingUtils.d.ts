@@ -1,7 +1,7 @@
 /**
  * Utility functions for handling chess ratings based on tournament types
  */
-import { MemberFIDERatingDTO } from '../types';
+import { MemberFIDERatingDTO, RoundDto, TournamentClassGroupDto } from '../types';
 /**
  * Round rating type constants (from RoundDto.rated field)
  * These map to the API values for per-round rating types
@@ -25,6 +25,12 @@ export type RoundRatedTypeValue = typeof RoundRatedType[keyof typeof RoundRatedT
  * - Blitz: < 10 minutes
  * - Rapid: 10-60 minutes
  * - Standard: > 60 minutes or unspecified
+ *
+ * @deprecated Guesses from free text, and misreads about a third of real groups:
+ * an empty or terse `thinkingTime` (`''`, `'3+2'`, `'25/5'`) falls back to
+ * standard, and increments are ignored (`'60min+30s'` reads as rapid). Use
+ * {@link getGroupTimeControl}, which reads the rounds' `rated` type and the
+ * group's `rankingAlgorithm`.
  */
 export declare function parseTimeControl(thinkingTime: string | null | undefined): 'standard' | 'rapid' | 'blitz';
 /**
@@ -59,6 +65,9 @@ export interface PlayerRating {
  * const { rating, isFallback } = getPlayerRatingForTournament(player.elo, "10 min + 5 sek/drag");
  * const displayRating = rating ? `${rating}${isFallback ? '*' : ''}` : '-';
  * ```
+ *
+ * @deprecated Picks the rating type via {@link parseTimeControl}, which guesses
+ * from free text. Use {@link getPlayerRatingForRound}.
  */
 export declare function getPlayerRatingForTournament(elo: MemberFIDERatingDTO | null | undefined, thinkingTime: string | null | undefined): PlayerRating;
 /**
@@ -75,6 +84,9 @@ export declare function getPlayerRatingForTournament(elo: MemberFIDERatingDTO | 
  * // or "1950 S" (standard rating as fallback if no rapid rating)
  * // or "-" (no rating available)
  * ```
+ *
+ * @deprecated Picks the rating type via {@link parseTimeControl}, which guesses
+ * from free text. Use {@link formatPlayerRatingForRound}.
  */
 export declare function formatPlayerRating(elo: MemberFIDERatingDTO | null | undefined, thinkingTime: string | null | undefined): string;
 /**
@@ -200,6 +212,59 @@ export declare function getPrimaryRatingType(rankingAlgorithm: number | null | u
  * Use for display contexts like H2H where fallback would be misleading.
  */
 export declare function getPlayerRatingStrict(elo: MemberFIDERatingDTO | null | undefined, rankingAlgorithm: number | null | undefined): PlayerRating;
+/**
+ * A player's rating for one round: the round's own rated type where it has
+ * one, otherwise the group's `rankingAlgorithm` (strict, no fallback chain).
+ *
+ * A round's `rated` wins because a group can mix rating types — a rapid
+ * opening day inside a standard event, say. `rated === 0` (unrated) or a
+ * missing round falls back to the group algorithm rather than showing nothing.
+ *
+ * @param elo - Player's FIDE rating information
+ * @param rankingAlgorithm - The group's `rankingAlgorithm`
+ * @param roundRated - The round's `RoundDto.rated` value, if known
+ */
+export declare function getPlayerRatingForRound(elo: MemberFIDERatingDTO | null | undefined, rankingAlgorithm: number | null | undefined, roundRated?: number): PlayerRating;
+/**
+ * {@link getPlayerRatingForRound}, formatted with {@link formatRatingWithType}
+ * (e.g. "1708 S" / "1708 R" for rapid, "-" when there is no rating).
+ */
+export declare function formatPlayerRatingForRound(elo: MemberFIDERatingDTO | null | undefined, rankingAlgorithm: number | null | undefined, roundRated?: number, language?: 'sv' | 'en'): string;
+/** A rated time control (FIDE rating type). */
+export type RatedTimeControl = 'standard' | 'rapid' | 'blitz';
+/** A group's time control, as decided by {@link getGroupTimeControl}. */
+export interface GroupTimeControl {
+    /**
+     * The single type the group is played (and its final table rated) at, or
+     * `'unknown'` when nothing structured says. For a mixed group this is the
+     * slowest type present — standard over rapid over blitz — which is how
+     * schack.se rates mixed events' final tables.
+     */
+    primary: RatedTimeControl | 'unknown';
+    /**
+     * Every rated type found among the group's rounds, slowest first. More than
+     * one entry means a mixed group (e.g. rapid opening rounds in a standard
+     * event); how to present that is left to the caller. Empty when no round is
+     * rated, in which case `primary` came from the `rankingAlgorithm`.
+     */
+    roundTypes: RatedTimeControl[];
+}
+/**
+ * The time control a group is played (and rated) at.
+ *
+ * Reads structured fields only, never the free-text `thinkingTime`:
+ * 1. The rated types of its rounds (`RoundDto.rated`, unrated rounds ignored).
+ * 2. Otherwise the primary type of the group's `rankingAlgorithm`.
+ * 3. Otherwise `'unknown'` (e.g. an unrated group, or a LASK-only algorithm).
+ *
+ * Per-game calculations should not use this group-level answer; use
+ * {@link getPlayerRatingForRound} with each round's own `rated` type.
+ *
+ * @param group - The group, or just its `rankingAlgorithm` and rounds
+ */
+export declare function getGroupTimeControl(group: Pick<TournamentClassGroupDto, 'rankingAlgorithm'> & {
+    tournamentRounds?: Pick<RoundDto, 'rated'>[] | null;
+}): GroupTimeControl;
 /**
  * Format a player's name with their FIDE title if they have one
  *

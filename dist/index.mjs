@@ -7,6 +7,14 @@ import {
   TournamentService
 } from "./chunk-ZP5ELYRS.mjs";
 import {
+  MemberCategory,
+  NO_PLACE,
+  PlayerCategory,
+  RatingType,
+  hasStandings,
+  isUnplaced
+} from "./chunk-BVK65LD7.mjs";
+import {
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
   RoundRatedType,
@@ -30,15 +38,18 @@ import {
   filterGamesByTimeControl,
   formatPlayerName,
   formatPlayerRating,
+  formatPlayerRatingForRound,
   formatRatingWithType,
   formatTeamName,
   gamesToDisplayFormat,
+  getGroupTimeControl,
   getKFactorForRating,
   getMonthStart,
   getMonthStartString,
   getPlayerDateCacheKey,
   getPlayerRatingByAlgorithm,
   getPlayerRatingByRoundType,
+  getPlayerRatingForRound,
   getPlayerRatingForTournament,
   getPlayerRatingHistory,
   getPlayerRatingStrict,
@@ -61,7 +72,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-QFG7QFP5.mjs";
+} from "./chunk-IWPFGOIT.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -84,14 +95,6 @@ import {
   isWalkover,
   isWalkoverResult
 } from "./chunk-T4K5ZM7T.mjs";
-import {
-  MemberCategory,
-  NO_PLACE,
-  PlayerCategory,
-  RatingType,
-  hasStandings,
-  isUnplaced
-} from "./chunk-BVK65LD7.mjs";
 import {
   PairingSystem,
   PointSystem,
@@ -192,12 +195,14 @@ export {
   formatMatchResult,
   formatPlayerName,
   formatPlayerRating,
+  formatPlayerRatingForRound,
   formatRatingWithType,
   formatTeamName,
   gamesToDisplayFormat,
   getConfig,
   getGameOutcome,
   getGroupName,
+  getGroupTimeControl,
   getKFactorForRating,
   getMonthStart,
   getMonthStartString,
@@ -207,6 +212,7 @@ export {
   getPlayerPoints,
   getPlayerRatingByAlgorithm,
   getPlayerRatingByRoundType,
+  getPlayerRatingForRound,
   getPlayerRatingForTournament,
   getPlayerRatingHistory,
   getPlayerRatingStrict,
