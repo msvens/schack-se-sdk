@@ -5,7 +5,12 @@
 
 import {
   parseTimeControl,
+  formatPlayerRating,
   formatRatingWithType,
+  getPlayerRatingForRound,
+  formatPlayerRatingForRound,
+  getGroupTimeControl,
+  RoundRatedType,
   getKFactorForRating,
   getPlayerRatingByAlgorithm,
   isFemale,
@@ -288,6 +293,97 @@ describe('ratingUtils', () => {
       const result = getPlayerRatingByAlgorithm(mockElo as MemberFIDERatingDTO, 999);
       expect(result.rating).toBe(1500);
       expect(result.ratingType).toBe('standard');
+    });
+  });
+
+  describe('getPlayerRatingForRound', () => {
+    const elo = { rating: 1628, rapidRating: 1708, blitzRating: 1597 } as MemberFIDERatingDTO;
+
+    it("uses the round's rated type over the group algorithm", () => {
+      const result = getPlayerRatingForRound(elo, RatingAlgorithm.STANDARD_ELO, RoundRatedType.BLITZ);
+      expect(result).toEqual({ rating: 1597, isFallback: false, ratingType: 'blitz' });
+    });
+
+    it('falls back to the group algorithm for an unrated or unknown round', () => {
+      const expected = { rating: 1708, isFallback: false, ratingType: 'rapid' };
+      expect(getPlayerRatingForRound(elo, RatingAlgorithm.RAPID_STANDARD_BLITZ_ELO, RoundRatedType.UNRATED)).toEqual(expected);
+      expect(getPlayerRatingForRound(elo, RatingAlgorithm.RAPID_STANDARD_BLITZ_ELO)).toEqual(expected);
+    });
+
+    it('is strict: no substitute when the player lacks that rating', () => {
+      const standardOnly = { rating: 1628, rapidRating: 0, blitzRating: 0 } as MemberFIDERatingDTO;
+      expect(getPlayerRatingForRound(standardOnly, RatingAlgorithm.STANDARD_ELO, RoundRatedType.RAPID).rating).toBeNull();
+    });
+  });
+
+  describe('formatPlayerRatingForRound', () => {
+    const elo = { rating: 1628, rapidRating: 1708, blitzRating: 1597 } as MemberFIDERatingDTO;
+
+    it('formats with the rating-type suffix per language', () => {
+      expect(formatPlayerRatingForRound(elo, RatingAlgorithm.STANDARD_ELO, RoundRatedType.RAPID)).toBe('1708 S');
+      expect(formatPlayerRatingForRound(elo, RatingAlgorithm.STANDARD_ELO, RoundRatedType.RAPID, 'en')).toBe('1708 R');
+      expect(formatPlayerRatingForRound(elo, RatingAlgorithm.STANDARD_ELO)).toBe('1628');
+    });
+
+    it('returns "-" without a rating', () => {
+      expect(formatPlayerRatingForRound(null, RatingAlgorithm.STANDARD_ELO)).toBe('-');
+      expect(formatPlayerRatingForRound(elo, RatingAlgorithm.NO_RATING)).toBe('-');
+    });
+
+    // opponentStats swapped formatPlayerRating(elo, null) for this call; it must not change output.
+    it('matches the deprecated formatPlayerRating(elo, null) for standard ratings', () => {
+      const elos = [
+        elo,
+        { rating: 0, rapidRating: 1708, blitzRating: 1597 },
+        { rating: 2405, rapidRating: 0, blitzRating: 0 },
+      ] as MemberFIDERatingDTO[];
+      for (const e of elos) {
+        expect(formatPlayerRatingForRound(e, RatingAlgorithm.STANDARD_ELO)).toBe(formatPlayerRating(e, null));
+      }
+    });
+  });
+
+  describe('getGroupTimeControl', () => {
+    const rounds = (...rated: number[]) => rated.map((r) => ({ rated: r }));
+
+    it("reads the rounds' rated type, even against the algorithm", () => {
+      // Skol-SM 2026 I 5-8 (group 18716): rounds rated rapid, algorithm NO_RATING
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.NO_RATING, tournamentRounds: rounds(2, 2, 2) }))
+        .toEqual({ primary: 'rapid', roundTypes: ['rapid'] });
+      // ÖSS Årsmötesblixt 2026 (group 19400): rounds rated blitz, algorithm standard
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.STANDARD_ELO, tournamentRounds: rounds(3, 3) }))
+        .toEqual({ primary: 'blitz', roundTypes: ['blitz'] });
+    });
+
+    it('reports every type of a mixed group, slowest first, with the slowest as primary', () => {
+      // West Coast Chess Open 2026: rapid opening rounds, then standard
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.STANDARD_ELO, tournamentRounds: rounds(2, 2, 1, 1, 1) }))
+        .toEqual({ primary: 'standard', roundTypes: ['standard', 'rapid'] });
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.BLITZ_ELO, tournamentRounds: rounds(3, 2, 3) }))
+        .toEqual({ primary: 'rapid', roundTypes: ['rapid', 'blitz'] });
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.STANDARD_ELO, tournamentRounds: rounds(3, 1, 2) }))
+        .toEqual({ primary: 'standard', roundTypes: ['standard', 'rapid', 'blitz'] });
+    });
+
+    it('ignores unrated rounds', () => {
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.STANDARD_ELO, tournamentRounds: rounds(0, 3, 0) }))
+        .toEqual({ primary: 'blitz', roundTypes: ['blitz'] });
+    });
+
+    it('falls back to the algorithm when no round is rated, with empty roundTypes', () => {
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.RAPID_STANDARD_BLITZ_ELO, tournamentRounds: rounds(0, 0) }))
+        .toEqual({ primary: 'rapid', roundTypes: [] });
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.STANDARD_ELO, tournamentRounds: [] }))
+        .toEqual({ primary: 'standard', roundTypes: [] });
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.BLITZ_ELO }))
+        .toEqual({ primary: 'blitz', roundTypes: [] });
+    });
+
+    it("is 'unknown' when nothing structured says", () => {
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.NO_RATING, tournamentRounds: rounds(0, 0) }))
+        .toEqual({ primary: 'unknown', roundTypes: [] });
+      expect(getGroupTimeControl({ rankingAlgorithm: RatingAlgorithm.LASK, tournamentRounds: null }))
+        .toEqual({ primary: 'unknown', roundTypes: [] });
     });
   });
 
