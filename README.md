@@ -232,6 +232,49 @@ FIDE's; the rounding and truncation are what the official site does, verified
 against its published values for 461 players across 8 events (rapid, standard,
 blitz, team and mixed). `pnpm perf:fixture` regenerates that reference data.
 
+### Individual Results (tournament performance list)
+
+`getIndividualPerformance` builds resultat.schack.se's "Individuella resultat":
+every player of every group in a tournament, ranked by performance. It is pure —
+ratings come from your `playerAt` callback, so fetching and caching stay yours.
+
+```typescript
+import {
+  getIndividualPerformance,
+  getIndividualPerformanceLookups,
+  getMonthStartString,
+  normalizeEloLookupDate,
+  parseLocalDate
+} from '@msvens/schack-se-sdk';
+
+// 1. Round results per group (getTournamentRoundResults / getTeamRoundResults)
+const roundResults = new Map([[groupId, rounds] /* , … */]);
+
+// 2. Prefetch the ratings it will ask for, however you like (cache, /player/list/, …)
+const lookups = getIndividualPerformanceLookups(tournament, roundResults);
+// → [{ playerId, roundDate }, …]; the official PERF uses the list of each round's month:
+const month = (date: string) => getMonthStartString(normalizeEloLookupDate(parseLocalDate(date).getTime()));
+
+// 3. Build the rows
+const rows = getIndividualPerformance(tournament, roundResults, (id, date) => cache.get(id, month(date)));
+// → [{ playerId, groupId, games, won, drawn, lost, points, ratedGames, performance }, …]
+```
+
+The rules match the official list exactly (all 7 reference events: rapid,
+standard, blitz, team and mixed):
+
+- Groups with Schackfyran (3/2/1) scoring are left out.
+- `games` (SP) counts walkovers and byes; `won`/`drawn`/`lost` and `points`
+  (1/½/0) count only games actually played.
+- `performance` uses games in rated rounds against rated opponents, each at its
+  round's rating type, pooled into one value for mixed groups. The player's own
+  rating isn't needed. It is `null` below `MIN_RATED_GAMES_FOR_PERFORMANCE`
+  (3) rated games, as on the official site.
+- Rows are sorted by performance, highest first, `null` last.
+
+The results table's `playerInfo.elo` is a single snapshot (its `elo.date`): it
+gives exact values only for rounds in that month.
+
 ### Game Results
 
 ```typescript
