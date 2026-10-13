@@ -1,20 +1,4 @@
 import {
-  FideService,
-  OrganizationService,
-  RatingsService,
-  RegistrationService,
-  ResultsService,
-  TournamentService
-} from "./chunk-ZP5ELYRS.mjs";
-import {
-  MemberCategory,
-  NO_PLACE,
-  PlayerCategory,
-  RatingType,
-  hasStandings,
-  isUnplaced
-} from "./chunk-BVK65LD7.mjs";
-import {
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
   RoundRatedType,
@@ -72,7 +56,23 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-IWPFGOIT.mjs";
+} from "./chunk-3GDV7ANU.mjs";
+import {
+  FideService,
+  OrganizationService,
+  RatingsService,
+  RegistrationService,
+  ResultsService,
+  TournamentService
+} from "./chunk-ZP5ELYRS.mjs";
+import {
+  MemberCategory,
+  NO_PLACE,
+  PlayerCategory,
+  RatingType,
+  hasStandings,
+  isUnplaced
+} from "./chunk-BVK65LD7.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,

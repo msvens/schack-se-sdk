@@ -141,21 +141,76 @@ function calculateRatingChange(playerRating, opponentRating, actualScore, kFacto
   const ratingChange = kFactor * (actualScore - expectedScore);
   return Math.round(ratingChange * 10) / 10;
 }
+var FIDE_DP_TABLE = [
+  0,
+  7,
+  14,
+  21,
+  29,
+  36,
+  43,
+  50,
+  57,
+  65,
+  // .50 – .59
+  72,
+  80,
+  87,
+  95,
+  102,
+  110,
+  117,
+  125,
+  133,
+  141,
+  // .60 – .69
+  149,
+  158,
+  166,
+  175,
+  184,
+  193,
+  202,
+  211,
+  220,
+  230,
+  // .70 – .79
+  240,
+  251,
+  262,
+  273,
+  284,
+  296,
+  309,
+  322,
+  336,
+  351,
+  // .80 – .89
+  366,
+  383,
+  401,
+  422,
+  444,
+  470,
+  501,
+  538,
+  589,
+  677,
+  // .90 – .99
+  800
+  // 1.00
+];
 function calculatePerformanceRating(opponentRatings, score) {
-  if (opponentRatings.length === 0) {
+  const games = opponentRatings.length;
+  if (games === 0) {
     return 0;
   }
-  const averageOpponentRating = opponentRatings.reduce((sum, rating) => sum + rating, 0) / opponentRatings.length;
-  const scorePercentage = score / opponentRatings.length;
-  if (scorePercentage === 1) {
-    return Math.round(averageOpponentRating + 800);
-  }
-  if (scorePercentage === 0) {
-    return Math.round(averageOpponentRating - 800);
-  }
-  const ratingDifference = -400 * Math.log10(1 / scorePercentage - 1);
-  const performanceRating = averageOpponentRating + ratingDifference;
-  return Math.round(performanceRating);
+  const averageOpponentRating = Math.floor(
+    opponentRatings.reduce((sum, rating) => sum + rating, 0) / games
+  );
+  const percent = Math.min(100, Math.max(0, Math.floor(100 * score / games + 0.5)));
+  const dp = percent >= 50 ? FIDE_DP_TABLE[percent - 50] : -FIDE_DP_TABLE[50 - percent];
+  return averageOpponentRating + dp;
 }
 function calculateTournamentStats(matches, playerRating, kFactor) {
   let totalChange = 0;

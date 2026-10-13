@@ -43,18 +43,21 @@ export declare function calculateRatingChange(playerRating: number, opponentRati
 /**
  * Calculate performance rating for a tournament
  *
- * Uses the inverse ELO formula to calculate performance rating.
+ * Matches the PERF column on member.schack.se / resultat.schack.se:
+ * Performance = ⌊average opponent rating⌋ + dp(p), with dp looked up in FIDE's
+ * table ({@link FIDE_DP_TABLE}) and p = score / games rounded half-up to two
+ * decimals. ±800 at 100% / 0% comes from the table.
  *
- * @param opponentRatings - Array of opponent ratings
- * @param score - Total score (wins + 0.5 x draws)
- * @returns Performance rating
+ * The table is FIDE's; the rounding of p and the truncation of the average are
+ * not FIDE-specified — they are what the official site does, verified exactly
+ * against its published values (__tests__/fixtures/official-performance.json).
  *
- * Formula: Performance = Average opponent rating + d
- * where d = -400 x log10((1/p) - 1) and p is the score percentage
+ * Callers pass rated games only: unrated opponents are left out, not counted
+ * as zero. The score is 1 / ½ / 0 per game even in 3/2/1 point-system groups.
  *
- * Special cases:
- * - 100% score: Use average opponent rating + 800
- * - 0% score: Use average opponent rating - 800
+ * @param opponentRatings - Ratings of the rated opponents, one per game
+ * @param score - Total score against them (wins + 0.5 × draws)
+ * @returns Performance rating, or 0 when there are no rated games
  */
 export declare function calculatePerformanceRating(opponentRatings: number[], score: number): number;
 /**
