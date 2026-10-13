@@ -154,6 +154,45 @@ describe('eloCalculations', () => {
       const perf = calculatePerformanceRating(opponents, 2.5);
       expect(Number.isInteger(perf)).toBe(true);
     });
+
+    describe('FIDE dp table (Rating Regulations §8.1.1)', () => {
+      // With 100 opponents rated 2000, score s gives p = s/100 exactly: perf − 2000 = dp(p).
+      const dp = (percent: number) => calculatePerformanceRating(Array(100).fill(2000), percent) - 2000;
+
+      it('uses the handbook values', () => {
+        expect(dp(99)).toBe(677);
+        expect(dp(85)).toBe(296);
+        expect(dp(67)).toBe(125);
+        expect(dp(57)).toBe(50);
+        expect(dp(51)).toBe(7);
+        expect(dp(50)).toBe(0);
+      });
+
+      it('is strictly increasing and antisymmetric around 50%', () => {
+        for (let p = 1; p <= 100; p++) expect(dp(p)).toBeGreaterThan(dp(p - 1));
+        for (let p = 0; p <= 100; p++) expect(dp(100 - p) + dp(p)).toBe(0);
+      });
+    });
+
+    describe('rounding, as on member.schack.se', () => {
+      const flat = (games: number) => Array(games).fill(2000);
+
+      it('rounds p half-up to whole percent before the lookup', () => {
+        expect(calculatePerformanceRating(flat(8), 5)).toBe(2000 + 95);   // .625 → .63
+        expect(calculatePerformanceRating(flat(8), 3)).toBe(2000 - 87);   // .375 → .38
+        expect(calculatePerformanceRating(flat(8), 7)).toBe(2000 + 336);  // .875 → .88
+        expect(calculatePerformanceRating(flat(8), 1)).toBe(2000 - 322);  // .125 → .13
+        expect(calculatePerformanceRating(flat(3), 2)).toBe(2000 + 125);  // .667 → .67
+        expect(calculatePerformanceRating(flat(3), 1)).toBe(2000 - 125);  // .333 → .33
+      });
+
+      it('truncates the average opponent rating', () => {
+        // Alvar Stål, Skol-SM 2026 D 13 år: average 1638.86, 4/7 (.57 → +50); official 1688
+        expect(calculatePerformanceRating([1458, 1804, 1828, 1555, 1527, 1790, 1510], 4)).toBe(1688);
+        // Viet An Phan, LASK Open 2026: average 1501.67, 2/3 (.67 → +125); official 1626
+        expect(calculatePerformanceRating([1421, 1603, 1481], 2)).toBe(1626);
+      });
+    });
   });
 
   describe('calculateTournamentStats', () => {

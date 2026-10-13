@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`calculatePerformanceRating` now matches member.schack.se exactly.** It looks the rating difference up in FIDE's dp table (Rating Regulations §8.1.1) instead of the log formula, rounds the score percentage half-up to whole percent, and truncates the average opponent rating. The table is FIDE's; the rounding and truncation are what the official site does. Verified against its published PERF for 461 players across 8 events (Skol-SM 2026, LASS Snabb-LM, LASK Open, Manhems JKM, Visby KM Blixt, SmSF Snabbschack DM-lag, Hemse ASK, West Coast Chess Open): the new formula matches all 461 exactly, the old one 64 of the 327 single-type entries. Values move by a few points typically and up to ~60 near 0% / 100% scores (e.g. 10.5/11). Signature, the empty-input `0`, and ±800 at 100% / 0% are unchanged.
+
+### Added
+
+- **`pnpm perf:fixture`** (`scripts/perf-fixture.mjs`) — dev-only, not in CI. Scrapes the official PERF column and derives the matching inputs from the JSON API, writing the frozen fixture `__tests__/fixtures/official-performance.json` that the new offline test checks against, alongside a guard that no value the old formula got right regresses.
+
 ## 0.20.0
 
 ### Added

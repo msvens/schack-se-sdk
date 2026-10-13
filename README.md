@@ -218,12 +218,19 @@ const expected = calculateExpectedScore(1500, 1600); // ~0.36
 // Calculate rating change
 const change = calculateRatingChange(1500, 1600, 1.0, 20); // Win against higher rated
 
-// Calculate performance rating
-const performance = calculatePerformanceRating([1500, 1600, 1550], 2.5);
+// Calculate performance rating (rated opponents only, score 1/½/0 per game)
+const performance = calculatePerformanceRating([1500, 1600, 1550], 2.5); // 1550 + dp(.83) = 1823
 
 // Calculate tournament stats
 const stats = calculateTournamentStats(matches, playerRating, kFactor);
 ```
+
+`calculatePerformanceRating` matches the PERF column on member.schack.se:
+⌊average opponent rating⌋ + dp, with dp from FIDE's table (Rating Regulations
+§8.1.1) and the score percentage rounded half-up to whole percent. The table is
+FIDE's; the rounding and truncation are what the official site does, verified
+against its published values for 461 players across 8 events (rapid, standard,
+blitz, team and mixed). `pnpm perf:fixture` regenerates that reference data.
 
 ### Game Results
 
