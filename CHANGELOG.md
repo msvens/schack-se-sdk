@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`getGroupTimeControl(group)`** — the time control a group is rated at, as `{ primary, roundTypes }`. `roundTypes` lists every rated type among the group's rounds, slowest first (more than one means a mixed group, e.g. `['standard', 'rapid']`); `primary` is the single answer: the slowest type present (standard over rapid over blitz, matching how schack.se rates mixed events' final tables), else the group's `rankingAlgorithm` (with `roundTypes` empty), else `'unknown'` (unrated groups, LASK-only algorithms). It never reads `thinkingTime`.
+- **`getPlayerRatingForRound(elo, rankingAlgorithm, roundRated?)`** and **`formatPlayerRatingForRound(..., language?)`** — a player's rating for a round: the round's own rated type where it has one, otherwise the group algorithm, strict (no substitute rating). This is the rule the chess app already applies by hand.
+
+### Deprecated
+
+- **`parseTimeControl`**, **`getPlayerRatingForTournament`** and **`formatPlayerRating`** — they decide the rating type by parsing the free-text `thinkingTime`, which is wrong for roughly a third of real groups. A survey of 323 groups active Aug–Oct 2026 found the parser disagreeing with how the rounds are actually rated in 103 of them: empty or terse strings (`''`, `'3+2'`, `'25/5'`) fall back to standard, and increments are ignored (`'60min+30s'` reads as rapid, `'7 min + 5 sek'` as blitz). Skol-SM, for one, has an empty `thinkingTime` and rapid-rated rounds. Use `getGroupTimeControl`, `getPlayerRatingForRound` and `formatPlayerRatingForRound` instead. Behaviour is unchanged; removal comes in a later minor.
+
 ## 0.19.0
 
 ### Added

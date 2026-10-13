@@ -283,24 +283,38 @@ the Schackfyran/3-1-0 walkovers, and tourist byes).
 
 ```typescript
 import {
-  getPlayerRatingForTournament,
-  formatPlayerRating,
-  parseTimeControl,
+  getPlayerRatingForRound,
+  formatPlayerRatingForRound,
+  getGroupTimeControl,
   getKFactorForRating
 } from '@msvens/schack-se-sdk';
 
-// Get appropriate rating for tournament time control
-const rating = getPlayerRatingForTournament(player.elo, "10 min + 5 sek/drag");
+// A player's rating for a round: the round's own rated type, else the group's
+// rankingAlgorithm (strict — no substitute rating when the player lacks it)
+const { rating, ratingType } = getPlayerRatingForRound(player.elo, group.rankingAlgorithm, round.rated);
 
-// Format rating for display
-const display = formatPlayerRating(player.elo, thinkingTime); // "1500" or "1500 S"
+// Formatted for display
+const display = formatPlayerRatingForRound(player.elo, group.rankingAlgorithm, round.rated, 'en'); // "1708 R"
 
-// Parse time control string
-const timeControl = parseTimeControl("10 min + 5 sek/drag"); // 'rapid'
+// The time control a group is rated at
+const { primary, roundTypes } = getGroupTimeControl(group);
+// primary:    'standard' | 'rapid' | 'blitz' | 'unknown'
+// roundTypes: every rated type among the rounds, slowest first — ['standard', 'rapid'] for a
+//             mixed group, [] when no round is rated (primary then comes from rankingAlgorithm)
 
 // Get K-factor
 const kFactor = getKFactorForRating('standard', 1500, player.elo, birthdate);
 ```
+
+Time controls come from structured fields — the rounds' `rated` type, then the
+group's `rankingAlgorithm` — never from the free-text `thinkingTime`, which is
+often empty or terse (`'3+2'`, `'25/5'`). For a mixed group (e.g. rapid
+opening rounds in a standard event) `primary` is the slowest type present — how
+schack.se rates the final table — and `roundTypes` lists them all, so the caller
+decides how to present the mix. Per-game numbers should use
+`getPlayerRatingForRound` with each round's own type.
+`parseTimeControl`, `getPlayerRatingForTournament` and `formatPlayerRating`
+parse `thinkingTime` and are deprecated.
 
 ### Team Formatting
 

@@ -1,5 +1,6 @@
 import { GameDto, PlayerInfoDto, TournamentDto } from '../types';
-import { getPrimaryRatingType, formatPlayerRating, formatPlayerName } from './ratingUtils';
+import { getPrimaryRatingType, formatPlayerRatingForRound, formatPlayerName } from './ratingUtils';
+import { RatingAlgorithm } from '../types/ratingAlgorithm';
 import { findTournamentGroup } from './tournamentGroupUtils';
 import {
   getPlayerOutcome,
@@ -236,8 +237,9 @@ export function aggregateOpponentStats(
       ? formatPlayerName(opponent.firstName, opponent.lastName, opponent.elo?.title)
       : `Unknown Player (${opponentId})`;
 
+    // Opponents span many groups, so show their standard rating, not a per-group one.
     const opponentRating = opponent && opponent.elo
-      ? formatPlayerRating(opponent.elo, null)
+      ? formatPlayerRatingForRound(opponent.elo, RatingAlgorithm.STANDARD_ELO)
       : '-';
 
     // Build tournament list
