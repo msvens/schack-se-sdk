@@ -20,6 +20,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/utils/index.ts
 var utils_exports = {};
 __export(utils_exports, {
+  MIN_RATED_GAMES_FOR_PERFORMANCE: () => MIN_RATED_GAMES_FOR_PERFORMANCE,
   PointSystem: () => PointSystem,
   PointValues: () => PointValues,
   PrizeCategoryType: () => PrizeCategoryType,
@@ -60,6 +61,8 @@ __export(utils_exports, {
   getGameOutcome: () => getGameOutcome,
   getGroupName: () => getGroupName,
   getGroupTimeControl: () => getGroupTimeControl,
+  getIndividualPerformance: () => getIndividualPerformance,
+  getIndividualPerformanceLookups: () => getIndividualPerformanceLookups,
   getKFactorForRating: () => getKFactorForRating,
   getMonthStart: () => getMonthStart,
   getMonthStartString: () => getMonthStartString,
@@ -602,39 +605,6 @@ function resolveTeamMatchResult(row) {
   return resultFromRowPoints(row.homeResult, row.awayResult);
 }
 
-// src/utils/resultFormatting.ts
-var BYE_ID = -100;
-function getOpponentKind(id) {
-  if (id === BYE_ID) return "bye";
-  if (id < 0) return "walkover";
-  return "paired";
-}
-function isWalkoverResult(result) {
-  return isWalkoverResultCode(result);
-}
-function isWalkover(homeId, awayId, result) {
-  return getOpponentKind(homeId) === "walkover" || getOpponentKind(awayId) === "walkover" || result !== void 0 && isWalkoverResult(result);
-}
-function formatGameResult(result, whiteId, blackId) {
-  const displayString = getResultDisplayString(result);
-  if (isWalkoverResultCode(result) || isTouristBye(result)) {
-    return displayString;
-  }
-  const hasWalkoverPlayer = whiteId !== void 0 && getOpponentKind(whiteId) === "walkover" || blackId !== void 0 && getOpponentKind(blackId) === "walkover";
-  if (hasWalkoverPlayer && isCountableResult(result)) {
-    return `${displayString} w.o`;
-  }
-  return displayString;
-}
-function formatMatchResult(homeResult, awayResult, homeId, awayId) {
-  if (homeResult === void 0 || awayResult === void 0) {
-    return "-";
-  }
-  const hasWalkover = homeId !== void 0 && getOpponentKind(homeId) === "walkover" || awayId !== void 0 && getOpponentKind(awayId) === "walkover";
-  const resultStr = `${homeResult} - ${awayResult}`;
-  return hasWalkover ? `${resultStr} w.o` : resultStr;
-}
-
 // src/types/ratingAlgorithm.ts
 var RatingAlgorithm = {
   /** Standard ELO algorithm */
@@ -955,6 +925,145 @@ var Sex = {
 };
 function isFemale(player) {
   return player?.sex === Sex.FEMALE;
+}
+
+// src/utils/resultFormatting.ts
+var BYE_ID = -100;
+function getOpponentKind(id) {
+  if (id === BYE_ID) return "bye";
+  if (id < 0) return "walkover";
+  return "paired";
+}
+function isWalkoverResult(result) {
+  return isWalkoverResultCode(result);
+}
+function isWalkover(homeId, awayId, result) {
+  return getOpponentKind(homeId) === "walkover" || getOpponentKind(awayId) === "walkover" || result !== void 0 && isWalkoverResult(result);
+}
+function formatGameResult(result, whiteId, blackId) {
+  const displayString = getResultDisplayString(result);
+  if (isWalkoverResultCode(result) || isTouristBye(result)) {
+    return displayString;
+  }
+  const hasWalkoverPlayer = whiteId !== void 0 && getOpponentKind(whiteId) === "walkover" || blackId !== void 0 && getOpponentKind(blackId) === "walkover";
+  if (hasWalkoverPlayer && isCountableResult(result)) {
+    return `${displayString} w.o`;
+  }
+  return displayString;
+}
+function formatMatchResult(homeResult, awayResult, homeId, awayId) {
+  if (homeResult === void 0 || awayResult === void 0) {
+    return "-";
+  }
+  const hasWalkover = homeId !== void 0 && getOpponentKind(homeId) === "walkover" || awayId !== void 0 && getOpponentKind(awayId) === "walkover";
+  const resultStr = `${homeResult} - ${awayResult}`;
+  return hasWalkover ? `${resultStr} w.o` : resultStr;
+}
+
+// src/utils/individualPerformance.ts
+var MIN_RATED_GAMES_FOR_PERFORMANCE = 3;
+function allGroups(classes) {
+  return (classes ?? []).flatMap((c) => [...c.groups ?? [], ...allGroups(c.subClasses)]);
+}
+function* eligibleGames(tournament, roundResultsByGroup) {
+  for (const group of allGroups(tournament.rootClasses)) {
+    if (group.pointSystem === PointSystem.SCHACK4AN) continue;
+    const rows = roundResultsByGroup.get(group.id);
+    if (!rows) continue;
+    const ratedByRound = new Map((group.tournamentRounds ?? []).map((r) => [r.roundNumber, r.rated]));
+    for (const row of rows) {
+      for (const game of row.games ?? []) {
+        if (!isCountableResult(game.result)) continue;
+        yield {
+          group,
+          rated: ratedByRound.get(row.roundNr),
+          roundDate: row.date,
+          whiteId: game.whiteId,
+          blackId: game.blackId,
+          result: game.result
+        };
+      }
+    }
+  }
+}
+var isPlayed = (g, opponentId) => getOpponentKind(opponentId) === "paired" && !isWalkoverResultCode(g.result) && !isTouristBye(g.result);
+var isRatedRound = (g) => g.rated !== RoundRatedType.UNRATED;
+function sides(g) {
+  const out = [];
+  if (g.whiteId > 0) out.push([g.whiteId, g.blackId, true]);
+  if (g.blackId > 0) out.push([g.blackId, g.whiteId, false]);
+  return out;
+}
+function getIndividualPerformance(tournament, roundResultsByGroup, playerAt) {
+  const rows = /* @__PURE__ */ new Map();
+  for (const g of eligibleGames(tournament, roundResultsByGroup)) {
+    for (const [self, opponent, isWhite] of sides(g)) {
+      const key = `${self}:${g.group.id}`;
+      let row = rows.get(key);
+      if (!row) {
+        row = {
+          playerId: self,
+          groupId: g.group.id,
+          games: 0,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          points: 0,
+          ratedGames: 0,
+          performance: null,
+          opponentRatings: [],
+          ratedScore: 0
+        };
+        rows.set(key, row);
+      }
+      row.games++;
+      if (!isPlayed(g, opponent)) continue;
+      const outcome = getPlayerOutcome(g.result, isWhite);
+      if (outcome === null) continue;
+      const score = outcome === "win" ? 1 : outcome === "draw" ? 0.5 : 0;
+      if (outcome === "win") row.won++;
+      else if (outcome === "draw") row.drawn++;
+      else row.lost++;
+      row.points += score;
+      if (!isRatedRound(g)) continue;
+      const { rating } = getPlayerRatingForRound(
+        playerAt(opponent, g.roundDate)?.elo,
+        g.group.rankingAlgorithm,
+        g.rated
+      );
+      if (!rating) continue;
+      row.opponentRatings.push(rating);
+      row.ratedScore += score;
+    }
+  }
+  const result = [...rows.values()].map(
+    ({ opponentRatings, ratedScore, ...row }) => ({
+      ...row,
+      ratedGames: opponentRatings.length,
+      performance: opponentRatings.length >= MIN_RATED_GAMES_FOR_PERFORMANCE ? calculatePerformanceRating(opponentRatings, ratedScore) : null
+    })
+  );
+  return result.sort((a, b) => {
+    if (a.performance === b.performance) return 0;
+    if (a.performance === null) return 1;
+    if (b.performance === null) return -1;
+    return b.performance - a.performance;
+  });
+}
+function getIndividualPerformanceLookups(tournament, roundResultsByGroup) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const g of eligibleGames(tournament, roundResultsByGroup)) {
+    if (!isRatedRound(g)) continue;
+    for (const [self, opponent] of sides(g)) {
+      if (!isPlayed(g, opponent) || getPlayerOutcome(g.result, self === g.whiteId) === null) continue;
+      const key = `${opponent}@${g.roundDate}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ playerId: opponent, roundDate: g.roundDate });
+    }
+  }
+  return out;
 }
 
 // src/types/tournament.ts
@@ -1750,6 +1859,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  MIN_RATED_GAMES_FOR_PERFORMANCE,
   PointSystem,
   PointValues,
   PrizeCategoryType,
@@ -1790,6 +1900,8 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   getGameOutcome,
   getGroupName,
   getGroupTimeControl,
+  getIndividualPerformance,
+  getIndividualPerformanceLookups,
   getKFactorForRating,
   getMonthStart,
   getMonthStartString,

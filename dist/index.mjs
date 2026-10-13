@@ -1,4 +1,21 @@
 import {
+  FideService,
+  OrganizationService,
+  RatingsService,
+  RegistrationService,
+  ResultsService,
+  TournamentService
+} from "./chunk-ZP5ELYRS.mjs";
+import {
+  MemberCategory,
+  NO_PLACE,
+  PlayerCategory,
+  RatingType,
+  hasStandings,
+  isUnplaced
+} from "./chunk-BVK65LD7.mjs";
+import {
+  MIN_RATED_GAMES_FOR_PERFORMANCE,
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
   RoundRatedType,
@@ -27,6 +44,8 @@ import {
   formatTeamName,
   gamesToDisplayFormat,
   getGroupTimeControl,
+  getIndividualPerformance,
+  getIndividualPerformanceLookups,
   getKFactorForRating,
   getMonthStart,
   getMonthStartString,
@@ -56,23 +75,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-3GDV7ANU.mjs";
-import {
-  FideService,
-  OrganizationService,
-  RatingsService,
-  RegistrationService,
-  ResultsService,
-  TournamentService
-} from "./chunk-ZP5ELYRS.mjs";
-import {
-  MemberCategory,
-  NO_PLACE,
-  PlayerCategory,
-  RatingType,
-  hasStandings,
-  isUnplaced
-} from "./chunk-BVK65LD7.mjs";
+} from "./chunk-ELP6TSXM.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -142,6 +145,7 @@ export {
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
   FideService,
+  MIN_RATED_GAMES_FOR_PERFORMANCE,
   MemberCategory,
   NO_PLACE,
   OrganizationService,
@@ -203,6 +207,8 @@ export {
   getGameOutcome,
   getGroupName,
   getGroupTimeControl,
+  getIndividualPerformance,
+  getIndividualPerformanceLookups,
   getKFactorForRating,
   getMonthStart,
   getMonthStartString,

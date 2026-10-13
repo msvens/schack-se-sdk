@@ -1,14 +1,17 @@
 import {
   PlayerService,
-  findTournamentGroup
+  findTournamentGroup,
+  getOpponentKind
 } from "./chunk-T4K5ZM7T.mjs";
 import {
+  PointSystem,
   RatingAlgorithm,
   TournamentState,
   getPlayerOutcome,
   getPlayerPoints,
   getResultDisplayString,
   isCountableResult,
+  isTouristBye,
   isWalkoverResultCode
 } from "./chunk-6U6BXSQJ.mjs";
 
@@ -482,6 +485,112 @@ function calculateTournamentStats(matches, playerRating, kFactor) {
   };
 }
 
+// src/utils/individualPerformance.ts
+var MIN_RATED_GAMES_FOR_PERFORMANCE = 3;
+function allGroups(classes) {
+  return (classes ?? []).flatMap((c) => [...c.groups ?? [], ...allGroups(c.subClasses)]);
+}
+function* eligibleGames(tournament, roundResultsByGroup) {
+  for (const group of allGroups(tournament.rootClasses)) {
+    if (group.pointSystem === PointSystem.SCHACK4AN) continue;
+    const rows = roundResultsByGroup.get(group.id);
+    if (!rows) continue;
+    const ratedByRound = new Map((group.tournamentRounds ?? []).map((r) => [r.roundNumber, r.rated]));
+    for (const row of rows) {
+      for (const game of row.games ?? []) {
+        if (!isCountableResult(game.result)) continue;
+        yield {
+          group,
+          rated: ratedByRound.get(row.roundNr),
+          roundDate: row.date,
+          whiteId: game.whiteId,
+          blackId: game.blackId,
+          result: game.result
+        };
+      }
+    }
+  }
+}
+var isPlayed = (g, opponentId) => getOpponentKind(opponentId) === "paired" && !isWalkoverResultCode(g.result) && !isTouristBye(g.result);
+var isRatedRound = (g) => g.rated !== RoundRatedType.UNRATED;
+function sides(g) {
+  const out = [];
+  if (g.whiteId > 0) out.push([g.whiteId, g.blackId, true]);
+  if (g.blackId > 0) out.push([g.blackId, g.whiteId, false]);
+  return out;
+}
+function getIndividualPerformance(tournament, roundResultsByGroup, playerAt) {
+  const rows = /* @__PURE__ */ new Map();
+  for (const g of eligibleGames(tournament, roundResultsByGroup)) {
+    for (const [self, opponent, isWhite] of sides(g)) {
+      const key = `${self}:${g.group.id}`;
+      let row = rows.get(key);
+      if (!row) {
+        row = {
+          playerId: self,
+          groupId: g.group.id,
+          games: 0,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          points: 0,
+          ratedGames: 0,
+          performance: null,
+          opponentRatings: [],
+          ratedScore: 0
+        };
+        rows.set(key, row);
+      }
+      row.games++;
+      if (!isPlayed(g, opponent)) continue;
+      const outcome = getPlayerOutcome(g.result, isWhite);
+      if (outcome === null) continue;
+      const score = outcome === "win" ? 1 : outcome === "draw" ? 0.5 : 0;
+      if (outcome === "win") row.won++;
+      else if (outcome === "draw") row.drawn++;
+      else row.lost++;
+      row.points += score;
+      if (!isRatedRound(g)) continue;
+      const { rating } = getPlayerRatingForRound(
+        playerAt(opponent, g.roundDate)?.elo,
+        g.group.rankingAlgorithm,
+        g.rated
+      );
+      if (!rating) continue;
+      row.opponentRatings.push(rating);
+      row.ratedScore += score;
+    }
+  }
+  const result = [...rows.values()].map(
+    ({ opponentRatings, ratedScore, ...row }) => ({
+      ...row,
+      ratedGames: opponentRatings.length,
+      performance: opponentRatings.length >= MIN_RATED_GAMES_FOR_PERFORMANCE ? calculatePerformanceRating(opponentRatings, ratedScore) : null
+    })
+  );
+  return result.sort((a, b) => {
+    if (a.performance === b.performance) return 0;
+    if (a.performance === null) return 1;
+    if (b.performance === null) return -1;
+    return b.performance - a.performance;
+  });
+}
+function getIndividualPerformanceLookups(tournament, roundResultsByGroup) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const g of eligibleGames(tournament, roundResultsByGroup)) {
+    if (!isRatedRound(g)) continue;
+    for (const [self, opponent] of sides(g)) {
+      if (!isPlayed(g, opponent) || getPlayerOutcome(g.result, self === g.whiteId) === null) continue;
+      const key = `${opponent}@${g.roundDate}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ playerId: opponent, roundDate: g.roundDate });
+    }
+  }
+  return out;
+}
+
 // src/utils/prizeCategories.ts
 var PrizeCategoryType = {
   /** Age band. `start`/`end` are ages (see {@link chessAge}). */
@@ -907,6 +1016,9 @@ export {
   calculateRatingChange,
   calculatePerformanceRating,
   calculateTournamentStats,
+  MIN_RATED_GAMES_FOR_PERFORMANCE,
+  getIndividualPerformance,
+  getIndividualPerformanceLookups,
   PrizeCategoryType,
   isPrizeCategory,
   parsePrizeCategory,
