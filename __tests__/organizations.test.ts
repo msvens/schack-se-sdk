@@ -108,18 +108,20 @@ describe.skipIf(SSF_DOWN)('Organization Service Integration Tests', () => {
 
   describe('Error Handling', () => {
     test('should handle network errors gracefully', async () => {
-      // Create a service with invalid base URL to test error handling
+      // A `.invalid` host (RFC 2606) never resolves, so this is a real network
+      // failure with no server to answer — not a call to someone else's server.
       const invalidService = new (class extends OrganizationService {
         constructor() {
           super();
-          this['baseUrl'] = 'https://invalid-url-that-does-not-exist.com/api';
+          this['baseUrl'] = 'https://sdk-test.invalid/api';
         }
       })();
 
       const response = await invalidService.getFederation();
 
+      // base.ts reports "never reached the server" as status 0, not an HTTP code.
       expect(response.error).toBeDefined();
-      expect(response.status).toBeGreaterThanOrEqual(400);
+      expect(response.status).toBe(0);
     }, 10000);
   });
 });
