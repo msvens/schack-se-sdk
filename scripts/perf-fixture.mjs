@@ -8,6 +8,12 @@
 // does it. Writes __tests__/fixtures/official-performance.json and prints how
 // the built SDK's formula (dist/) and the FIDE-table prototype below compare.
 //
+// With `--individual-results` it instead writes only
+// __tests__/fixtures/individual-results.json: stripped raw inputs (groups, round
+// results, rating snapshot) plus the official rows (SP, W/D/L, P, PERF) for a few
+// tournaments, so getIndividualPerformance can be tested end to end, offline.
+// The default run's fixture stays untouched.
+//
 // NOT part of `pnpm check` — run manually (`pnpm perf:fixture`). Scraping lives
 // only here; nothing in src/ touches HTML. Imports the built SDK from dist/.
 //
@@ -95,17 +101,22 @@ const decode = (s) => s
   .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)))
   .trim();
 
-/** Official rows: { name, club, games, won, drawn, lost, points, perf }, perf null when blank. */
+/**
+ * Official rows: { name, club, games, won, drawn, lost, points, perf, groupId, memberId }, perf null when
+ * blank. groupId / memberId come from the row's onclick link (ShowTournamentParticipantResultServlet?id=&partid=).
+ */
 async function officialRows(groupId) {
   const html = await (await fetch(PAGE + groupId)).text();
   const rows = [];
-  for (const [, tr] of html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)) {
+  for (const [, attrs, tr] of html.matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g)) {
+    const link = attrs.match(/ShowTournamentParticipantResultServlet\?id=(\d+)&(?:amp;)?partid=(\d+)/);
     const cells = [...tr.matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g)].map((m) => decode(m[1])).filter(Boolean);
     if (!/^\d+\.$/.test(cells[0] ?? '')) continue;
     const [, name, club, games, won, drawn, lost, points, perf] = cells;
     rows.push({
       name, club, games: Number(games), won: Number(won), drawn: Number(drawn), lost: Number(lost),
       points: Number(points), perf: perf === undefined ? null : Number(perf),
+      groupId: link ? Number(link[1]) : null, memberId: link ? Number(link[2]) : null,
     });
   }
   return rows;
@@ -238,6 +249,106 @@ function stats(list, f) {
   };
 }
 const fmt = (s) => `exact ${s.exact}/${s.n}, within5 ${s.within5}/${s.n}, max |diff| ${s.maxDiff}`;
+
+// --- --individual-results mode -------------------------------------------------
+
+const INDIVIDUAL_OUT = join(__dirname, '../__tests__/fixtures/individual-results.json');
+// Ordinary events on purpose; Skol-SM is an outlier (3/2/1 groups, school-only players).
+const INDIVIDUAL_TOURNAMENTS = [
+  { groupId: 18962, label: 'LASS Snabb-LM 2026 (rapid)' },
+  { groupId: 18958, label: 'Manhems JKM 2026 (standard)' },
+  { groupId: 18980, label: 'LASK Open 2026 (standard, rounds over several months)' },
+  { groupId: 19307, label: 'Visby SK KM Blixt 2026 (blitz)' },
+  { groupId: 19201, label: 'SmSF Snabbschack DM-lag (team, rapid)' },
+  { groupId: 19405, label: 'Hemse ASK klassisk höst 2026 (team, standard)' },
+  { groupId: 19016, label: 'Torsdagskampen HT26 (mixed rapid + standard)' },
+];
+
+const monthOf = (date) => getMonthStartString(normalizeEloLookupDate(parseLocalDate(date).getTime()));
+const stripElo = (e) => (e ? { rating: e.rating, rapidRating: e.rapidRating, blitzRating: e.blitzRating, date: e.date } : null);
+
+/** Raw inputs + official rows for one tournament. Ratings are snapshotted for every player of every round month. */
+async function buildRaw({ groupId, label }) {
+  const tournament = unwrap(await tournaments.getTournamentFromGroup(groupId), `tournament of ${groupId}`);
+  const flatten = (cs) => (cs ?? []).flatMap((c) => [...(c.groups ?? []), ...flatten(c.subClasses)]);
+  const groups = flatten(tournament.rootClasses);
+
+  const roundResults = {};
+  const table = {}; // id -> elo, from individual results tables (the fallback the official site uses)
+  const pairs = new Set();
+  for (const g of groups) {
+    const team = g.playersinteam > 0;
+    const rows = unwrap(team ? await results.getTeamRoundResults(g.id) : await results.getTournamentRoundResults(g.id), `rounds of ${g.id}`);
+    roundResults[g.id] = rows.map((r) => ({
+      roundNr: r.roundNr, date: r.date,
+      games: (r.games ?? []).map((x) => [x.whiteId, x.blackId, x.result]), // [whiteId, blackId, result]
+    }));
+    if (!team) {
+      for (const row of (await results.getTournamentResults(g.id)).data ?? []) {
+        if (!row.playerInfo) continue;
+        table[row.contenderId] = stripElo(row.playerInfo.elo);
+      }
+    }
+    if (g.pointSystem === 1) continue; // 3/2/1 groups: kept as input (exclusion is tested), no ratings needed
+    for (const r of rows) for (const x of r.games ?? []) for (const id of [x.whiteId, x.blackId]) {
+      if (id > 0) pairs.add(`${id}@${monthOf(r.date)}`);
+    }
+  }
+  await pool([...pairs], (k) => { const [id, m] = k.split('@'); return eloAt(Number(id), m); });
+  const dated = {};
+  for (const k of pairs) {
+    const info = eloCache.get(k);
+    if (info) dated[k] = stripElo(info.elo);
+  }
+
+  // Official rows carry their member id; a row whose player appears in no API game can't be reproduced.
+  const inApi = new Set();
+  for (const rows of Object.values(roundResults)) for (const r of rows) for (const [w, b] of r.games) { inApi.add(w); inApi.add(b); }
+  const official = [];
+  const notInApi = [];
+  for (const row of await officialRows(groupId)) {
+    // The row link's `id` is the requested page's group, not the player's, so only the member id is kept.
+    const entry = { memberId: row.memberId, name: row.name, sp: row.games, w: row.won, d: row.drawn, l: row.lost, p: row.points, perf: row.perf };
+    (inApi.has(row.memberId) ? official : notInApi).push(entry);
+  }
+
+  return {
+    label,
+    tournament: {
+      id: tournament.id, name: tournament.name,
+      rootClasses: [{ groups: groups.map((g) => ({
+        id: g.id, name: g.name, pointSystem: g.pointSystem, rankingAlgorithm: g.rankingAlgorithm, playersinteam: g.playersinteam,
+        tournamentRounds: (g.tournamentRounds ?? []).map((r) => ({ roundNumber: r.roundNumber, rated: r.rated })),
+      })), subClasses: [] }],
+    },
+    roundResults, ratings: { dated, table }, official, notInApi,
+  };
+}
+
+if (process.argv.includes('--individual-results')) {
+  const out = [];
+  for (const t of INDIVIDUAL_TOURNAMENTS) {
+    process.stdout.write(`… ${t.label}\n`);
+    const raw = await buildRaw(t);
+    console.log(`    official rows ${raw.official.length} (with PERF ${raw.official.filter((r) => r.perf !== null).length}), not in API ${raw.notInApi.length}`);
+    out.push(raw);
+  }
+  writeFileSync(INDIVIDUAL_OUT, JSON.stringify({
+    _meta: {
+      purpose: 'Raw inputs and official "Individuella resultat" rows for testing getIndividualPerformance end to end. Generated by `pnpm perf:fixture --individual-results`; do not edit by hand.',
+      source: `${PAGE}<groupId>`,
+      fetchedAt: new Date().toISOString().slice(0, 10),
+      ratings: 'dated: "<id>@<YYYY-MM-01>" from /player/{id}/date at the round month; table: <id> from the individual results table (fallback for players the dated lookup lacks)',
+      games: 'roundResults[groupId][].games are [whiteId, blackId, resultCode] tuples',
+      notInApi: 'official rows whose player appears in no API game (e.g. Torsdagskampen HT26 "Grupp 2", absent from the API tournament)',
+    },
+    tournaments: out,
+  }) + '\n');
+  console.log(`\nWrote ${INDIVIDUAL_OUT}`);
+  process.exit(0);
+}
+
+// --- default mode: official-performance.json -----------------------------------
 
 const built = [];
 for (const t of TOURNAMENTS) {

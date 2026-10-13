@@ -72,6 +72,14 @@ export {
   type TournamentRatingStats
 } from './utils/eloCalculations';
 export {
+  getIndividualPerformance,
+  getIndividualPerformanceLookups,
+  MIN_RATED_GAMES_FOR_PERFORMANCE,
+  type IndividualPerformanceRow,
+  type IndividualPerformanceLookup,
+  type PlayerAt
+} from './utils/individualPerformance';
+export {
   getOpponentKind,
   type OpponentKind,
   isWalkoverResult,

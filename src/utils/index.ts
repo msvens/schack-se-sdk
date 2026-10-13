@@ -10,6 +10,14 @@ export {
   type TournamentRatingStats
 } from './eloCalculations';
 export {
+  getIndividualPerformance,
+  getIndividualPerformanceLookups,
+  MIN_RATED_GAMES_FOR_PERFORMANCE,
+  type IndividualPerformanceRow,
+  type IndividualPerformanceLookup,
+  type PlayerAt
+} from './individualPerformance';
+export {
   PointSystem,
   PointValues,
   ResultCode,

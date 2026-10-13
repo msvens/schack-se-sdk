@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`getIndividualPerformance(tournament, roundResultsByGroup, playerAt)`** — resultat.schack.se's "Individuella resultat": one row per player and group (`games`, `won`/`drawn`/`lost`, `points`, `ratedGames`, `performance`) across the whole tournament, sorted by performance. Pure — ratings come from the caller's `playerAt(playerId, roundDate)`, so fetching and caching stay with the caller; **`getIndividualPerformanceLookups`** lists the `(playerId, roundDate)` pairs it will ask for, for prefetching. Rules, each verified exactly against the official list:
+  - groups with Schackfyran (3/2/1) scoring are left out;
+  - SP counts walkovers and byes; W/D/L and points (1/½/0) count only games actually played;
+  - performance uses games in rated rounds against rated opponents, each at its round's rating type, pooled for mixed groups, and doesn't need the player's own rating;
+  - **no performance below 3 rated games** (`MIN_RATED_GAMES_FOR_PERFORMANCE`) — every official PERF in the reference data rests on ≥ 3 such games and every player with 1–2 has none, on the per-player page too.
+
+  Verified end to end against 7 ordinary events (LASS Snabb-LM, Manhems JKM, LASK Open, Visby KM Blixt, SmSF Snabbschack DM-lag, Hemse ASK, Torsdagskampen HT26 — rapid, standard, blitz, team, mixed): every official row matches on SP, W/D/L, P and PERF, and the order matches. Torsdagskampen's 7 "Grupp 2" players are on the official list but in no API game (the group is missing from the API tournament), so they can't be reproduced.
+- **`pnpm perf:fixture --individual-results`** writes the raw inputs and official rows for that test to `__tests__/fixtures/individual-results.json`, leaving the default run's fixture untouched.
+
 ## 0.20.1
 
 ### Changed
