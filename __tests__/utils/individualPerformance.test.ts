@@ -7,6 +7,7 @@
 import {
   getIndividualPerformance,
   getIndividualPerformanceLookups,
+  hasIndividualPerformance,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   type PlayerAt,
 } from '../../src/utils/individualPerformance';
@@ -74,7 +75,7 @@ describe('getIndividualPerformance', () => {
     ]]]);
     const p1 = rowOf(getIndividualPerformance(t, rounds, players), 1);
     expect(p1).toEqual({
-      playerId: 1, groupId: 10, games: 3, won: 1, drawn: 2, lost: 0, points: 2,
+      playerId: 1, groupIds: [10], games: 3, won: 1, drawn: 2, lost: 0, points: 2,
       ratedGames: 3, performance: calculatePerformanceRating([1600, 1700, 1800], 2),
     });
   });
@@ -96,7 +97,7 @@ describe('getIndividualPerformance', () => {
       [10, [row(1, '2026-09-05', [1, 2, WHITE_WIN])]],
       [20, [row(1, '2026-09-05', [3, 4, SCHACK4AN_WHITE_WIN])]],
     ]);
-    expect(getIndividualPerformance(t, rounds, players).map((r) => r.groupId)).toEqual([10, 10]);
+    expect(getIndividualPerformance(t, rounds, players).map((r) => r.groupIds)).toEqual([[10], [10]]);
   });
 
   it('counts walkovers and byes in games (SP) only', () => {
@@ -109,9 +110,23 @@ describe('getIndividualPerformance', () => {
       row(5, '2026-09-09', [1, 4, DRAW]),
     ]]]);
     expect(rowOf(getIndividualPerformance(t, rounds, players), 1)).toEqual({
-      playerId: 1, groupId: 10, games: 5, won: 0, drawn: 3, lost: 0, points: 1.5,
+      playerId: 1, groupIds: [10], games: 5, won: 0, drawn: 3, lost: 0, points: 1.5,
       ratedGames: 3, performance: calculatePerformanceRating([1600, 1700, 1800], 1.5),
     });
+  });
+
+  it('counts a game against a walkover placeholder with an ordinary result, but never rates it', () => {
+    // Stockholmsserien 2025/2026: "W.O - Lo Strimling 0 - 1" (opponent id -1, code BLACK_WIN) is a win
+    const t = tournament(group(10, standardRounds(2)));
+    const rounds = new Map([[10, [
+      row(1, '2026-09-05', [-1, 1, BLACK_WIN]),
+      row(2, '2026-09-06', [-1, 1, ResultCode.BLACK_WIN_WO]), // a walkover code: not counted
+    ]]]);
+    const asked: number[] = [];
+    const rows = getIndividualPerformance(t, rounds, (id) => { asked.push(id); return undefined; });
+    expect(rowOf(rows, 1)).toMatchObject({ games: 2, won: 1, points: 1, ratedGames: 0, performance: null });
+    expect(asked).toEqual([]);
+    expect(getIndividualPerformanceLookups(t, rounds)).toEqual([]);
   });
 
   it('skips non-countable results entirely', () => {
@@ -201,23 +216,66 @@ describe('getIndividualPerformance', () => {
     });
   });
 
-  it('keeps one row per player and group, and finds groups in subclasses', () => {
+  it('keeps one row per player across groups, finding groups in subclasses too', () => {
     const t = {
       id: 1,
-      rootClasses: [{ groups: [group(10, [[1, STANDARD]])], subClasses: [{ groups: [group(20, [[1, STANDARD]])], subClasses: [] }] }],
+      rootClasses: [{
+        groups: [group(10, standardRounds(2))],
+        subClasses: [{ groups: [group(20, standardRounds(1))], subClasses: [] }],
+      }],
     } as unknown as TournamentDto;
     const rounds = new Map([
-      [10, [row(1, '2026-09-05', [1, 2, WHITE_WIN])]],
-      [20, [row(1, '2026-09-05', [1, 3, WHITE_WIN])]],
+      [10, [row(1, '2026-09-05', [1, 2, WHITE_WIN]), row(2, '2026-09-06', [4, 1, DRAW])]],
+      [20, [row(1, '2026-09-05', [1, 3, BLACK_WIN])]],
     ]);
     const rows = getIndividualPerformance(t, rounds, players).filter((r) => r.playerId === 1);
-    expect(rows.map((r) => r.groupId).sort()).toEqual([10, 20]);
+    expect(rows).toEqual([{
+      playerId: 1, groupIds: [10, 20], games: 3, won: 1, drawn: 1, lost: 1, points: 1.5,
+      ratedGames: 3, performance: calculatePerformanceRating([1600, 1800, 1700], 1.5),
+    }]);
+  });
+
+  it('pools rated games across groups for the 3-game minimum (team leagues)', () => {
+    // Like Benjamin Lang Sohl in Stockholmsserien 2025/2026: 2 games in one division, 2 in another.
+    const t = tournament(group(10, standardRounds(2)), group(20, standardRounds(2)));
+    const rounds = new Map([
+      [10, [row(1, '2026-09-05', [1, 2, WHITE_WIN]), row(2, '2026-09-06', [3, 1, BLACK_WIN])]],
+      [20, [row(1, '2026-09-12', [1, 4, WHITE_WIN]), row(2, '2026-09-13', [2, 1, BLACK_WIN])]],
+    ]);
+    const p1 = rowOf(getIndividualPerformance(t, rounds, players), 1);
+    expect(p1).toMatchObject({ games: 4, won: 4, ratedGames: 4 });
+    expect(p1.performance).toBe(calculatePerformanceRating([1600, 1700, 1800, 1600], 4));
+  });
+
+  it("rates each game by its own group's algorithm", () => {
+    const t = tournament(
+      group(10, [], { rankingAlgorithm: RatingAlgorithm.STANDARD_ELO }),
+      group(20, [], { rankingAlgorithm: RatingAlgorithm.RAPID_ELO })
+    );
+    const rounds = new Map([
+      [10, [row(1, '2026-09-05', [1, 2, DRAW])]],
+      [20, [row(1, '2026-09-06', [1, 3, DRAW]), row(2, '2026-09-07', [1, 4, DRAW])]],
+    ]);
+    const mixed = ratings({ 1: elo(1500, 1550), 2: elo(1600, 1650), 3: elo(1700, 1750), 4: elo(1800, 1850) });
+    // group 10: 2's standard 1600; group 20: rapid 1750 and 1850
+    expect(rowOf(getIndividualPerformance(t, rounds, mixed), 1).performance)
+      .toBe(calculatePerformanceRating([1600, 1750, 1850], 1.5));
+  });
+
+  it('orders groupIds by games played, ties in encounter order', () => {
+    const t = tournament(group(10, standardRounds(1)), group(20, standardRounds(2)), group(30, standardRounds(1)));
+    const rounds = new Map([
+      [10, [row(1, '2026-09-05', [1, 2, DRAW])]],
+      [20, [row(1, '2026-09-06', [1, 3, DRAW]), row(2, '2026-09-07', [1, 4, DRAW])]],
+      [30, [row(1, '2026-09-08', [1, 2, DRAW])]],
+    ]);
+    expect(rowOf(getIndividualPerformance(t, rounds, players), 1).groupIds).toEqual([20, 10, 30]);
   });
 
   it('skips groups missing from the round-results map', () => {
     const t = tournament(group(10, [[1, STANDARD]]), group(20, [[1, STANDARD]]));
     const rounds = new Map([[10, [row(1, '2026-09-05', [1, 2, WHITE_WIN])]]]);
-    expect(new Set(getIndividualPerformance(t, rounds, players).map((r) => r.groupId))).toEqual(new Set([10]));
+    expect(getIndividualPerformance(t, rounds, players).map((r) => r.groupIds)).toEqual([[10], [10]]);
   });
 
   it('sorts by performance, highest first, players without one last, ties in encounter order', () => {
@@ -255,5 +313,31 @@ describe('getIndividualPerformanceLookups', () => {
     expect(new Set(lookups.map((l) => `${l.playerId}@${l.roundDate}`))).toEqual(asked);
     expect(lookups).toHaveLength(asked.size);
     expect(asked).toEqual(new Set(['1@2026-09-05', '2@2026-09-05']));
+  });
+});
+
+describe('hasIndividualPerformance', () => {
+  const rounds = (...rated: number[]) => rated.map((r, i) => [i + 1, r] as [number, number]);
+
+  it('is true when a non-Schackfyran group is rated', () => {
+    expect(hasIndividualPerformance(tournament(group(10, rounds(STANDARD, STANDARD))))).toBe(true);
+    // unrated algorithm, but the rounds carry a rated type
+    expect(hasIndividualPerformance(tournament(group(10, rounds(RAPID), { rankingAlgorithm: RatingAlgorithm.NO_RATING })))).toBe(true);
+    // unrated rounds, but the algorithm gives a type
+    expect(hasIndividualPerformance(tournament(group(10, rounds(UNRATED), { rankingAlgorithm: RatingAlgorithm.RAPID_ELO })))).toBe(true);
+  });
+
+  it('is false for unrated, LASK-only and Schackfyran-only tournaments', () => {
+    // Like Minior-Lag-DM 2025 (group 17042): no rating algorithm, every round unrated
+    expect(hasIndividualPerformance(tournament(group(10, rounds(UNRATED, UNRATED), { rankingAlgorithm: RatingAlgorithm.NO_RATING })))).toBe(false);
+    expect(hasIndividualPerformance(tournament(group(10, [], { rankingAlgorithm: RatingAlgorithm.LASK })))).toBe(false);
+    expect(hasIndividualPerformance(tournament(group(10, rounds(RAPID), { pointSystem: PointSystem.SCHACK4AN })))).toBe(false);
+  });
+
+  it('is true when any one group qualifies', () => {
+    expect(hasIndividualPerformance(tournament(
+      group(10, rounds(UNRATED), { rankingAlgorithm: RatingAlgorithm.NO_RATING }),
+      group(20, rounds(STANDARD))
+    ))).toBe(true);
   });
 });

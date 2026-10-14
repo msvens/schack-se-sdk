@@ -245,13 +245,18 @@ blitz, team and mixed). `pnpm perf:fixture` regenerates that reference data.
 ### Individual Results (tournament performance list)
 
 `getIndividualPerformance` builds resultat.schack.se's "Individuella resultat":
-every player of every group in a tournament, ranked by performance. It is pure —
-ratings come from your `playerAt` callback, so fetching and caching stay yours.
+every player of a tournament, ranked by performance — **one row per player across
+all groups**, so a team-league player who played in several divisions gets one
+pooled row, as on the official list. It is pure — ratings come from your
+`playerAt` callback, so fetching and caching stay yours. Check
+`hasIndividualPerformance(tournament)` first: it is false when no group is rated
+(e.g. unrated junior team events), where the list would be meaningless.
 
 ```typescript
 import {
   getIndividualPerformance,
   getIndividualPerformanceLookups,
+  hasIndividualPerformance,
   getMonthStartString,
   normalizeEloLookupDate,
   parseLocalDate
@@ -267,20 +272,24 @@ const month = (date: string) => getMonthStartString(normalizeEloLookupDate(parse
 
 // 3. Build the rows
 const rows = getIndividualPerformance(tournament, roundResults, (id, date) => cache.get(id, month(date)));
-// → [{ playerId, groupId, games, won, drawn, lost, points, ratedGames, performance }, …]
+// → [{ playerId, groupIds, games, won, drawn, lost, points, ratedGames, performance }, …]
+//   groupIds: the player's groups, most games first — groupIds[0] is the one to link to
 ```
 
-The rules match the official list exactly (all 7 reference events: rapid,
-standard, blitz, team and mixed):
+The rules match the official list exactly (8 reference events: rapid, standard,
+blitz, team, mixed, and a multi-division team league):
 
 - Groups with Schackfyran (3/2/1) scoring are left out.
 - `games` (SP) counts walkovers and byes; `won`/`drawn`/`lost` and `points`
-  (1/½/0) count only games actually played.
+  (1/½/0) leave out walkover result codes and byes.
 - `performance` uses games in rated rounds against rated opponents, each at its
   round's rating type, pooled into one value for mixed groups. The player's own
   rating isn't needed. It is `null` below `MIN_RATED_GAMES_FOR_PERFORMANCE`
   (3) rated games, as on the official site.
 - Rows are sorted by performance, highest first, `null` last.
+
+Not included: players registered to a team who never played (the official list
+shows them, from the team registrations, with SP 0 and no PERF).
 
 The results table's `playerInfo.elo` is a single snapshot (its `elo.date`): it
 gives exact values only for rounds in that month.
