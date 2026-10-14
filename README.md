@@ -60,8 +60,18 @@ const player = await service.getPlayerByFIDEId(fideId);
 // Search players by name
 const players = await service.searchPlayer('Magnus', 'Carlsen');
 
-// Batch fetch multiple players
-const results = await service.getPlayerInfoBatch([1, 2, 3], undefined, { concurrency: 10 });
+// Batch fetch players, each at its own date — one bulk request when all ids are known
+const results = await service.getPlayerInfoBatch([
+  { id: 594192, date: '2026-10-01' },
+  { id: 762705, date: '2026-10-01' },
+]);
+// → one result per input, in order:
+//   { data, error: null, status: 200 }        found
+//   { data: null, error: null, status: 204 }  missing (no such record)
+//   { data: null, error: '…', status: 0|408|5xx } error (worth retrying)
+
+// …or many ids at one date
+const sameDay = await service.getPlayerInfoBatch([1, 2, 3], new Date(2026, 9, 1));
 
 // Get rating history
 const history = await service.getPlayerEloHistory(playerId, '2024-01', '2025-01');
@@ -923,9 +933,9 @@ const fideService = new FideService('/api/chesstools');
 
 ### `getPlayerList` Returns 500 for Unknown IDs
 
-`POST /player/list/` returns HTTP 500 if **any** requested player ID doesn't exist. Players who leave the federation get removed from the database, but their IDs still appear in historical game results.
+`POST /player/list/` returns HTTP 500 if **any** requested player ID doesn't exist. Players who leave the federation get removed from the database, but their IDs still appear in historical game results — and school-only players in junior and school events (Skol-SM, Skollags-SM, beginner classes) are never in it. The single lookup `/player/{id}/date/{date}` answers those ids with HTTP 204 (no content), which the SDK reports as `{ status: 204 }`.
 
-Use `getPlayerInfoBatch` (individual GET calls with per-player error handling) when fetching players where unknown IDs are possible. `getPlayerList` is safe only when all IDs are known to be valid.
+Use `getPlayerInfoBatch`: it sends the whole batch as one `getPlayerList` POST, and if that fails re-posts it in chunks of 25 (4 at a time) and falls back to single lookups for the chunks that still fail, so you get every record that exists plus a `missing` (204) result for the ones that don't. Clean data costs one request; a batch where unknown ids are dense degrades to about one request per pair. `getPlayerList` on its own is safe only when all IDs are known to be valid.
 
 ## License
 

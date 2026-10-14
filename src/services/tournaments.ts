@@ -1,6 +1,6 @@
 import { BaseApiService } from './base';
 import type { TournamentDto, GroupSearchAnswerDto, ApiResponse, RequestOptions } from '../types';
-import type { BatchOptions, BatchItemResult } from './players';
+import { toBatchItem, type BatchOptions, type BatchItemResult } from './players';
 import { chunkArray } from '../utils/batchUtils';
 
 export class TournamentService extends BaseApiService {
@@ -167,19 +167,8 @@ export class TournamentService extends BaseApiService {
         chunk.map(id => this.getTournament(id, { timeoutMs }))
       );
 
-      // Collect results in order
-      responses.forEach((response) => {
-        if (response.status === 'fulfilled' && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === 'fulfilled' && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === 'rejected') {
-          results.push({
-            data: null,
-            error: response.reason?.message || 'Unknown error'
-          });
-        }
-      });
+      // Collect results in order — exactly one per input
+      responses.forEach((response) => results.push(toBatchItem(response)));
     }
 
     return results;
@@ -227,19 +216,8 @@ export class TournamentService extends BaseApiService {
         chunk.map(id => this.getTournamentFromGroup(id, { timeoutMs }))
       );
 
-      // Collect results in order
-      responses.forEach((response) => {
-        if (response.status === 'fulfilled' && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === 'fulfilled' && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === 'rejected') {
-          results.push({
-            data: null,
-            error: response.reason?.message || 'Unknown error'
-          });
-        }
-      });
+      // Collect results in order — exactly one per input
+      responses.forEach((response) => results.push(toBatchItem(response)));
     }
 
     return results;

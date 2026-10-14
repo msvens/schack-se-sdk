@@ -177,6 +177,21 @@ describe.skipIf(SSF_DOWN)('Player Service Integration Tests', () => {
         expect(lukas2.elo.date).toBe('2025-12-01');
       }
     }, 10000);
+
+    // 762705 is a school-only player: unknown to /player/{id}/date (HTTP 204), and
+    // enough on its own to fail a /player/list/ POST with HTTP 500.
+    test('getPlayerInfoBatch survives an unknown id: found / missing / found, in order', async () => {
+      const results = await playerService.getPlayerInfoBatch([
+        { id: TEST_PLAYER_ID, date: '2025-06-01' },
+        { id: 762705, date: '2026-10-01' },
+        { id: 464113, date: '2025-06-01' }
+      ]);
+
+      expect(results.map((r) => r.status)).toEqual([200, 204, 200]);
+      expect(results[0].data?.elo.rating).toBe(1649);
+      expect(results[1]).toEqual({ data: null, error: null, status: 204 });
+      expect(results[2].data?.elo.rating).toBe(2055);
+    }, 30000);
   });
 
   describe('Player Rating History API', () => {

@@ -95,6 +95,12 @@ export class BaseApiService {
       // server contract violation — report it as status: 0 (no usable response).
       // The timeout also covers the body read, so a stall mid-stream surfaces
       // as a 408 rather than a spurious parse error.
+      // 204 No Content (e.g. /player/{id}/date for an id the member register
+      // doesn't know): a successful answer without a body, not a parse failure.
+      if (response.status === 204) {
+        return { status: 204, message: 'Success' };
+      }
+
       try {
         const data = await response.json();
         return {

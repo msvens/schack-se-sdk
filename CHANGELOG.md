@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`getPlayerInfoBatch` is bulk-first and takes per-item dates.** It now sends all unique pairs as one `POST /player/list/` (`getPlayerList`) — a single request for clean data, where it used to send one GET per id. That POST fails as a whole (HTTP 500) when any id is unknown to the member register, which is common in junior and school events, so on failure it re-posts in chunks of 25 (4 POSTs in parallel) and fetches the pairs of any chunk that still fails with single GETs (`concurrency` at a time); a network failure on a POST is reported for its pairs without fanning out. New overload `getPlayerInfoBatch(requests: { id, date }[], options?)` looks each player up at its own date; the `(playerIds, date?, options?)` form still works. Pairs are deduplicated, ids ≤ 0 (byes, walkovers) are answered without a request, and the result always has one item per input, in input order. Verified live: Torsdagskampen HT26 (68 pairs) in 1 request; Skollags-SM 2026 groups with 20–30% school-only ids return every record that exists and report the rest as missing. No size limit was found on the POST (4000 pairs in 1.15 s); chunks are capped at 1000.
+- **`BatchItemResult` has a required `status`**, so a caller can tell **found** (`data`, status 200) from **missing** (`data: null`, `error: null`, status 204/404 — no such record) from **error** (`error` set, status 0 / 408 / 5xx — worth retrying). Set by all three batch methods (`getPlayerInfoBatch`, `getTournamentBatch`, `getTournamentFromGroupBatch`).
+
+### Fixed
+
+- **HTTP 204 was reported as a failure.** An empty 204 response (e.g. `getPlayerInfo` for a school-only id) came back as `status: 0` with "Unexpected end of JSON input" — indistinguishable from a network error. It is now `{ status: 204 }` with no data and no error.
+- **Batch methods could drop items.** A response with neither data nor error added no item, so results stopped lining up with the input. Every input now yields exactly one item.
+
 ## 0.21.0
 
 ### Added
