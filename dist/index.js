@@ -235,6 +235,9 @@ var BaseApiService = class {
           message: "Error"
         };
       }
+      if (response.status === 204) {
+        return { status: 204, message: "Success" };
+      }
       try {
         const data = await response.json();
         return {
@@ -822,6 +825,19 @@ function chunkArray(array, chunkSize) {
 }
 
 // src/services/players.ts
+var MISSING_STATUSES = /* @__PURE__ */ new Set([204, 404]);
+function toBatchItem(settled) {
+  if (settled.status === "rejected") {
+    return { data: null, error: settled.reason?.message || "Unknown error", status: 0 };
+  }
+  const { data, error, status } = settled.value;
+  if (data !== void 0 && data !== null) return { data, error: null, status };
+  if (MISSING_STATUSES.has(status)) return { data: null, error: null, status };
+  return { data: null, error: error || "No data", status };
+}
+var BULK_CHUNK = 1e3;
+var RETRY_CHUNK = 25;
+var RETRY_PARALLEL = 4;
 var PlayerService = class extends BaseApiService {
   constructor(baseUrl, timeoutMs) {
     super(baseUrl, void 0, timeoutMs);
@@ -873,41 +889,74 @@ var PlayerService = class extends BaseApiService {
   async getPlayerList(members, options) {
     return this.post("/player/list/", members, options);
   }
-  /**
-   * Fetch player information for multiple player IDs in batches
-   *
-   * Uses individual GET requests per player ID, which is slower than
-   * {@link getPlayerList} but tolerant of invalid/missing IDs — a single
-   * bad ID won't fail the entire batch. Prefer {@link getPlayerList} when
-   * you know all IDs are valid.
-   *
-   * @param playerIds - Array of player IDs to fetch (duplicates allowed, order preserved)
-   * @param date - Optional date filter (defaults to current date)
-   * @param options - Batch processing options
-   * @returns Array of results matching input order - each item contains either data or error
-   */
-  async getPlayerInfoBatch(playerIds, date, options = {}) {
-    const { concurrency = 10, timeoutMs } = options;
-    const chunks = chunkArray(playerIds, concurrency);
-    const results = [];
-    for (const chunk of chunks) {
-      const responses = await Promise.allSettled(
-        chunk.map((id) => this.getPlayerInfo(id, date, { timeoutMs }))
-      );
-      responses.forEach((response) => {
-        if (response.status === "fulfilled" && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === "fulfilled" && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === "rejected") {
-          results.push({
-            data: null,
-            error: response.reason?.message || "Unknown error"
-          });
-        }
-      });
+  async getPlayerInfoBatch(input, dateOrOptions, maybeOptions) {
+    if (input.length === 0) return [];
+    let requests;
+    let options;
+    if (typeof input[0] === "number") {
+      const date = dateOrOptions instanceof Date ? this.formatDateToString(dateOrOptions) : this.getCurrentDate();
+      requests = input.map((id) => ({ id, date }));
+      options = (dateOrOptions instanceof Date ? maybeOptions : dateOrOptions) ?? {};
+    } else {
+      requests = input;
+      options = dateOrOptions ?? {};
     }
-    return results;
+    const keyOf = (r) => `${r.id}@${r.date}`;
+    const unique = /* @__PURE__ */ new Map();
+    for (const r of requests) if (r.id > 0 && !unique.has(keyOf(r))) unique.set(keyOf(r), r);
+    const fetched = /* @__PURE__ */ new Map();
+    for (const chunk of chunkArray([...unique.values()], BULK_CHUNK)) {
+      await this.fetchPlayerChunk(chunk, options, fetched);
+    }
+    return requests.map(
+      (r) => r.id > 0 ? fetched.get(keyOf(r)) : { data: null, error: "Invalid player id", status: 0 }
+    );
+  }
+  /**
+   * Bulk-fetch one chunk into `out`: one POST; on failure, retry POSTs of
+   * {@link RETRY_CHUNK} pairs ({@link RETRY_PARALLEL} at a time); then one GET
+   * per pair of every retry chunk that still failed, `concurrency` at a time.
+   */
+  async fetchPlayerChunk(chunk, options, out) {
+    const { timeoutMs, concurrency = 10 } = options;
+    if (chunk.length > 1 && await this.postPlayerChunk(chunk, timeoutMs, out)) return;
+    let failed = chunk;
+    if (chunk.length > RETRY_CHUNK) {
+      failed = [];
+      for (const group of chunkArray(chunkArray(chunk, RETRY_CHUNK), RETRY_PARALLEL)) {
+        const done = await Promise.all(group.map((sub) => this.postPlayerChunk(sub, timeoutMs, out)));
+        group.forEach((sub, i) => {
+          if (!done[i]) failed.push(...sub);
+        });
+      }
+    }
+    for (const batch of chunkArray(failed, concurrency)) {
+      const settled = await Promise.allSettled(
+        batch.map((r) => this.get(`/player/${r.id}/date/${r.date}`, { timeoutMs }))
+      );
+      settled.forEach((s, i) => out.set(`${batch[i].id}@${batch[i].date}`, toBatchItem(s)));
+    }
+  }
+  /**
+   * One `/player/list/` POST for `chunk`. Returns true when its pairs are settled:
+   * either answered (found) or, on a network failure (status 0), marked as errors —
+   * single GETs would fail the same way. Returns false when the chunk should be
+   * retried smaller / per pair (HTTP 500 from an unknown id, a timeout, an
+   * answer that doesn't line up with the request).
+   */
+  async postPlayerChunk(chunk, timeoutMs, out) {
+    const response = await this.getPlayerList(chunk, { timeoutMs });
+    const answer = response.data;
+    if (response.status === 200 && Array.isArray(answer) && answer.length === chunk.length && answer.every((player, i) => player?.id === chunk[i].id)) {
+      chunk.forEach((r, i) => out.set(`${r.id}@${r.date}`, { data: answer[i], error: null, status: 200 }));
+      return true;
+    }
+    if (response.status === 0) {
+      const error = response.error || "Network error";
+      for (const r of chunk) out.set(`${r.id}@${r.date}`, { data: null, error, status: 0 });
+      return true;
+    }
+    return false;
   }
   /**
    * Fetch player rating history for a date range
@@ -1161,18 +1210,7 @@ var TournamentService = class extends BaseApiService {
       const responses = await Promise.allSettled(
         chunk.map((id) => this.getTournament(id, { timeoutMs }))
       );
-      responses.forEach((response) => {
-        if (response.status === "fulfilled" && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === "fulfilled" && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === "rejected") {
-          results.push({
-            data: null,
-            error: response.reason?.message || "Unknown error"
-          });
-        }
-      });
+      responses.forEach((response) => results.push(toBatchItem(response)));
     }
     return results;
   }
@@ -1210,18 +1248,7 @@ var TournamentService = class extends BaseApiService {
       const responses = await Promise.allSettled(
         chunk.map((id) => this.getTournamentFromGroup(id, { timeoutMs }))
       );
-      responses.forEach((response) => {
-        if (response.status === "fulfilled" && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === "fulfilled" && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === "rejected") {
-          results.push({
-            data: null,
-            error: response.reason?.message || "Unknown error"
-          });
-        }
-      });
+      responses.forEach((response) => results.push(toBatchItem(response)));
     }
     return results;
   }

@@ -11,16 +11,27 @@ export interface BatchOptions extends RequestOptions {
     concurrency?: number;
 }
 /**
- * Result of a single batch item
- * Either contains data or an error, never both
+ * Result of a single batch item, with the HTTP status it resolved to:
+ * - **found**: `data` set, `error: null`, `status` 200
+ * - **missing**: `data: null`, `error: null`, `status` 204 or 404 — the API has no such record
+ * - **error**: `data: null`, `error` set, `status` 0 (network / invalid input), 408 (timeout) or the
+ *   HTTP error status — worth retrying later, unlike "missing"
  */
 export type BatchItemResult<T> = {
     data: T;
     error: null;
+    status: number;
 } | {
     data: null;
-    error: string;
+    error: string | null;
+    status: number;
 };
+/**
+ * One batch item from a settled request. Every input yields exactly one item,
+ * including a response that carries neither data nor error.
+ * @internal shared by the batch methods of the services
+ */
+export declare function toBatchItem<T>(settled: PromiseSettledResult<ApiResponse<T>>): BatchItemResult<T>;
 export declare class PlayerService extends BaseApiService {
     constructor(baseUrl?: string, timeoutMs?: number);
     /**
@@ -57,19 +68,50 @@ export declare class PlayerService extends BaseApiService {
      */
     getPlayerList(members: MemberDateDto[], options?: RequestOptions): Promise<ApiResponse<PlayerInfoDto[]>>;
     /**
-     * Fetch player information for multiple player IDs in batches
+     * Fetch many player records, each as of its own date, without failing as a whole.
      *
-     * Uses individual GET requests per player ID, which is slower than
-     * {@link getPlayerList} but tolerant of invalid/missing IDs — a single
-     * bad ID won't fail the entire batch. Prefer {@link getPlayerList} when
-     * you know all IDs are valid.
+     * Strategy: one bulk `POST /player/list/` (see {@link getPlayerList}) for all
+     * unique `(id, date)` pairs. That POST fails entirely (HTTP 500) if any id is
+     * unknown to the member register — common in junior and school events — so
+     * on failure the pairs are re-posted in chunks of 25 (4 POSTs in parallel),
+     * and the pairs of every chunk that still fails are fetched with one GET each
+     * (`concurrency` at a time). Clean data costs a single request; a single
+     * pair is fetched with its GET directly, so this is also the way to fetch one.
+     * A network failure (status 0) on a POST is reported for its pairs without
+     * fanning out to single GETs.
      *
-     * @param playerIds - Array of player IDs to fetch (duplicates allowed, order preserved)
-     * @param date - Optional date filter (defaults to current date)
-     * @param options - Batch processing options
-     * @returns Array of results matching input order - each item contains either data or error
+     * @param playerIds - Player IDs, all looked up at `date` (duplicates allowed)
+     * @param date - Date for every id (defaults to today)
+     * @param requests - `{ id, date: 'YYYY-MM-DD' }` pairs, each at its own date (duplicates allowed)
+     * @param options - `concurrency` for the single-GET fallback (default 10) and `timeoutMs` per request
+     * @returns One result per input, in input order — found, missing or error (see {@link BatchItemResult}).
+     *   A month without a rating still returns the player (without `elo`): that is "found".
+     *
+     * @example
+     * ```ts
+     * const results = await players.getPlayerInfoBatch([
+     *   { id: 594192, date: '2026-10-01' },
+     *   { id: 762705, date: '2026-10-01' },
+     * ]);
+     * // [{ data: {...}, error: null, status: 200 }, { data: null, error: null, status: 204 }]
+     * ```
      */
     getPlayerInfoBatch(playerIds: number[], date?: Date, options?: BatchOptions): Promise<BatchItemResult<PlayerInfoDto>[]>;
+    getPlayerInfoBatch(requests: MemberDateDto[], options?: BatchOptions): Promise<BatchItemResult<PlayerInfoDto>[]>;
+    /**
+     * Bulk-fetch one chunk into `out`: one POST; on failure, retry POSTs of
+     * {@link RETRY_CHUNK} pairs ({@link RETRY_PARALLEL} at a time); then one GET
+     * per pair of every retry chunk that still failed, `concurrency` at a time.
+     */
+    private fetchPlayerChunk;
+    /**
+     * One `/player/list/` POST for `chunk`. Returns true when its pairs are settled:
+     * either answered (found) or, on a network failure (status 0), marked as errors —
+     * single GETs would fail the same way. Returns false when the chunk should be
+     * retried smaller / per pair (HTTP 500 from an unknown id, a timeout, an
+     * answer that doesn't line up with the request).
+     */
+    private postPlayerChunk;
     /**
      * Fetch player rating history for a date range
      *

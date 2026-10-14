@@ -1,6 +1,6 @@
 import { BaseApiService } from './base';
 import type { TournamentDto, GroupSearchAnswerDto, ApiResponse, RequestOptions } from '../types';
-import type { BatchOptions, BatchItemResult } from './players';
+import { type BatchOptions, type BatchItemResult } from './players';
 export declare class TournamentService extends BaseApiService {
     constructor(baseUrl?: string, timeoutMs?: number);
     /**

@@ -3,8 +3,9 @@ import {
   CHESSTOOLS_API_URL,
   chunkArray,
   findTournamentGroup,
-  getOpponentKind
-} from "./chunk-T4K5ZM7T.mjs";
+  getOpponentKind,
+  toBatchItem
+} from "./chunk-I2MIAYQC.mjs";
 import {
   PairingSystem,
   TiebreakSystem,
@@ -194,18 +195,7 @@ var TournamentService = class extends BaseApiService {
       const responses = await Promise.allSettled(
         chunk.map((id) => this.getTournament(id, { timeoutMs }))
       );
-      responses.forEach((response) => {
-        if (response.status === "fulfilled" && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === "fulfilled" && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === "rejected") {
-          results.push({
-            data: null,
-            error: response.reason?.message || "Unknown error"
-          });
-        }
-      });
+      responses.forEach((response) => results.push(toBatchItem(response)));
     }
     return results;
   }
@@ -243,18 +233,7 @@ var TournamentService = class extends BaseApiService {
       const responses = await Promise.allSettled(
         chunk.map((id) => this.getTournamentFromGroup(id, { timeoutMs }))
       );
-      responses.forEach((response) => {
-        if (response.status === "fulfilled" && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === "fulfilled" && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === "rejected") {
-          results.push({
-            data: null,
-            error: response.reason?.message || "Unknown error"
-          });
-        }
-      });
+      responses.forEach((response) => results.push(toBatchItem(response)));
     }
     return results;
   }
