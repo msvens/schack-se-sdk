@@ -6,7 +6,7 @@
  * (scripts/perf-fixture.mjs) and frozen — this test is offline.
  */
 
-import { getIndividualPerformance, type PlayerAt } from '../../src/utils/individualPerformance';
+import { getIndividualPerformance, hasIndividualPerformance, type PlayerAt } from '../../src/utils/individualPerformance';
 import type { MemberFIDERatingDTO, TournamentDto, TournamentRoundResultDto } from '../../src/types';
 import fixture from '../fixtures/individual-results.json';
 
@@ -28,6 +28,7 @@ interface RawTournament {
   ratings: { dated: Record<string, MemberFIDERatingDTO | null>; table: Record<string, MemberFIDERatingDTO | null> };
   official: OfficialRow[];
   notInApi: OfficialRow[];
+  noGames: OfficialRow[];
 }
 
 function inputs(raw: RawTournament) {
@@ -65,7 +66,11 @@ describe.each(tournaments.map((t) => [t.label, t] as const))('%s', (_label, raw)
   it('has one row per official player, and no others', () => {
     expect(rows.map((r) => r.playerId).sort((a, b) => a - b))
       .toEqual(raw.official.map((o) => o.memberId).sort((a, b) => a - b));
-    for (const missing of raw.notInApi) expect(byPlayer.has(missing.memberId)).toBe(false);
+    for (const missing of [...raw.notInApi, ...raw.noGames]) expect(byPlayer.has(missing.memberId)).toBe(false);
+  });
+
+  it('is a tournament with a performance list', () => {
+    expect(hasIndividualPerformance(tournament)).toBe(true);
   });
 
   it('matches every official row: SP, W/D/L, points and PERF', () => {
@@ -98,4 +103,10 @@ it('covers the cases the rules were derived from', () => {
   expect(official.some((o) => o.sp > o.w + o.d + o.l)).toBe(true); // walkovers / byes in SP only
   expect(official.some((o) => o.perf === null)).toBe(true);         // no rated opponent
   expect(tournaments.some((t) => Object.keys(t.roundResults).length > 1)).toBe(true);
+  // players whose games span several groups (team leagues), pooled into one row
+  const multiGroup = tournaments.flatMap((t) => {
+    const { tournament, roundResults, playerAt } = inputs(t);
+    return getIndividualPerformance(tournament, roundResults, playerAt).filter((r) => r.groupIds.length > 1);
+  });
+  expect(multiGroup.length).toBeGreaterThanOrEqual(10);
 });

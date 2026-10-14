@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **BREAKING: `getIndividualPerformance` returns one row per player across the tournament's groups** (was one per player and group), and `IndividualPerformanceRow.groupId` is replaced by **`groupIds`**: the player's groups, most games first (ties in encounter order), so `groupIds[0]` is the natural link target. SP, W/D/L, points and the PERF (with its 3-game minimum) are pooled over all the player's games. In team leagues players move between a club's teams in different divisions, and the official list pools them: in Stockholmsserien 2025/2026, Benjamin Lang Sohl played 2 games in division 5 and 3 in division 6 — the SDK gave two rows below the minimum and no PERF; it now gives one row with PERF 2355, as the official list does. Migration: `row.groupId` → `row.groupIds[0]`; a player now has a single row, so `playerId` is a unique key.
+
+### Added
+
+- **`hasIndividualPerformance(tournament)`** — whether the performance list is meaningful: true when at least one group without Schackfyran scoring is rated (`getGroupTimeControl(group).primary !== 'unknown'`). False for unrated tournaments (e.g. Minior-Lag-DM 2025: no rating algorithm, every round unrated), LASK-only and all-Schackfyran ones.
+
+### Fixed
+
+- **A game against a walkover placeholder with an ordinary result now counts in W/D/L and points**, as on the official list (Stockholmsserien 2025/2026: "W.O - Lo Strimling 0 - 1" is a win; "0 - 1 w.o", a walkover result code, still isn't). Such placeholders are never rated or looked up.
+
+### Tests
+
+- The end-to-end fixture adds Stockholmsserien 2025/2026 (3 divisions, 193 compared players, 29 across divisions). Every official row in all 8 events matches on SP, W/D/L, P and PERF. Official rows the API can't reproduce are recorded and asserted absent: registered players with no games (`noGames`) and players in no API game (`notInApi`).
+
 ## 0.22.0
 
 ### Changed

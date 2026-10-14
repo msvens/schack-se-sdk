@@ -74,6 +74,7 @@ export {
 export {
   getIndividualPerformance,
   getIndividualPerformanceLookups,
+  hasIndividualPerformance,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   type IndividualPerformanceRow,
   type IndividualPerformanceLookup,

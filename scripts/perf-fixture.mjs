@@ -262,6 +262,7 @@ const INDIVIDUAL_TOURNAMENTS = [
   { groupId: 19201, label: 'SmSF Snabbschack DM-lag (team, rapid)' },
   { groupId: 19405, label: 'Hemse ASK klassisk höst 2026 (team, standard)' },
   { groupId: 19016, label: 'Torsdagskampen HT26 (mixed rapid + standard)' },
+  { groupId: 17040, label: 'Stockholmsserien 2025/2026 (team league; players across divisions)' },
 ];
 
 const monthOf = (date) => getMonthStartString(normalizeEloLookupDate(parseLocalDate(date).getTime()));
@@ -306,10 +307,12 @@ async function buildRaw({ groupId, label }) {
   for (const rows of Object.values(roundResults)) for (const r of rows) for (const [w, b] of r.games) { inApi.add(w); inApi.add(b); }
   const official = [];
   const notInApi = [];
+  const noGames = [];
   for (const row of await officialRows(groupId)) {
     // The row link's `id` is the requested page's group, not the player's, so only the member id is kept.
     const entry = { memberId: row.memberId, name: row.name, sp: row.games, w: row.won, d: row.drawn, l: row.lost, p: row.points, perf: row.perf };
-    (inApi.has(row.memberId) ? official : notInApi).push(entry);
+    // SP 0: registered to a team but never played (the official list takes them from team registrations).
+    (row.games === 0 ? noGames : inApi.has(row.memberId) ? official : notInApi).push(entry);
   }
 
   return {
@@ -321,7 +324,7 @@ async function buildRaw({ groupId, label }) {
         tournamentRounds: (g.tournamentRounds ?? []).map((r) => ({ roundNumber: r.roundNumber, rated: r.rated })),
       })), subClasses: [] }],
     },
-    roundResults, ratings: { dated, table }, official, notInApi,
+    roundResults, ratings: { dated, table }, official, notInApi, noGames,
   };
 }
 
@@ -330,7 +333,7 @@ if (process.argv.includes('--individual-results')) {
   for (const t of INDIVIDUAL_TOURNAMENTS) {
     process.stdout.write(`… ${t.label}\n`);
     const raw = await buildRaw(t);
-    console.log(`    official rows ${raw.official.length} (with PERF ${raw.official.filter((r) => r.perf !== null).length}), not in API ${raw.notInApi.length}`);
+    console.log(`    official rows ${raw.official.length} (with PERF ${raw.official.filter((r) => r.perf !== null).length}), not in API ${raw.notInApi.length}, no games ${raw.noGames.length}`);
     out.push(raw);
   }
   writeFileSync(INDIVIDUAL_OUT, JSON.stringify({
@@ -341,6 +344,7 @@ if (process.argv.includes('--individual-results')) {
       ratings: 'dated: "<id>@<YYYY-MM-01>" from /player/{id}/date at the round month; table: <id> from the individual results table (fallback for players the dated lookup lacks)',
       games: 'roundResults[groupId][].games are [whiteId, blackId, resultCode] tuples',
       notInApi: 'official rows whose player appears in no API game (e.g. Torsdagskampen HT26 "Grupp 2", absent from the API tournament)',
+      noGames: 'official rows with SP 0: players registered to a team who never played (not derivable from round results)',
     },
     tournaments: out,
   }) + '\n');
