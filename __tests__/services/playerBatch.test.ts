@@ -76,8 +76,8 @@ describe('PlayerService.getPlayerInfoBatch', () => {
 
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    await service().getPlayerInfoBatch([3], undefined, { concurrency: 5 });
-    expect(posts(fetchMock)[1]).toEqual(pairs([3], today));
+    await service().getPlayerInfoBatch([3, 4], undefined, { concurrency: 5 });
+    expect(posts(fetchMock)[1]).toEqual(pairs([3, 4], today));
   });
 
   it('returns [] for empty input without a request', async () => {
@@ -184,16 +184,36 @@ describe('PlayerService.getPlayerInfoBatch', () => {
   });
 
   it('counts a player without elo (unrated that month) as found', async () => {
-    fetchMock.mockImplementation(async () => json([player(1, false)]));
-    const [result] = await service().getPlayerInfoBatch(pairs([1]));
+    fetchMock.mockImplementation(async () => json([player(1, false), player(2)]));
+    const [result] = await service().getPlayerInfoBatch(pairs([1, 2]));
     expect(result).toMatchObject({ error: null, status: 200, data: { id: 1 } });
     expect(result.data?.elo).toBeUndefined();
+  });
+
+  it('fetches a single pair with one GET and no POST', async () => {
+    const [found] = await service().getPlayerInfoBatch(pairs([7]));
+    expect(posts(fetchMock)).toHaveLength(0);
+    expect(gets(fetchMock)).toEqual([`${BASE_URL}/player/7/date/2026-10-01`]);
+    expect(found).toMatchObject({ error: null, status: 200, data: { id: 7 } });
+
+    fetchMock = fakeApi(new Set([8]));
+    vi.stubGlobal('fetch', fetchMock);
+    const [missing] = await service().getPlayerInfoBatch([8, 8], new Date(2026, 9, 1)); // duplicates → still one pair
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(missing).toEqual({ data: null, error: null, status: 204 });
   });
 
   it('splits more than 1000 unique pairs into several bulk POSTs', async () => {
     const results = await service().getPlayerInfoBatch(pairs(range(1, 1500)));
     expect(posts(fetchMock).map((p) => p.length)).toEqual([1000, 500]);
     expect(results).toHaveLength(1500);
+  });
+
+  it('fetches a trailing bulk chunk of one pair with its GET', async () => {
+    const results = await service().getPlayerInfoBatch(pairs(range(1, 1001)));
+    expect(posts(fetchMock).map((p) => p.length)).toEqual([1000]);
+    expect(gets(fetchMock)).toEqual([`${BASE_URL}/player/1001/date/2026-10-01`]);
+    expect(results.every((r) => r.status === 200)).toBe(true);
   });
 });
 

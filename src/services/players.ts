@@ -129,7 +129,8 @@ export class PlayerService extends BaseApiService {
    * unknown to the member register — common in junior and school events — so
    * on failure the pairs are re-posted in chunks of 25 (4 POSTs in parallel),
    * and the pairs of every chunk that still fails are fetched with one GET each
-   * (`concurrency` at a time). Clean data costs a single request.
+   * (`concurrency` at a time). Clean data costs a single request; a single
+   * pair is fetched with its GET directly, so this is also the way to fetch one.
    * A network failure (status 0) on a POST is reported for its pairs without
    * fanning out to single GETs.
    *
@@ -204,7 +205,9 @@ export class PlayerService extends BaseApiService {
     out: Map<string, BatchItemResult<PlayerInfoDto>>
   ): Promise<void> {
     const { timeoutMs, concurrency = 10 } = options;
-    if (await this.postPlayerChunk(chunk, timeoutMs, out)) return;
+    // A single pair goes straight to its GET: same cost when the id is known,
+    // and no doomed POST when it isn't.
+    if (chunk.length > 1 && (await this.postPlayerChunk(chunk, timeoutMs, out))) return;
 
     let failed = chunk;
     if (chunk.length > RETRY_CHUNK) {
