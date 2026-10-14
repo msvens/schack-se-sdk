@@ -43,6 +43,17 @@ describe('BaseApiService error contract', () => {
       expect(response.data).toEqual(payload);
       expect(response.error).toBeUndefined();
     });
+
+    it('returns { status: 204 } with no data and no error on 204 No Content', async () => {
+      fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+      const service = new PlayerService(BASE_URL);
+      const response = await service.getPlayerInfo(762705);
+
+      expect(response.status).toBe(204);
+      expect(response.data).toBeUndefined();
+      expect(response.error).toBeUndefined();
+    });
   });
 
   describe('HTTP error responses', () => {

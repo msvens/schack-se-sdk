@@ -14,12 +14,40 @@ export interface BatchOptions extends RequestOptions {
 }
 
 /**
- * Result of a single batch item
- * Either contains data or an error, never both
+ * Result of a single batch item, with the HTTP status it resolved to:
+ * - **found**: `data` set, `error: null`, `status` 200
+ * - **missing**: `data: null`, `error: null`, `status` 204 or 404 — the API has no such record
+ * - **error**: `data: null`, `error` set, `status` 0 (network / invalid input), 408 (timeout) or the
+ *   HTTP error status — worth retrying later, unlike "missing"
  */
 export type BatchItemResult<T> =
-  | { data: T; error: null }
-  | { data: null; error: string };
+  | { data: T; error: null; status: number }
+  | { data: null; error: string | null; status: number };
+
+/** Statuses meaning "the API has no such record" rather than "the request failed". */
+const MISSING_STATUSES = new Set([204, 404]);
+
+/**
+ * One batch item from a settled request. Every input yields exactly one item,
+ * including a response that carries neither data nor error.
+ * @internal shared by the batch methods of the services
+ */
+export function toBatchItem<T>(settled: PromiseSettledResult<ApiResponse<T>>): BatchItemResult<T> {
+  if (settled.status === 'rejected') {
+    return { data: null, error: settled.reason?.message || 'Unknown error', status: 0 };
+  }
+  const { data, error, status } = settled.value;
+  if (data !== undefined && data !== null) return { data, error: null, status };
+  if (MISSING_STATUSES.has(status)) return { data: null, error: null, status };
+  return { data: null, error: error || 'No data', status };
+}
+
+/** Bulk POST size (verified fine up to 4000 pairs; this keeps answers modest). */
+const BULK_CHUNK = 1000;
+/** Chunk size when a bulk POST fails, so one unknown id only costs its own chunk. */
+const RETRY_CHUNK = 25;
+/** Retry POSTs in flight at once. */
+const RETRY_PARALLEL = 4;
 
 export class PlayerService extends BaseApiService {
   constructor(baseUrl?: string, timeoutMs?: number) {
@@ -94,51 +122,139 @@ export class PlayerService extends BaseApiService {
   }
 
   /**
-   * Fetch player information for multiple player IDs in batches
+   * Fetch many player records, each as of its own date, without failing as a whole.
    *
-   * Uses individual GET requests per player ID, which is slower than
-   * {@link getPlayerList} but tolerant of invalid/missing IDs — a single
-   * bad ID won't fail the entire batch. Prefer {@link getPlayerList} when
-   * you know all IDs are valid.
+   * Strategy: one bulk `POST /player/list/` (see {@link getPlayerList}) for all
+   * unique `(id, date)` pairs. That POST fails entirely (HTTP 500) if any id is
+   * unknown to the member register — common in junior and school events — so
+   * on failure the pairs are re-posted in chunks of 25 (4 POSTs in parallel),
+   * and the pairs of every chunk that still fails are fetched with one GET each
+   * (`concurrency` at a time). Clean data costs a single request; a single
+   * pair is fetched with its GET directly, so this is also the way to fetch one.
+   * A network failure (status 0) on a POST is reported for its pairs without
+   * fanning out to single GETs.
    *
-   * @param playerIds - Array of player IDs to fetch (duplicates allowed, order preserved)
-   * @param date - Optional date filter (defaults to current date)
-   * @param options - Batch processing options
-   * @returns Array of results matching input order - each item contains either data or error
+   * @param playerIds - Player IDs, all looked up at `date` (duplicates allowed)
+   * @param date - Date for every id (defaults to today)
+   * @param requests - `{ id, date: 'YYYY-MM-DD' }` pairs, each at its own date (duplicates allowed)
+   * @param options - `concurrency` for the single-GET fallback (default 10) and `timeoutMs` per request
+   * @returns One result per input, in input order — found, missing or error (see {@link BatchItemResult}).
+   *   A month without a rating still returns the player (without `elo`): that is "found".
+   *
+   * @example
+   * ```ts
+   * const results = await players.getPlayerInfoBatch([
+   *   { id: 594192, date: '2026-10-01' },
+   *   { id: 762705, date: '2026-10-01' },
+   * ]);
+   * // [{ data: {...}, error: null, status: 200 }, { data: null, error: null, status: 204 }]
+   * ```
    */
   async getPlayerInfoBatch(
     playerIds: number[],
     date?: Date,
-    options: BatchOptions = {}
+    options?: BatchOptions
+  ): Promise<BatchItemResult<PlayerInfoDto>[]>;
+  async getPlayerInfoBatch(
+    requests: MemberDateDto[],
+    options?: BatchOptions
+  ): Promise<BatchItemResult<PlayerInfoDto>[]>;
+  async getPlayerInfoBatch(
+    input: number[] | MemberDateDto[],
+    dateOrOptions?: Date | BatchOptions,
+    maybeOptions?: BatchOptions
   ): Promise<BatchItemResult<PlayerInfoDto>[]> {
-    const { concurrency = 10, timeoutMs } = options;
-    const chunks = chunkArray(playerIds, concurrency);
+    if (input.length === 0) return [];
 
-    const results: BatchItemResult<PlayerInfoDto>[] = [];
-
-    // Process each chunk sequentially
-    for (const chunk of chunks) {
-      // Within each chunk, process requests in parallel
-      const responses = await Promise.allSettled(
-        chunk.map(id => this.getPlayerInfo(id, date, { timeoutMs }))
-      );
-
-      // Collect results in order
-      responses.forEach((response) => {
-        if (response.status === 'fulfilled' && response.value.data) {
-          results.push({ data: response.value.data, error: null });
-        } else if (response.status === 'fulfilled' && response.value.error) {
-          results.push({ data: null, error: response.value.error });
-        } else if (response.status === 'rejected') {
-          results.push({
-            data: null,
-            error: response.reason?.message || 'Unknown error'
-          });
-        }
-      });
+    let requests: MemberDateDto[];
+    let options: BatchOptions;
+    if (typeof input[0] === 'number') {
+      const date = dateOrOptions instanceof Date ? this.formatDateToString(dateOrOptions) : this.getCurrentDate();
+      requests = (input as number[]).map((id) => ({ id, date }));
+      options = (dateOrOptions instanceof Date ? maybeOptions : (dateOrOptions as BatchOptions | undefined)) ?? {};
+    } else {
+      requests = input as MemberDateDto[];
+      options = (dateOrOptions as BatchOptions | undefined) ?? {};
     }
 
-    return results;
+    // Each unique valid pair is fetched once; ids <= 0 (byes, walkovers) never are.
+    const keyOf = (r: MemberDateDto) => `${r.id}@${r.date}`;
+    const unique = new Map<string, MemberDateDto>();
+    for (const r of requests) if (r.id > 0 && !unique.has(keyOf(r))) unique.set(keyOf(r), r);
+
+    const fetched = new Map<string, BatchItemResult<PlayerInfoDto>>();
+    for (const chunk of chunkArray([...unique.values()], BULK_CHUNK)) {
+      await this.fetchPlayerChunk(chunk, options, fetched);
+    }
+
+    return requests.map((r) =>
+      r.id > 0
+        ? fetched.get(keyOf(r))!
+        : { data: null, error: 'Invalid player id', status: 0 }
+    );
+  }
+
+  /**
+   * Bulk-fetch one chunk into `out`: one POST; on failure, retry POSTs of
+   * {@link RETRY_CHUNK} pairs ({@link RETRY_PARALLEL} at a time); then one GET
+   * per pair of every retry chunk that still failed, `concurrency` at a time.
+   */
+  private async fetchPlayerChunk(
+    chunk: MemberDateDto[],
+    options: BatchOptions,
+    out: Map<string, BatchItemResult<PlayerInfoDto>>
+  ): Promise<void> {
+    const { timeoutMs, concurrency = 10 } = options;
+    // A single pair goes straight to its GET: same cost when the id is known,
+    // and no doomed POST when it isn't.
+    if (chunk.length > 1 && (await this.postPlayerChunk(chunk, timeoutMs, out))) return;
+
+    let failed = chunk;
+    if (chunk.length > RETRY_CHUNK) {
+      failed = [];
+      for (const group of chunkArray(chunkArray(chunk, RETRY_CHUNK), RETRY_PARALLEL)) {
+        const done = await Promise.all(group.map((sub) => this.postPlayerChunk(sub, timeoutMs, out)));
+        group.forEach((sub, i) => { if (!done[i]) failed.push(...sub); });
+      }
+    }
+
+    for (const batch of chunkArray(failed, concurrency)) {
+      const settled = await Promise.allSettled(
+        batch.map((r) => this.get<PlayerInfoDto>(`/player/${r.id}/date/${r.date}`, { timeoutMs }))
+      );
+      settled.forEach((s, i) => out.set(`${batch[i].id}@${batch[i].date}`, toBatchItem(s)));
+    }
+  }
+
+  /**
+   * One `/player/list/` POST for `chunk`. Returns true when its pairs are settled:
+   * either answered (found) or, on a network failure (status 0), marked as errors —
+   * single GETs would fail the same way. Returns false when the chunk should be
+   * retried smaller / per pair (HTTP 500 from an unknown id, a timeout, an
+   * answer that doesn't line up with the request).
+   */
+  private async postPlayerChunk(
+    chunk: MemberDateDto[],
+    timeoutMs: number | undefined,
+    out: Map<string, BatchItemResult<PlayerInfoDto>>
+  ): Promise<boolean> {
+    const response = await this.getPlayerList(chunk, { timeoutMs });
+    const answer = response.data;
+    if (
+      response.status === 200 &&
+      Array.isArray(answer) &&
+      answer.length === chunk.length &&
+      answer.every((player, i) => player?.id === chunk[i].id)
+    ) {
+      chunk.forEach((r, i) => out.set(`${r.id}@${r.date}`, { data: answer[i], error: null, status: 200 }));
+      return true;
+    }
+    if (response.status === 0) {
+      const error = response.error || 'Network error';
+      for (const r of chunk) out.set(`${r.id}@${r.date}`, { data: null, error, status: 0 });
+      return true;
+    }
+    return false;
   }
 
   /**
