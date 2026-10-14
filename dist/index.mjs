@@ -7,6 +7,14 @@ import {
   TournamentService
 } from "./chunk-YAKAGSER.mjs";
 import {
+  MemberCategory,
+  NO_PLACE,
+  PlayerCategory,
+  RatingType,
+  hasStandings,
+  isUnplaced
+} from "./chunk-BVK65LD7.mjs";
+import {
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
@@ -52,6 +60,7 @@ import {
   getRatingTypeFromRoundRated,
   getTeamRowName,
   getTournamentStatus,
+  hasIndividualPerformance,
   isFemale,
   isFinished,
   isJuniorPlayer,
@@ -67,7 +76,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-UI7TQ26H.mjs";
+} from "./chunk-TWA52TRK.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -90,14 +99,6 @@ import {
   isWalkover,
   isWalkoverResult
 } from "./chunk-I2MIAYQC.mjs";
-import {
-  MemberCategory,
-  NO_PLACE,
-  PlayerCategory,
-  RatingType,
-  hasStandings,
-  isUnplaced
-} from "./chunk-BVK65LD7.mjs";
 import {
   PairingSystem,
   PointSystem,
@@ -230,6 +231,7 @@ export {
   getTeamRowName,
   getTiebreakSystemName,
   getTournamentStatus,
+  hasIndividualPerformance,
   hasStandings,
   isAdjudicatedResult,
   isBlackWin,

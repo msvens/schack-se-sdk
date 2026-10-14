@@ -83,6 +83,7 @@ __export(utils_exports, {
   getResultDisplayString: () => getResultDisplayString,
   getTeamRowName: () => getTeamRowName,
   getTournamentStatus: () => getTournamentStatus,
+  hasIndividualPerformance: () => hasIndividualPerformance,
   isAdjudicatedResult: () => isAdjudicatedResult,
   isBlackWin: () => isBlackWin,
   isCountableResult: () => isCountableResult,
@@ -986,7 +987,8 @@ function* eligibleGames(tournament, roundResultsByGroup) {
     }
   }
 }
-var isPlayed = (g, opponentId) => getOpponentKind(opponentId) === "paired" && !isWalkoverResultCode(g.result) && !isTouristBye(g.result);
+var isPlayed = (g, opponentId) => getOpponentKind(opponentId) !== "bye" && !isWalkoverResultCode(g.result) && !isTouristBye(g.result);
+var isRealOpponent = (opponentId) => getOpponentKind(opponentId) === "paired";
 var isRatedRound = (g) => g.rated !== RoundRatedType.UNRATED;
 function sides(g) {
   const out = [];
@@ -998,12 +1000,10 @@ function getIndividualPerformance(tournament, roundResultsByGroup, playerAt) {
   const rows = /* @__PURE__ */ new Map();
   for (const g of eligibleGames(tournament, roundResultsByGroup)) {
     for (const [self, opponent, isWhite] of sides(g)) {
-      const key = `${self}:${g.group.id}`;
-      let row = rows.get(key);
+      let row = rows.get(self);
       if (!row) {
         row = {
           playerId: self,
-          groupId: g.group.id,
           games: 0,
           won: 0,
           drawn: 0,
@@ -1011,12 +1011,14 @@ function getIndividualPerformance(tournament, roundResultsByGroup, playerAt) {
           points: 0,
           ratedGames: 0,
           performance: null,
+          gamesByGroup: /* @__PURE__ */ new Map(),
           opponentRatings: [],
           ratedScore: 0
         };
-        rows.set(key, row);
+        rows.set(self, row);
       }
       row.games++;
+      row.gamesByGroup.set(g.group.id, (row.gamesByGroup.get(g.group.id) ?? 0) + 1);
       if (!isPlayed(g, opponent)) continue;
       const outcome = getPlayerOutcome(g.result, isWhite);
       if (outcome === null) continue;
@@ -1025,7 +1027,7 @@ function getIndividualPerformance(tournament, roundResultsByGroup, playerAt) {
       else if (outcome === "draw") row.drawn++;
       else row.lost++;
       row.points += score;
-      if (!isRatedRound(g)) continue;
+      if (!isRatedRound(g) || !isRealOpponent(opponent)) continue;
       const { rating } = getPlayerRatingForRound(
         playerAt(opponent, g.roundDate)?.elo,
         g.group.rankingAlgorithm,
@@ -1037,8 +1039,15 @@ function getIndividualPerformance(tournament, roundResultsByGroup, playerAt) {
     }
   }
   const result = [...rows.values()].map(
-    ({ opponentRatings, ratedScore, ...row }) => ({
-      ...row,
+    ({ gamesByGroup, opponentRatings, ratedScore, ...row }) => ({
+      playerId: row.playerId,
+      // Stable sort: equal game counts keep encounter order.
+      groupIds: [...gamesByGroup.entries()].sort((a, b) => b[1] - a[1]).map(([groupId]) => groupId),
+      games: row.games,
+      won: row.won,
+      drawn: row.drawn,
+      lost: row.lost,
+      points: row.points,
       ratedGames: opponentRatings.length,
       performance: opponentRatings.length >= MIN_RATED_GAMES_FOR_PERFORMANCE ? calculatePerformanceRating(opponentRatings, ratedScore) : null
     })
@@ -1056,7 +1065,8 @@ function getIndividualPerformanceLookups(tournament, roundResultsByGroup) {
   for (const g of eligibleGames(tournament, roundResultsByGroup)) {
     if (!isRatedRound(g)) continue;
     for (const [self, opponent] of sides(g)) {
-      if (!isPlayed(g, opponent) || getPlayerOutcome(g.result, self === g.whiteId) === null) continue;
+      if (!isPlayed(g, opponent) || !isRealOpponent(opponent)) continue;
+      if (getPlayerOutcome(g.result, self === g.whiteId) === null) continue;
       const key = `${opponent}@${g.roundDate}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -1064,6 +1074,11 @@ function getIndividualPerformanceLookups(tournament, roundResultsByGroup) {
     }
   }
   return out;
+}
+function hasIndividualPerformance(tournament) {
+  return allGroups(tournament.rootClasses).some(
+    (group) => group.pointSystem !== PointSystem.SCHACK4AN && getGroupTimeControl(group).primary !== "unknown"
+  );
 }
 
 // src/types/tournament.ts
@@ -1971,6 +1986,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   getResultDisplayString,
   getTeamRowName,
   getTournamentStatus,
+  hasIndividualPerformance,
   isAdjudicatedResult,
   isBlackWin,
   isCountableResult,

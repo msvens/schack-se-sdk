@@ -44,6 +44,7 @@ import {
   getRatingTypeFromRoundRated,
   getTeamRowName,
   getTournamentStatus,
+  hasIndividualPerformance,
   isFemale,
   isFinished,
   isJuniorPlayer,
@@ -59,7 +60,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "../chunk-UI7TQ26H.mjs";
+} from "../chunk-TWA52TRK.mjs";
 import {
   chunkArray,
   deduplicateIds,
@@ -161,6 +162,7 @@ export {
   getResultDisplayString,
   getTeamRowName,
   getTournamentStatus,
+  hasIndividualPerformance,
   isAdjudicatedResult,
   isBlackWin,
   isCountableResult,
