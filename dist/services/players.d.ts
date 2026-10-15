@@ -6,9 +6,18 @@ import type { PlayerInfoDto, ApiResponse, PlayerRatingHistory, MemberDateDto, Re
  * Extends {@link RequestOptions}, so `timeoutMs` applies to each individual
  * request within the batch.
  */
-export interface BatchOptions extends RequestOptions {
+export interface BatchOptions<T = unknown> extends RequestOptions {
     /** Number of parallel requests to execute at once (default: 10, use Infinity for unlimited) */
     concurrency?: number;
+    /**
+     * Called once per input as it resolves, with the same result object the
+     * returned array holds at `index` — e.g. to count progress or fill a cache
+     * as results arrive. Fires in completion order, not index order (a
+     * successful bulk request fires its items as one burst), and every index
+     * fires before the promise resolves. Errors thrown by the callback are
+     * caught and ignored, so the batch always completes.
+     */
+    onItem?: (result: BatchItemResult<T>, index: number) => void;
 }
 /**
  * Result of a single batch item, with the HTTP status it resolved to:
@@ -26,6 +35,11 @@ export type BatchItemResult<T> = {
     error: string | null;
     status: number;
 };
+/**
+ * Deliver one result to a batch's `onItem`, isolating the batch from errors in it.
+ * @internal shared by the batch methods of the services
+ */
+export declare function notifyItem<T>(onItem: BatchOptions<T>['onItem'], result: BatchItemResult<T>, index: number): void;
 /**
  * One batch item from a settled request. Every input yields exactly one item,
  * including a response that carries neither data nor error.
@@ -96,10 +110,10 @@ export declare class PlayerService extends BaseApiService {
      * // [{ data: {...}, error: null, status: 200 }, { data: null, error: null, status: 204 }]
      * ```
      */
-    getPlayerInfoBatch(playerIds: number[], date?: Date, options?: BatchOptions): Promise<BatchItemResult<PlayerInfoDto>[]>;
-    getPlayerInfoBatch(requests: MemberDateDto[], options?: BatchOptions): Promise<BatchItemResult<PlayerInfoDto>[]>;
+    getPlayerInfoBatch(playerIds: number[], date?: Date, options?: BatchOptions<PlayerInfoDto>): Promise<BatchItemResult<PlayerInfoDto>[]>;
+    getPlayerInfoBatch(requests: MemberDateDto[], options?: BatchOptions<PlayerInfoDto>): Promise<BatchItemResult<PlayerInfoDto>[]>;
     /**
-     * Bulk-fetch one chunk into `out`: one POST; on failure, retry POSTs of
+     * Bulk-fetch one chunk, settling each pair: one POST; on failure, retry POSTs of
      * {@link RETRY_CHUNK} pairs ({@link RETRY_PARALLEL} at a time); then one GET
      * per pair of every retry chunk that still failed, `concurrency` at a time.
      */

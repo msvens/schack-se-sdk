@@ -2,7 +2,7 @@ import {
   PlayerService,
   findTournamentGroup,
   getOpponentKind
-} from "./chunk-I2MIAYQC.mjs";
+} from "./chunk-67UCLQ2I.mjs";
 import {
   PointSystem,
   RatingAlgorithm,

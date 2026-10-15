@@ -93,7 +93,7 @@ export declare class TournamentService extends BaseApiService {
      * });
      * ```
      */
-    getTournamentBatch(tournamentIds: number[], options?: BatchOptions): Promise<BatchItemResult<TournamentDto>[]>;
+    getTournamentBatch(tournamentIds: number[], options?: BatchOptions<TournamentDto>): Promise<BatchItemResult<TournamentDto>[]>;
     /**
      * Fetch tournament information for multiple group IDs in batches
      * Note: This fetches the tournament that contains each group
@@ -120,6 +120,6 @@ export declare class TournamentService extends BaseApiService {
      * });
      * ```
      */
-    getTournamentFromGroupBatch(groupIds: number[], options?: BatchOptions): Promise<BatchItemResult<TournamentDto>[]>;
+    getTournamentFromGroupBatch(groupIds: number[], options?: BatchOptions<TournamentDto>): Promise<BatchItemResult<TournamentDto>[]>;
 }
 //# sourceMappingURL=tournaments.d.ts.map

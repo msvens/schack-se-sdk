@@ -161,6 +161,13 @@ function chunkArray(array, chunkSize) {
 }
 
 // src/services/players.ts
+function notifyItem(onItem, result, index) {
+  if (!onItem) return;
+  try {
+    onItem(result, index);
+  } catch {
+  }
+}
 var MISSING_STATUSES = /* @__PURE__ */ new Set([204, 404]);
 function toBatchItem(settled) {
   if (settled.status === "rejected") {
@@ -237,30 +244,44 @@ var PlayerService = class extends BaseApiService {
       requests = input;
       options = dateOrOptions ?? {};
     }
+    const results = new Array(requests.length);
     const keyOf = (r) => `${r.id}@${r.date}`;
     const unique = /* @__PURE__ */ new Map();
-    for (const r of requests) if (r.id > 0 && !unique.has(keyOf(r))) unique.set(keyOf(r), r);
-    const fetched = /* @__PURE__ */ new Map();
+    const indicesByKey = /* @__PURE__ */ new Map();
+    requests.forEach((r, index) => {
+      if (r.id <= 0) {
+        results[index] = { data: null, error: "Invalid player id", status: 0 };
+        notifyItem(options.onItem, results[index], index);
+        return;
+      }
+      const key = keyOf(r);
+      if (!unique.has(key)) unique.set(key, r);
+      indicesByKey.set(key, [...indicesByKey.get(key) ?? [], index]);
+    });
+    const settle = (pair, result) => {
+      for (const index of indicesByKey.get(keyOf(pair)) ?? []) {
+        results[index] = result;
+        notifyItem(options.onItem, result, index);
+      }
+    };
     for (const chunk of chunkArray([...unique.values()], BULK_CHUNK)) {
-      await this.fetchPlayerChunk(chunk, options, fetched);
+      await this.fetchPlayerChunk(chunk, options, settle);
     }
-    return requests.map(
-      (r) => r.id > 0 ? fetched.get(keyOf(r)) : { data: null, error: "Invalid player id", status: 0 }
-    );
+    return results;
   }
   /**
-   * Bulk-fetch one chunk into `out`: one POST; on failure, retry POSTs of
+   * Bulk-fetch one chunk, settling each pair: one POST; on failure, retry POSTs of
    * {@link RETRY_CHUNK} pairs ({@link RETRY_PARALLEL} at a time); then one GET
    * per pair of every retry chunk that still failed, `concurrency` at a time.
    */
-  async fetchPlayerChunk(chunk, options, out) {
+  async fetchPlayerChunk(chunk, options, settle) {
     const { timeoutMs, concurrency = 10 } = options;
-    if (chunk.length > 1 && await this.postPlayerChunk(chunk, timeoutMs, out)) return;
+    if (chunk.length > 1 && await this.postPlayerChunk(chunk, timeoutMs, settle)) return;
     let failed = chunk;
     if (chunk.length > RETRY_CHUNK) {
       failed = [];
       for (const group of chunkArray(chunkArray(chunk, RETRY_CHUNK), RETRY_PARALLEL)) {
-        const done = await Promise.all(group.map((sub) => this.postPlayerChunk(sub, timeoutMs, out)));
+        const done = await Promise.all(group.map((sub) => this.postPlayerChunk(sub, timeoutMs, settle)));
         group.forEach((sub, i) => {
           if (!done[i]) failed.push(...sub);
         });
@@ -270,7 +291,7 @@ var PlayerService = class extends BaseApiService {
       const settled = await Promise.allSettled(
         batch.map((r) => this.get(`/player/${r.id}/date/${r.date}`, { timeoutMs }))
       );
-      settled.forEach((s, i) => out.set(`${batch[i].id}@${batch[i].date}`, toBatchItem(s)));
+      settled.forEach((s, i) => settle(batch[i], toBatchItem(s)));
     }
   }
   /**
@@ -280,16 +301,16 @@ var PlayerService = class extends BaseApiService {
    * retried smaller / per pair (HTTP 500 from an unknown id, a timeout, an
    * answer that doesn't line up with the request).
    */
-  async postPlayerChunk(chunk, timeoutMs, out) {
+  async postPlayerChunk(chunk, timeoutMs, settle) {
     const response = await this.getPlayerList(chunk, { timeoutMs });
     const answer = response.data;
     if (response.status === 200 && Array.isArray(answer) && answer.length === chunk.length && answer.every((player, i) => player?.id === chunk[i].id)) {
-      chunk.forEach((r, i) => out.set(`${r.id}@${r.date}`, { data: answer[i], error: null, status: 200 }));
+      chunk.forEach((r, i) => settle(r, { data: answer[i], error: null, status: 200 }));
       return true;
     }
     if (response.status === 0) {
       const error = response.error || "Network error";
-      for (const r of chunk) out.set(`${r.id}@${r.date}`, { data: null, error, status: 0 });
+      for (const r of chunk) settle(r, { data: null, error, status: 0 });
       return true;
     }
     return false;
@@ -448,6 +469,7 @@ export {
   BaseApiService,
   deduplicateIds,
   chunkArray,
+  notifyItem,
   toBatchItem,
   PlayerService,
   getOpponentKind,

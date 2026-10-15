@@ -4,8 +4,9 @@ import {
   chunkArray,
   findTournamentGroup,
   getOpponentKind,
+  notifyItem,
   toBatchItem
-} from "./chunk-I2MIAYQC.mjs";
+} from "./chunk-67UCLQ2I.mjs";
 import {
   PairingSystem,
   TiebreakSystem,
@@ -195,7 +196,11 @@ var TournamentService = class extends BaseApiService {
       const responses = await Promise.allSettled(
         chunk.map((id) => this.getTournament(id, { timeoutMs }))
       );
-      responses.forEach((response) => results.push(toBatchItem(response)));
+      responses.forEach((response) => {
+        const result = toBatchItem(response);
+        results.push(result);
+        notifyItem(options.onItem, result, results.length - 1);
+      });
     }
     return results;
   }
@@ -233,7 +238,11 @@ var TournamentService = class extends BaseApiService {
       const responses = await Promise.allSettled(
         chunk.map((id) => this.getTournamentFromGroup(id, { timeoutMs }))
       );
-      responses.forEach((response) => results.push(toBatchItem(response)));
+      responses.forEach((response) => {
+        const result = toBatchItem(response);
+        results.push(result);
+        notifyItem(options.onItem, result, results.length - 1);
+      });
     }
     return results;
   }

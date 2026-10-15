@@ -60,7 +60,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "../chunk-TWA52TRK.mjs";
+} from "../chunk-GH5V3BOB.mjs";
 import {
   chunkArray,
   deduplicateIds,
@@ -71,7 +71,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "../chunk-I2MIAYQC.mjs";
+} from "../chunk-67UCLQ2I.mjs";
 import {
   PointSystem,
   PointValues,
