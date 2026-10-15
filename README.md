@@ -73,6 +73,15 @@ const results = await service.getPlayerInfoBatch([
 // …or many ids at one date
 const sameDay = await service.getPlayerInfoBatch([1, 2, 3], new Date(2026, 9, 1));
 
+// Progress: onItem fires once per input as it resolves (all batch methods)
+let done = 0;
+await service.getPlayerInfoBatch(pairs, {
+  onItem: (result, index) => {
+    done++;                                  // e.g. "done of pairs.length"
+    if (result.data) cache.set(pairs[index], result.data); // fill a cache as results arrive
+  },
+});
+
 // Get rating history
 const history = await service.getPlayerEloHistory(playerId, '2024-01', '2025-01');
 ```

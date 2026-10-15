@@ -1,6 +1,6 @@
 import { BaseApiService } from './base';
 import type { TournamentDto, GroupSearchAnswerDto, ApiResponse, RequestOptions } from '../types';
-import { toBatchItem, type BatchOptions, type BatchItemResult } from './players';
+import { notifyItem, toBatchItem, type BatchOptions, type BatchItemResult } from './players';
 import { chunkArray } from '../utils/batchUtils';
 
 export class TournamentService extends BaseApiService {
@@ -153,7 +153,7 @@ export class TournamentService extends BaseApiService {
    */
   async getTournamentBatch(
     tournamentIds: number[],
-    options: BatchOptions = {}
+    options: BatchOptions<TournamentDto> = {}
   ): Promise<BatchItemResult<TournamentDto>[]> {
     const { concurrency = 10, timeoutMs } = options;
     const chunks = chunkArray(tournamentIds, concurrency);
@@ -167,8 +167,12 @@ export class TournamentService extends BaseApiService {
         chunk.map(id => this.getTournament(id, { timeoutMs }))
       );
 
-      // Collect results in order — exactly one per input
-      responses.forEach((response) => results.push(toBatchItem(response)));
+      // Collect results in order — exactly one per input — and report each as it lands
+      responses.forEach((response) => {
+        const result = toBatchItem(response);
+        results.push(result);
+        notifyItem(options.onItem, result, results.length - 1);
+      });
     }
 
     return results;
@@ -202,7 +206,7 @@ export class TournamentService extends BaseApiService {
    */
   async getTournamentFromGroupBatch(
     groupIds: number[],
-    options: BatchOptions = {}
+    options: BatchOptions<TournamentDto> = {}
   ): Promise<BatchItemResult<TournamentDto>[]> {
     const { concurrency = 10, timeoutMs } = options;
     const chunks = chunkArray(groupIds, concurrency);
@@ -216,8 +220,12 @@ export class TournamentService extends BaseApiService {
         chunk.map(id => this.getTournamentFromGroup(id, { timeoutMs }))
       );
 
-      // Collect results in order — exactly one per input
-      responses.forEach((response) => results.push(toBatchItem(response)));
+      // Collect results in order — exactly one per input — and report each as it lands
+      responses.forEach((response) => {
+        const result = toBatchItem(response);
+        results.push(result);
+        notifyItem(options.onItem, result, results.length - 1);
+      });
     }
 
     return results;
