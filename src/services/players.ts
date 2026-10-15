@@ -8,9 +8,18 @@ import { chunkArray } from '../utils/batchUtils';
  * Extends {@link RequestOptions}, so `timeoutMs` applies to each individual
  * request within the batch.
  */
-export interface BatchOptions extends RequestOptions {
+export interface BatchOptions<T = unknown> extends RequestOptions {
   /** Number of parallel requests to execute at once (default: 10, use Infinity for unlimited) */
   concurrency?: number;
+  /**
+   * Called once per input as it resolves, with the same result object the
+   * returned array holds at `index` — e.g. to count progress or fill a cache
+   * as results arrive. Fires in completion order, not index order (a
+   * successful bulk request fires its items as one burst), and every index
+   * fires before the promise resolves. Errors thrown by the callback are
+   * caught and ignored, so the batch always completes.
+   */
+  onItem?: (result: BatchItemResult<T>, index: number) => void;
 }
 
 /**
@@ -23,6 +32,23 @@ export interface BatchOptions extends RequestOptions {
 export type BatchItemResult<T> =
   | { data: T; error: null; status: number }
   | { data: null; error: string | null; status: number };
+
+/**
+ * Deliver one result to a batch's `onItem`, isolating the batch from errors in it.
+ * @internal shared by the batch methods of the services
+ */
+export function notifyItem<T>(
+  onItem: BatchOptions<T>['onItem'],
+  result: BatchItemResult<T>,
+  index: number
+): void {
+  if (!onItem) return;
+  try {
+    onItem(result, index);
+  } catch {
+    // A failing callback must not break the batch's "one result per input" contract.
+  }
+}
 
 /** Statuses meaning "the API has no such record" rather than "the request failed". */
 const MISSING_STATUSES = new Set([204, 404]);
@@ -41,6 +67,9 @@ export function toBatchItem<T>(settled: PromiseSettledResult<ApiResponse<T>>): B
   if (MISSING_STATUSES.has(status)) return { data: null, error: null, status };
   return { data: null, error: error || 'No data', status };
 }
+
+/** Records the result for one unique `(id, date)` pair: fills its input positions and notifies. */
+type SettlePair = (pair: MemberDateDto, result: BatchItemResult<PlayerInfoDto>) => void;
 
 /** Bulk POST size (verified fine up to 4000 pairs; this keeps answers modest). */
 const BULK_CHUNK = 1000;
@@ -153,67 +182,81 @@ export class PlayerService extends BaseApiService {
   async getPlayerInfoBatch(
     playerIds: number[],
     date?: Date,
-    options?: BatchOptions
+    options?: BatchOptions<PlayerInfoDto>
   ): Promise<BatchItemResult<PlayerInfoDto>[]>;
   async getPlayerInfoBatch(
     requests: MemberDateDto[],
-    options?: BatchOptions
+    options?: BatchOptions<PlayerInfoDto>
   ): Promise<BatchItemResult<PlayerInfoDto>[]>;
   async getPlayerInfoBatch(
     input: number[] | MemberDateDto[],
-    dateOrOptions?: Date | BatchOptions,
-    maybeOptions?: BatchOptions
+    dateOrOptions?: Date | BatchOptions<PlayerInfoDto>,
+    maybeOptions?: BatchOptions<PlayerInfoDto>
   ): Promise<BatchItemResult<PlayerInfoDto>[]> {
     if (input.length === 0) return [];
 
     let requests: MemberDateDto[];
-    let options: BatchOptions;
+    let options: BatchOptions<PlayerInfoDto>;
     if (typeof input[0] === 'number') {
       const date = dateOrOptions instanceof Date ? this.formatDateToString(dateOrOptions) : this.getCurrentDate();
       requests = (input as number[]).map((id) => ({ id, date }));
-      options = (dateOrOptions instanceof Date ? maybeOptions : (dateOrOptions as BatchOptions | undefined)) ?? {};
+      options = (dateOrOptions instanceof Date ? maybeOptions : (dateOrOptions as BatchOptions<PlayerInfoDto> | undefined)) ?? {};
     } else {
       requests = input as MemberDateDto[];
-      options = (dateOrOptions as BatchOptions | undefined) ?? {};
+      options = (dateOrOptions as BatchOptions<PlayerInfoDto> | undefined) ?? {};
     }
 
-    // Each unique valid pair is fetched once; ids <= 0 (byes, walkovers) never are.
+    const results: BatchItemResult<PlayerInfoDto>[] = new Array(requests.length);
+
+    // Each unique valid pair is fetched once, then fills every input position it
+    // stands for; ids <= 0 (byes, walkovers) are answered without a request.
     const keyOf = (r: MemberDateDto) => `${r.id}@${r.date}`;
     const unique = new Map<string, MemberDateDto>();
-    for (const r of requests) if (r.id > 0 && !unique.has(keyOf(r))) unique.set(keyOf(r), r);
+    const indicesByKey = new Map<string, number[]>();
+    requests.forEach((r, index) => {
+      if (r.id <= 0) {
+        results[index] = { data: null, error: 'Invalid player id', status: 0 };
+        notifyItem(options.onItem, results[index], index);
+        return;
+      }
+      const key = keyOf(r);
+      if (!unique.has(key)) unique.set(key, r);
+      indicesByKey.set(key, [...(indicesByKey.get(key) ?? []), index]);
+    });
 
-    const fetched = new Map<string, BatchItemResult<PlayerInfoDto>>();
+    const settle: SettlePair = (pair, result) => {
+      for (const index of indicesByKey.get(keyOf(pair)) ?? []) {
+        results[index] = result;
+        notifyItem(options.onItem, result, index);
+      }
+    };
     for (const chunk of chunkArray([...unique.values()], BULK_CHUNK)) {
-      await this.fetchPlayerChunk(chunk, options, fetched);
+      await this.fetchPlayerChunk(chunk, options, settle);
     }
 
-    return requests.map((r) =>
-      r.id > 0
-        ? fetched.get(keyOf(r))!
-        : { data: null, error: 'Invalid player id', status: 0 }
-    );
+    return results;
   }
 
   /**
-   * Bulk-fetch one chunk into `out`: one POST; on failure, retry POSTs of
+   * Bulk-fetch one chunk, settling each pair: one POST; on failure, retry POSTs of
    * {@link RETRY_CHUNK} pairs ({@link RETRY_PARALLEL} at a time); then one GET
    * per pair of every retry chunk that still failed, `concurrency` at a time.
    */
   private async fetchPlayerChunk(
     chunk: MemberDateDto[],
-    options: BatchOptions,
-    out: Map<string, BatchItemResult<PlayerInfoDto>>
+    options: BatchOptions<PlayerInfoDto>,
+    settle: SettlePair
   ): Promise<void> {
     const { timeoutMs, concurrency = 10 } = options;
     // A single pair goes straight to its GET: same cost when the id is known,
     // and no doomed POST when it isn't.
-    if (chunk.length > 1 && (await this.postPlayerChunk(chunk, timeoutMs, out))) return;
+    if (chunk.length > 1 && (await this.postPlayerChunk(chunk, timeoutMs, settle))) return;
 
     let failed = chunk;
     if (chunk.length > RETRY_CHUNK) {
       failed = [];
       for (const group of chunkArray(chunkArray(chunk, RETRY_CHUNK), RETRY_PARALLEL)) {
-        const done = await Promise.all(group.map((sub) => this.postPlayerChunk(sub, timeoutMs, out)));
+        const done = await Promise.all(group.map((sub) => this.postPlayerChunk(sub, timeoutMs, settle)));
         group.forEach((sub, i) => { if (!done[i]) failed.push(...sub); });
       }
     }
@@ -222,7 +265,7 @@ export class PlayerService extends BaseApiService {
       const settled = await Promise.allSettled(
         batch.map((r) => this.get<PlayerInfoDto>(`/player/${r.id}/date/${r.date}`, { timeoutMs }))
       );
-      settled.forEach((s, i) => out.set(`${batch[i].id}@${batch[i].date}`, toBatchItem(s)));
+      settled.forEach((s, i) => settle(batch[i], toBatchItem(s)));
     }
   }
 
@@ -236,7 +279,7 @@ export class PlayerService extends BaseApiService {
   private async postPlayerChunk(
     chunk: MemberDateDto[],
     timeoutMs: number | undefined,
-    out: Map<string, BatchItemResult<PlayerInfoDto>>
+    settle: SettlePair
   ): Promise<boolean> {
     const response = await this.getPlayerList(chunk, { timeoutMs });
     const answer = response.data;
@@ -246,12 +289,12 @@ export class PlayerService extends BaseApiService {
       answer.length === chunk.length &&
       answer.every((player, i) => player?.id === chunk[i].id)
     ) {
-      chunk.forEach((r, i) => out.set(`${r.id}@${r.date}`, { data: answer[i], error: null, status: 200 }));
+      chunk.forEach((r, i) => settle(r, { data: answer[i], error: null, status: 200 }));
       return true;
     }
     if (response.status === 0) {
       const error = response.error || 'Network error';
-      for (const r of chunk) out.set(`${r.id}@${r.date}`, { data: null, error, status: 0 });
+      for (const r of chunk) settle(r, { data: null, error, status: 0 });
       return true;
     }
     return false;

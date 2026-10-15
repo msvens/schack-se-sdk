@@ -5,9 +5,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PlayerService } from '../../src/services/players';
+import { PlayerService, type BatchItemResult, type BatchOptions } from '../../src/services/players';
 import { TournamentService } from '../../src/services/tournaments';
-import type { MemberDateDto } from '../../src/types';
+import type { MemberDateDto, PlayerInfoDto, TournamentDto } from '../../src/types';
 
 const BASE_URL = 'https://example.test/api';
 const LIST_URL = `${BASE_URL}/player/list/`;
@@ -214,6 +214,96 @@ describe('PlayerService.getPlayerInfoBatch', () => {
     expect(posts(fetchMock).map((p) => p.length)).toEqual([1000]);
     expect(gets(fetchMock)).toEqual([`${BASE_URL}/player/1001/date/2026-10-01`]);
     expect(results.every((r) => r.status === 200)).toBe(true);
+  });
+});
+
+describe('onItem progress callback', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  /** Records every onItem call. */
+  function recorder<T>() {
+    const calls: { result: BatchItemResult<T>; index: number }[] = [];
+    return { calls, onItem: (result: BatchItemResult<T>, index: number) => { calls.push({ result, index }); } };
+  }
+
+  it('fires once per input index (duplicates and ids <= 0 included) with the returned objects', async () => {
+    vi.stubGlobal('fetch', fakeApi());
+    const { calls, onItem } = recorder<PlayerInfoDto>();
+    const input = [...pairs([1, 2]), { id: -100, date: '2026-10-01' }, ...pairs([1])];
+    const results = await new PlayerService(BASE_URL).getPlayerInfoBatch(input, { onItem });
+
+    expect(calls.map((c) => c.index).sort()).toEqual([0, 1, 2, 3]);
+    for (const { result, index } of calls) expect(result).toBe(results[index]);
+    expect(results[0]).toBe(results[3]); // duplicate pairs share one result
+  });
+
+  it('reports ids <= 0 before any request', async () => {
+    const fetchMock = fakeApi();
+    vi.stubGlobal('fetch', fetchMock);
+    let requestsAtFirstCall = -1;
+    await new PlayerService(BASE_URL).getPlayerInfoBatch(pairs([-1, 1, 2]), {
+      onItem: (_result, index) => { if (requestsAtFirstCall < 0 && index === 0) requestsAtFirstCall = fetchMock.mock.calls.length; },
+    });
+    expect(requestsAtFirstCall).toBe(0);
+  });
+
+  it('fires in completion order along the degrade path', async () => {
+    vi.stubGlobal('fetch', fakeApi(new Set([75])));
+    const { calls, onItem } = recorder<PlayerInfoDto>();
+    const results = await new PlayerService(BASE_URL).getPlayerInfoBatch(pairs(range(1, 120)), { onItem });
+
+    expect(calls).toHaveLength(120);
+    expect(new Set(calls.map((c) => c.index)).size).toBe(120);
+    // the 4 retry POSTs that succeed fire first; the failed chunk (ids 51–75, indices 50–74) comes last, via GETs
+    const lastChunk = calls.slice(-25).map((c) => c.index).sort((a, b) => a - b);
+    expect(lastChunk).toEqual(range(50, 25));
+    expect(calls.find((c) => c.index === 74)!.result).toEqual({ data: null, error: null, status: 204 });
+    for (const { result, index } of calls) expect(result).toBe(results[index]);
+  });
+
+  it('keeps going when the callback throws', async () => {
+    vi.stubGlobal('fetch', fakeApi());
+    const seen: number[] = [];
+    const results = await new PlayerService(BASE_URL).getPlayerInfoBatch(pairs([1, 2, 3]), {
+      onItem: (_result, index) => { seen.push(index); throw new Error('boom'); },
+    });
+    expect(seen.sort()).toEqual([0, 1, 2]);
+    expect(results.map((r) => r.data?.id)).toEqual([1, 2, 3]);
+  });
+
+  it('fires for the tournament batch methods, once per index with the matching result', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const id = Number(url.split('/').pop());
+      return id === 2 ? new Response(null, { status: 204 }) : json({ id, name: `T${id}` });
+    }));
+    const service = new TournamentService(BASE_URL);
+
+    const a = recorder<TournamentDto>();
+    const results = await service.getTournamentBatch([1, 2, 1, 3], { concurrency: 2, onItem: a.onItem });
+    expect(a.calls.map((c) => c.index)).toEqual([0, 1, 2, 3]);
+    for (const { result, index } of a.calls) expect(result).toBe(results[index]);
+
+    const b = recorder<TournamentDto>();
+    await service.getTournamentFromGroupBatch([5, 6], { onItem: b.onItem });
+    expect(b.calls.map((c) => [c.index, c.result.data?.id])).toEqual([[0, 5], [1, 6]]);
+  });
+
+  it('accepts an untyped BatchOptions everywhere, and types result.data per method', async () => {
+    vi.stubGlobal('fetch', fakeApi());
+    const plain: BatchOptions = { concurrency: 5 };
+    await new PlayerService(BASE_URL).getPlayerInfoBatch([1], undefined, plain);
+    await new PlayerService(BASE_URL).getPlayerInfoBatch(pairs([1]), plain);
+    await new TournamentService(BASE_URL).getTournamentBatch([], plain);
+    await new TournamentService(BASE_URL).getTournamentFromGroupBatch([], plain);
+
+    const names: string[] = [];
+    await new PlayerService(BASE_URL).getPlayerInfoBatch(pairs([1, 2]), {
+      onItem: (result) => { if (result.data) names.push(result.data.firstName); }, // typed as PlayerInfoDto
+    });
+    expect(names.sort()).toEqual(['P1', 'P2']);
   });
 });
 

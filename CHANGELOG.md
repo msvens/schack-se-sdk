@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`onItem(result, index)` progress callback on all batch methods** (`getPlayerInfoBatch`, `getTournamentBatch`, `getTournamentFromGroupBatch`), via `BatchOptions`. It fires once per input as that input resolves, with the same result object the returned array holds at `index` — so a caller can count progress or fill a cache progressively instead of waiting for the whole batch. It fires in completion order (a successful bulk POST fires its items as one burst; ids ≤ 0 fire before any request), every index fires before the promise resolves, and errors thrown by the callback are caught so the batch always completes. `BatchOptions` is now generic with a default (`BatchOptions<T = unknown>`), so `result.data` is typed inside the callback; existing `BatchOptions` annotations keep working. Optional and non-breaking.
+
 ## 0.23.0
 
 ### Changed
