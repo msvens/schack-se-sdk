@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`calculateExpectedScore` and `calculateRatingChange` use FIDE's expected-score table** (Rating Regulations §8.1.2: rating difference → expected score) instead of the logistic formula `1 / (1 + 10^(D/400))`. FIDE's regulations define the rating change as K × Σ(score − PD) with PD from that table (§8.3.2); the formula is the common approximation. Values move by up to about half a percentage point (≈ 0.2 Elo per game at K=40), and are exact hundredths (e.g. 0.64 / 0.36). With the 400-point rule the extremes are now 0.08 / 0.92 (were ≈ 0.091 / 0.909). This complements `calculatePerformanceRating`, which has used FIDE's §8.1.1 table since 0.20.1.
+
+### Added
+
+- **`{ capped }` option** on `calculateExpectedScore` and `calculateRatingChange` (type `ExpectedScoreOptions`). The 400-point rule stays the default; `{ capped: false }` uses the actual difference across the whole table (0.00 – 1.00; above a difference of 735 the table gives 1.0 / 0.0), e.g. for a "what if there were no cap" calculator.
+
 ## 0.24.0
 
 ### Added

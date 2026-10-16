@@ -29,16 +29,10 @@ describe('eloCalculations', () => {
       expect(expected).toBeGreaterThan(0);
     });
 
-    it('should match FIDE expected score for 400 point difference', () => {
-      // 400 points higher should give ~0.909 expected score
-      const expected = calculateExpectedScore(1900, 1500);
-      expect(expected).toBeCloseTo(0.909, 2);
-    });
-
-    it('should match FIDE expected score for 200 point difference', () => {
-      // 200 points higher should give ~0.76 expected score
-      const expected = calculateExpectedScore(1700, 1500);
-      expect(expected).toBeCloseTo(0.76, 2);
+    it('should match FIDE table 8.1.2 for 400 and 200 point differences', () => {
+      expect(calculateExpectedScore(1900, 1500)).toBe(0.92); // band 392–411
+      expect(calculateExpectedScore(1700, 1500)).toBe(0.76); // band 198–206
+      expect(calculateExpectedScore(1500, 1600)).toBe(0.36); // lower-rated: 1 − 0.64
     });
 
     it('should be symmetric (sum to 1)', () => {
@@ -60,20 +54,65 @@ describe('eloCalculations', () => {
       expect(expected600).toBe(expected400);
     });
 
-    it('should cap expected score at ~92% for large positive difference', () => {
-      // Any difference >= 400 should give ~0.909 (capped)
-      const expected = calculateExpectedScore(2500, 1500); // 1000 point diff
-      expect(expected).toBeCloseTo(0.909, 2);
+    it('should cap expected score at 0.92 for large positive difference', () => {
+      expect(calculateExpectedScore(2500, 1500)).toBe(0.92); // 1000 point diff, counted as 400
     });
 
-    it('should cap expected score at ~8% for large negative difference', () => {
-      // Any difference >= 400 against you should give ~0.091 (capped)
-      const expected = calculateExpectedScore(1500, 2500); // -1000 point diff
-      expect(expected).toBeCloseTo(0.091, 2);
+    it('should cap expected score at 0.08 for large negative difference', () => {
+      expect(calculateExpectedScore(1500, 2500)).toBe(0.08);
+    });
+
+    describe('FIDE table 8.1.2', () => {
+      const atDifference = (d: number, capped = true) => calculateExpectedScore(1500 + d, 1500, { capped });
+
+      it('hits the band edges', () => {
+        expect(atDifference(0)).toBe(0.5);
+        expect(atDifference(3)).toBe(0.5);
+        expect(atDifference(4)).toBe(0.51);
+        expect(atDifference(10)).toBe(0.51);
+        expect(atDifference(11)).toBe(0.52);
+        expect(atDifference(391)).toBe(0.91);
+        expect(atDifference(392)).toBe(0.92);
+        expect(atDifference(735, false)).toBe(0.99);
+        expect(atDifference(736, false)).toBe(1);
+      });
+
+      it('is exactly symmetric', () => {
+        for (let d = 0; d <= 800; d += 7) {
+          expect(calculateExpectedScore(1500 + d, 1500, { capped: false }) + calculateExpectedScore(1500, 1500 + d, { capped: false })).toBe(1);
+        }
+      });
+
+      it('never decreases with the difference (uncapped)', () => {
+        for (let d = 1; d <= 800; d++) expect(atDifference(d, false)).toBeGreaterThanOrEqual(atDifference(d - 1, false));
+      });
+    });
+
+    describe('capped option', () => {
+      it('caps at 400 by default and on { capped: true }', () => {
+        expect(calculateExpectedScore(2000, 1500)).toBe(0.92);
+        expect(calculateExpectedScore(2000, 1500, { capped: true })).toBe(0.92);
+      });
+
+      it('uses the actual difference when uncapped', () => {
+        expect(calculateExpectedScore(2000, 1500, { capped: false })).toBe(0.96); // band 485–517
+        expect(calculateExpectedScore(2500, 1500, { capped: false })).toBe(1);
+        expect(calculateExpectedScore(1500, 2500, { capped: false })).toBe(0);
+      });
     });
   });
 
   describe('calculateRatingChange', () => {
+    it('uses the table value: K=20 win at 1500 vs 1300 is 20 × (1 − 0.76)', () => {
+      expect(calculateRatingChange(1500, 1300, 1.0, 20)).toBe(4.8);
+    });
+
+    it('passes the capped option on', () => {
+      // 2000 beats 1300 (D = 700): capped 40 × (1 − 0.92), uncapped 40 × (1 − 0.99)
+      expect(calculateRatingChange(2000, 1300, 1.0, 40)).toBe(3.2);
+      expect(calculateRatingChange(2000, 1300, 1.0, 40, { capped: false })).toBe(0.4);
+    });
+
     it('should return positive change for win against equal opponent', () => {
       const change = calculateRatingChange(1500, 1500, 1.0, 20);
       expect(change).toBe(10); // K * (1 - 0.5) = 20 * 0.5 = 10

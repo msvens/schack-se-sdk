@@ -1,14 +1,16 @@
 /**
- * ELO rating calculation utilities based on FIDE formulas
+ * ELO rating calculation utilities based on FIDE's rating regulations
  *
- * These are approximations used for display purposes only.
- * Official ratings are calculated by FIDE monthly.
+ * Expected score and performance use FIDE's lookup tables (§8.1.2 and §8.1.1).
+ * Used for display; official ratings are calculated by FIDE monthly.
  */
 
 /**
  * Maximum rating difference used in expected score calculation.
  * FIDE's "400-point rule": rating differences greater than 400 are treated as exactly 400.
- * This caps expected scores between 8% and 92%.
+ * With FIDE's table this caps expected scores between 0.08 and 0.92. It is the
+ * default in {@link calculateExpectedScore} / {@link calculateRatingChange};
+ * pass `{ capped: false }` to opt out.
  *
  * Note: FIDE dropped this rule for players 2650+ in October 2025, but it still applies
  * to most players and is used by SSF.
@@ -16,29 +18,60 @@
 export const RATING_DIFFERENCE_CAP = 400;
 
 /**
+ * FIDE PD table: expected score of the higher-rated player for a rating
+ * difference D, as `[upper bound of the D band, PD in hundredths]`. The
+ * lower-rated player expects 100 − PD. Differences above the last band (735)
+ * give 100. Integer hundredths keep the results exact.
+ *
+ * Source: FIDE Rating Regulations, §8.1.2 —
+ * https://handbook.fide.com/chapter/B022024
+ */
+const FIDE_PD_TABLE: readonly (readonly [maxDifference: number, pd: number])[] = [
+  [3, 50], [10, 51], [17, 52], [25, 53], [32, 54], [39, 55], [46, 56], [53, 57], [61, 58], [68, 59],
+  [76, 60], [83, 61], [91, 62], [98, 63], [106, 64], [113, 65], [121, 66], [129, 67], [137, 68], [145, 69],
+  [153, 70], [162, 71], [170, 72], [179, 73], [188, 74], [197, 75], [206, 76], [215, 77], [225, 78], [235, 79],
+  [245, 80], [256, 81], [267, 82], [278, 83], [290, 84], [302, 85], [315, 86], [328, 87], [344, 88], [357, 89],
+  [374, 90], [391, 91], [411, 92], [432, 93], [456, 94], [484, 95], [517, 96], [559, 97], [619, 98], [735, 99],
+];
+
+/** Options for {@link calculateExpectedScore} and {@link calculateRatingChange}. */
+export interface ExpectedScoreOptions {
+  /**
+   * Apply FIDE's 400-point rule (default `true`): a larger rating difference
+   * counts as 400. `false` uses the actual difference across the whole table —
+   * e.g. for a "what if there were no cap" calculator.
+   */
+  capped?: boolean;
+}
+
+/**
  * Calculate expected score for a player against an opponent
  *
- * Implements FIDE's 400-point rule: rating differences greater than 400
- * are treated as exactly 400 for calculation purposes. This ensures
- * expected scores are capped between 8% and 92%.
+ * Looks up FIDE's table (Rating Regulations §8.1.2) — what FIDE uses for
+ * rating changes — rather than the logistic approximation
+ * `1 / (1 + 10^(D/400))`, which differs by up to about half a percentage point.
+ *
+ * By default applies FIDE's 400-point rule ({@link RATING_DIFFERENCE_CAP}), so
+ * results lie between 0.08 and 0.92. With `{ capped: false }` the whole table
+ * applies: 0.00 to 1.00 (above a difference of 735 the table gives 1.0 / 0.0).
  *
  * @param playerRating - Player's current rating
  * @param opponentRating - Opponent's current rating
- * @returns Expected score (0.0 to 1.0, capped at 0.08-0.92 due to 400-point rule)
- *
- * Formula: E = 1 / (1 + 10^((OpponentRating - PlayerRating) / 400))
- * With rating difference capped at +/-400
+ * @param options - `capped` (default `true`)
+ * @returns Expected score, in hundredths (e.g. 0.64)
  */
-export function calculateExpectedScore(playerRating: number, opponentRating: number): number {
-  // Apply FIDE's 400-point rule: cap rating difference at +/-400
-  let ratingDiff = opponentRating - playerRating;
-  if (ratingDiff > RATING_DIFFERENCE_CAP) {
-    ratingDiff = RATING_DIFFERENCE_CAP;
-  } else if (ratingDiff < -RATING_DIFFERENCE_CAP) {
-    ratingDiff = -RATING_DIFFERENCE_CAP;
-  }
+export function calculateExpectedScore(
+  playerRating: number,
+  opponentRating: number,
+  options: ExpectedScoreOptions = {}
+): number {
+  const { capped = true } = options;
+  let difference = Math.round(Math.abs(playerRating - opponentRating));
+  if (capped) difference = Math.min(difference, RATING_DIFFERENCE_CAP);
 
-  return 1 / (1 + Math.pow(10, ratingDiff / 400));
+  const band = FIDE_PD_TABLE.find(([maxDifference]) => difference <= maxDifference);
+  const higher = band ? band[1] : 100;
+  return (playerRating >= opponentRating ? higher : 100 - higher) / 100;
 }
 
 /**
@@ -48,17 +81,19 @@ export function calculateExpectedScore(playerRating: number, opponentRating: num
  * @param opponentRating - Opponent's current rating
  * @param actualScore - Actual game result (1.0 = win, 0.5 = draw, 0.0 = loss)
  * @param kFactor - K-factor for rating calculation (typically 40 for juniors, 20 for adults, 10 for 2400+)
- * @returns Rating change (can be positive or negative)
+ * @param options - `capped` (default `true`), passed to {@link calculateExpectedScore}
+ * @returns Rating change, rounded to 0.1 (can be positive or negative)
  *
- * Formula: dR = K x (ActualScore - ExpectedScore)
+ * Formula: dR = K x (ActualScore - ExpectedScore), with the expected score from FIDE's table
  */
 export function calculateRatingChange(
   playerRating: number,
   opponentRating: number,
   actualScore: number,
-  kFactor: number
+  kFactor: number,
+  options: ExpectedScoreOptions = {}
 ): number {
-  const expectedScore = calculateExpectedScore(playerRating, opponentRating);
+  const expectedScore = calculateExpectedScore(playerRating, opponentRating, options);
   const ratingChange = kFactor * (actualScore - expectedScore);
   return Math.round(ratingChange * 10) / 10; // Round to 1 decimal place
 }
