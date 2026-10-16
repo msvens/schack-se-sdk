@@ -69,7 +69,8 @@ export {
   calculateTournamentStats,
   RATING_DIFFERENCE_CAP,
   type MatchResult,
-  type TournamentRatingStats
+  type TournamentRatingStats,
+  type ExpectedScoreOptions
 } from './utils/eloCalculations';
 export {
   getIndividualPerformance,

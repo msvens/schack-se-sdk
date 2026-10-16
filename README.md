@@ -231,11 +231,15 @@ import {
   calculateTournamentStats
 } from '@msvens/schack-se-sdk';
 
-// Calculate expected score
-const expected = calculateExpectedScore(1500, 1600); // ~0.36
+// Expected score, from FIDE's table (Rating Regulations §8.1.2)
+const expected = calculateExpectedScore(1500, 1600); // 0.36
 
-// Calculate rating change
-const change = calculateRatingChange(1500, 1600, 1.0, 20); // Win against higher rated
+// Rating change: K × (score − expected), rounded to 0.1
+const change = calculateRatingChange(1500, 1600, 1.0, 20); // 20 × (1 − 0.36) = 12.8
+
+// FIDE's 400-point rule applies by default; opt out for "what if" calculations
+calculateExpectedScore(2100, 1500);                     // 0.92 (difference counted as 400)
+calculateExpectedScore(2100, 1500, { capped: false }); // 0.98
 
 // Calculate performance rating (rated opponents only, score 1/½/0 per game)
 const performance = calculatePerformanceRating([1500, 1600, 1550], 2.5); // 1550 + dp(.83) = 1823
@@ -243,6 +247,11 @@ const performance = calculatePerformanceRating([1500, 1600, 1550], 2.5); // 1550
 // Calculate tournament stats
 const stats = calculateTournamentStats(matches, playerRating, kFactor);
 ```
+
+Expected score and rating change look up FIDE's table 8.1.2 (rating difference →
+expected score), as FIDE's regulations prescribe for rating changes, rather than
+the common logistic approximation `1 / (1 + 10^(D/400))`, which differs by up to
+about half a percentage point.
 
 `calculatePerformanceRating` matches the PERF column on member.schack.se:
 ⌊average opponent rating⌋ + dp, with dp from FIDE's table (Rating Regulations

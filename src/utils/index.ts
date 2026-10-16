@@ -7,7 +7,8 @@ export {
   calculatePerformanceRating,
   calculateTournamentStats,
   type MatchResult,
-  type TournamentRatingStats
+  type TournamentRatingStats,
+  type ExpectedScoreOptions
 } from './eloCalculations';
 export {
   getIndividualPerformance,
