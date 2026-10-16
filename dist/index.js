@@ -2422,17 +2422,68 @@ function isFemale(player) {
 
 // src/utils/eloCalculations.ts
 var RATING_DIFFERENCE_CAP = 400;
-function calculateExpectedScore(playerRating, opponentRating) {
-  let ratingDiff = opponentRating - playerRating;
-  if (ratingDiff > RATING_DIFFERENCE_CAP) {
-    ratingDiff = RATING_DIFFERENCE_CAP;
-  } else if (ratingDiff < -RATING_DIFFERENCE_CAP) {
-    ratingDiff = -RATING_DIFFERENCE_CAP;
-  }
-  return 1 / (1 + Math.pow(10, ratingDiff / 400));
+var FIDE_PD_TABLE = [
+  [3, 50],
+  [10, 51],
+  [17, 52],
+  [25, 53],
+  [32, 54],
+  [39, 55],
+  [46, 56],
+  [53, 57],
+  [61, 58],
+  [68, 59],
+  [76, 60],
+  [83, 61],
+  [91, 62],
+  [98, 63],
+  [106, 64],
+  [113, 65],
+  [121, 66],
+  [129, 67],
+  [137, 68],
+  [145, 69],
+  [153, 70],
+  [162, 71],
+  [170, 72],
+  [179, 73],
+  [188, 74],
+  [197, 75],
+  [206, 76],
+  [215, 77],
+  [225, 78],
+  [235, 79],
+  [245, 80],
+  [256, 81],
+  [267, 82],
+  [278, 83],
+  [290, 84],
+  [302, 85],
+  [315, 86],
+  [328, 87],
+  [344, 88],
+  [357, 89],
+  [374, 90],
+  [391, 91],
+  [411, 92],
+  [432, 93],
+  [456, 94],
+  [484, 95],
+  [517, 96],
+  [559, 97],
+  [619, 98],
+  [735, 99]
+];
+function calculateExpectedScore(playerRating, opponentRating, options = {}) {
+  const { capped = true } = options;
+  let difference = Math.round(Math.abs(playerRating - opponentRating));
+  if (capped) difference = Math.min(difference, RATING_DIFFERENCE_CAP);
+  const band = FIDE_PD_TABLE.find(([maxDifference]) => difference <= maxDifference);
+  const higher = band ? band[1] : 100;
+  return (playerRating >= opponentRating ? higher : 100 - higher) / 100;
 }
-function calculateRatingChange(playerRating, opponentRating, actualScore, kFactor) {
-  const expectedScore = calculateExpectedScore(playerRating, opponentRating);
+function calculateRatingChange(playerRating, opponentRating, actualScore, kFactor, options = {}) {
+  const expectedScore = calculateExpectedScore(playerRating, opponentRating, options);
   const ratingChange = kFactor * (actualScore - expectedScore);
   return Math.round(ratingChange * 10) / 10;
 }
