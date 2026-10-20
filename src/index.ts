@@ -24,7 +24,8 @@ export {
   SSF_DEV_API_URL,
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
-  CHESSTOOLS_API_URL
+  CHESSTOOLS_API_URL,
+  SEARCH_GROUPS_MAX_RESULTS
 } from './constants';
 
 // Export utility functions

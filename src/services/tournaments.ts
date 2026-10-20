@@ -3,6 +3,17 @@ import type { TournamentDto, GroupSearchAnswerDto, ApiResponse, RequestOptions }
 import { notifyItem, toBatchItem, type BatchOptions, type BatchItemResult } from './players';
 import { chunkArray } from '../utils/batchUtils';
 
+/**
+ * Makes a searchGroups word safe for the URL path. The server answers an encoded
+ * "/" with 404 (rejected before the app runs), an encoded "\" with 400, and drops
+ * everything after a ";". Each becomes the single-character wildcard "_". Empty
+ * and dot-only words (which would resolve to another path) return null.
+ */
+function toSearchGroupsWord(searchWord: string): string | null {
+  const word = searchWord.trim().replace(/[/\\;]/g, '_');
+  return word === '' || /^\.+$/.test(word) ? null : word;
+}
+
 export class TournamentService extends BaseApiService {
   constructor(baseUrl?: string, timeoutMs?: number) {
     super(baseUrl, undefined, timeoutMs);
@@ -48,12 +59,35 @@ export class TournamentService extends BaseApiService {
 
   /**
    * Search for tournament groups by name or location
+   *
+   * Server-side behaviour (observed, not documented by SSF):
+   * - Matches the *start* of the tournament name, the group name or the
+   *   tournament's city. Case-insensitive but accent-sensitive ("Orebro" does
+   *   not find "Örebro").
+   * - `%` (any run of characters) and `_` (any single character) are SQL LIKE
+   *   wildcards, so `%svenskan` matches anywhere in a name.
+   * - Returns at most {@link SEARCH_GROUPS_MAX_RESULTS} (100) groups, oldest
+   *   tournaments first. There is no parameter to raise the cap or change the
+   *   order; a result of exactly 100 was most likely cut off, so ask the user to
+   *   narrow the search (a season, e.g. "Allsvenskan 2026", reaches newer events).
+   * - `latestUpdatedGame` is currently always null.
+   *
+   * The word goes in the URL path, where the server rejects some characters. The
+   * SDK therefore trims the word and replaces `/`, `\` and `;` with the `_`
+   * wildcard, so "Allsvenskan 2026/27" finds that season's groups (it also
+   * matches "2026-27"). An empty word, or one of only dots, returns an empty
+   * list without a request.
+   *
    * @param searchWord - Search term for tournament/group name or location
    * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of matching tournament groups with basic information
    */
   async searchGroups(searchWord: string, options?: RequestOptions): Promise<ApiResponse<GroupSearchAnswerDto[]>> {
-    const endpoint = `/tournament/group/search/${encodeURIComponent(searchWord)}`;
+    const word = toSearchGroupsWord(searchWord);
+    if (word === null) {
+      return { data: [], status: 200, message: 'Success' };
+    }
+    const endpoint = `/tournament/group/search/${encodeURIComponent(word)}`;
 
     return this.get<GroupSearchAnswerDto[]>(endpoint, options);
   }

@@ -27,6 +27,11 @@ export const CHESSTOOLS_API_URL = 'https://api.chesstools.org';
 // Default timeout for API requests
 export const DEFAULT_TIMEOUT = 10000;
 
+// The SSF group search (TournamentService.searchGroups) returns at most this many
+// groups, oldest tournaments first. The cap is server-side and can't be raised; a
+// result of exactly this length was most likely cut off.
+export const SEARCH_GROUPS_MAX_RESULTS = 100;
+
 // Legacy exports (deprecated - use direct URLs instead)
 /** @deprecated Use SSF_PROD_API_URL instead */
 export const SSF_API_BASE_URL = SSF_PROD_API_URL;

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`searchGroups` accepts "/" (and "\\", ";").** The server can't take them in the URL path: an encoded "/" got a 404 before reaching the API, "\\" a 400, and everything after ";" was dropped. Each is now sent as the server's "_" single-character wildcard, so "Allsvenskan 2026/27" or "Stockholmsserien 2025/2026" finds that season's groups (it also matches e.g. "2026-27"). The word is trimmed, and an empty or dot-only word returns an empty list without a request (it used to 404).
+
+### Added
+
+- **`SEARCH_GROUPS_MAX_RESULTS` (100).** The group search returns at most 100 groups, oldest tournaments first, with no way to raise the cap or change the order. A result of exactly this length was most likely cut off, so the caller should ask the user to narrow the search.
+
+### Docs
+
+- `searchGroups` documents the observed server behaviour: it matches the start of the tournament name, group name or city; it is case-insensitive but accent-sensitive; `%` and `_` are wildcards; the cap and order above; `latestUpdatedGame` is currently always null.
+
 ## 0.25.0
 
 ### Changed

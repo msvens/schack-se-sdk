@@ -109,7 +109,7 @@ const club = await service.getClub(clubId);
 ### TournamentService
 
 ```typescript
-import { TournamentService } from '@msvens/schack-se-sdk';
+import { TournamentService, SEARCH_GROUPS_MAX_RESULTS } from '@msvens/schack-se-sdk';
 
 const service = new TournamentService();
 
@@ -119,8 +119,14 @@ const tournament = await service.getTournament(tournamentId);
 // Get tournament by group ID
 const tournament = await service.getTournamentFromGroup(groupId);
 
-// Search tournaments
-const results = await service.searchGroups('Stockholm');
+// Search groups by the start of a tournament name, group name or city.
+// At most SEARCH_GROUPS_MAX_RESULTS (100) groups, oldest tournaments first: a
+// full result was probably cut off, so narrow the search. "/" is sent as the
+// "_" wildcard, so season names work; "%" matches any run of characters.
+const results = await service.searchGroups('Allsvenskan 2026/27');
+if (results.data?.length === SEARCH_GROUPS_MAX_RESULTS) {
+  // tell the user to refine the search
+}
 
 // Get upcoming tournaments
 const upcoming = await service.searchComingTournaments();

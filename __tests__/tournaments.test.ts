@@ -11,6 +11,7 @@ import {
   isTeamPairing,
   isSchackfyran,
   isLooseTeamTournament,
+  SEARCH_GROUPS_MAX_RESULTS,
 } from '../src/index';
 import { CURRENT_TEST_API_URL } from '../src/constants';
 import {
@@ -68,6 +69,23 @@ describe.skipIf(SSF_DOWN)('Tournament Service Integration Tests', () => {
       expect(response.data).toBeDefined();
       expect(response.data?.length).toBeGreaterThan(0);
       expect(response.data?.[0].name).toBe("SM-gruppen");
+    }, 10000);
+
+    // The server can't take a "/" in the path; the SDK sends it as the "_" wildcard.
+    test('should find a season by its full name, slash included', async () => {
+      const response = await tournamentService.searchGroups('Allsvenskan 2026/27');
+      expect(response.status).toBe(200);
+      expect(response.data?.length).toBeGreaterThan(0);
+      expect(new Set(response.data?.map((g) => g.tournamentname))).toEqual(
+        new Set(['Allsvenskan 2026/27'])
+      );
+    }, 10000);
+
+    test('caps at SEARCH_GROUPS_MAX_RESULTS, oldest tournaments first', async () => {
+      const response = await tournamentService.searchGroups('Allsvenskan');
+      expect(response.status).toBe(200);
+      expect(response.data?.length).toBe(SEARCH_GROUPS_MAX_RESULTS);
+      expect(response.data?.[0].tournamentname).toBe('Allsvenskan 2009/2010');
     }, 10000);
 
     test('should fetch upcoming tournaments', async () => {
