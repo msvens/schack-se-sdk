@@ -8,7 +8,7 @@ export { ResultsService } from './services/results';
 export { RatingsService } from './services/ratings';
 export { RegistrationService } from './services/registration';
 export { FideService } from './services/fide';
-export { API_VERSION, API_VERSION_DEV, SSF_PROD_API_URL, SSF_DEV_API_URL, CURRENT_API_URL, DEFAULT_TIMEOUT, CHESSTOOLS_API_URL } from './constants';
+export { API_VERSION, API_VERSION_DEV, SSF_PROD_API_URL, SSF_DEV_API_URL, CURRENT_API_URL, DEFAULT_TIMEOUT, CHESSTOOLS_API_URL, SEARCH_GROUPS_MAX_RESULTS } from './constants';
 export { getPlayerRatingHistory, decimateRatingData } from './utils/ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './utils/sortingUtils';
 export type { RoundStandingRow, RoundStandings, SecondaryBasis } from './utils/roundStandings';

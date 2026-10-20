@@ -5,7 +5,7 @@ import {
   RegistrationService,
   ResultsService,
   TournamentService
-} from "./chunk-UHETNFGF.mjs";
+} from "./chunk-VDAOYTQW.mjs";
 import {
   MemberCategory,
   NO_PLACE,
@@ -76,7 +76,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-FQXOCJ5W.mjs";
+} from "./chunk-A2UW7U7X.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -85,6 +85,7 @@ import {
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
   PlayerService,
+  SEARCH_GROUPS_MAX_RESULTS,
   SSF_DEV_API_URL,
   SSF_PROD_API_URL,
   chunkArray,
@@ -98,7 +99,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "./chunk-67UCLQ2I.mjs";
+} from "./chunk-Z76RQP4Z.mjs";
 import {
   PairingSystem,
   PointSystem,
@@ -165,6 +166,7 @@ export {
   ResultDisplay,
   ResultsService,
   RoundRatedType,
+  SEARCH_GROUPS_MAX_RESULTS,
   SSF_DEV_API_URL,
   SSF_PROD_API_URL,
   Schack4anTeamPointSystem,

@@ -26,6 +26,25 @@ export declare class TournamentService extends BaseApiService {
     getTournamentFromClass(classId: number, options?: RequestOptions): Promise<ApiResponse<TournamentDto>>;
     /**
      * Search for tournament groups by name or location
+     *
+     * Server-side behaviour (observed, not documented by SSF):
+     * - Matches the *start* of the tournament name, the group name or the
+     *   tournament's city. Case-insensitive but accent-sensitive ("Orebro" does
+     *   not find "Örebro").
+     * - `%` (any run of characters) and `_` (any single character) are SQL LIKE
+     *   wildcards, so `%svenskan` matches anywhere in a name.
+     * - Returns at most {@link SEARCH_GROUPS_MAX_RESULTS} (100) groups, oldest
+     *   tournaments first. There is no parameter to raise the cap or change the
+     *   order; a result of exactly 100 was most likely cut off, so ask the user to
+     *   narrow the search (a season, e.g. "Allsvenskan 2026", reaches newer events).
+     * - `latestUpdatedGame` is currently always null.
+     *
+     * The word goes in the URL path, where the server rejects some characters. The
+     * SDK therefore trims the word and replaces `/`, `\` and `;` with the `_`
+     * wildcard, so "Allsvenskan 2026/27" finds that season's groups (it also
+     * matches "2026-27"). An empty word, or one of only dots, returns an empty
+     * list without a request.
+     *
      * @param searchWord - Search term for tournament/group name or location
      * @param options - Per-request options (e.g. timeoutMs)
      * @returns Array of matching tournament groups with basic information

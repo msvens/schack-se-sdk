@@ -13,6 +13,7 @@ var SSF_DEV_API_URL = `https://halvarsson.no-ip.com/webapp/memdb/public/api/${AP
 var CURRENT_API_URL = SSF_PROD_API_URL;
 var CHESSTOOLS_API_URL = "https://api.chesstools.org";
 var DEFAULT_TIMEOUT = 1e4;
+var SEARCH_GROUPS_MAX_RESULTS = 100;
 
 // src/config.ts
 var config = {
@@ -464,6 +465,7 @@ export {
   CURRENT_API_URL,
   CHESSTOOLS_API_URL,
   DEFAULT_TIMEOUT,
+  SEARCH_GROUPS_MAX_RESULTS,
   configure,
   getConfig,
   BaseApiService,
