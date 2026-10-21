@@ -31,11 +31,13 @@ describe.skipIf(SSF_DOWN)('Ratings Service Integration Tests', () => {
 
   describe('Federation Rating Lists API', () => {
     test('should fetch federation rating list', async () => {
+      // The whole-federation list is a heavy call that regularly takes longer than
+      // the SDK's 10 s default request timeout; give the request the test's budget.
       const response = await ratingsService.getFederationRatingList(
         TEST_RATING_DATE,
-        TEST_RATING_TYPE, 
-        TEST_RATING_CATEGORY, 
-        
+        TEST_RATING_TYPE,
+        TEST_RATING_CATEGORY,
+        { timeoutMs: 30000 }
       );
 
       expect(response.status).toBe(200);
