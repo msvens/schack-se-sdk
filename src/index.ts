@@ -47,6 +47,7 @@ export {
   getPlayerRatingStrict,
   getPlayerRatingForRound,
   formatPlayerRatingForRound,
+  type RoundRatingOptions,
   getGroupTimeControl,
   type GroupTimeControl,
   type RatedTimeControl,

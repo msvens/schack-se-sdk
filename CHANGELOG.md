@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`{ fallback }` option** on `getPlayerRatingForRound` and `formatPlayerRatingForRound` (type `RoundRatingOptions`). By default these stay strict: a player without a rating of the round's type gets null / "-", which Elo calculations depend on. For display, `{ fallback: true }` uses the group's ranking chain (`getPlayerRatingByAlgorithm`) instead, flagged `isFallback: true`, so pairings show the same rating as the results table and schack.se (e.g. a standard 1447 in a rapid round). Unrated or unknown rounds then use the ranking chain too, instead of the strict primary type.
+
 ## 0.26.0
 
 ### Fixed
