@@ -212,6 +212,16 @@ export declare function getPrimaryRatingType(rankingAlgorithm: number | null | u
  * Use for display contexts like H2H where fallback would be misleading.
  */
 export declare function getPlayerRatingStrict(elo: MemberFIDERatingDTO | null | undefined, rankingAlgorithm: number | null | undefined): PlayerRating;
+/** Options for {@link getPlayerRatingForRound} and {@link formatPlayerRatingForRound}. */
+export interface RoundRatingOptions {
+    /**
+     * When the player has no rating of the round's type, use the group's ranking
+     * chain ({@link getPlayerRatingByAlgorithm}) instead of returning null — what
+     * schack.se's results table shows. For display only; Elo calculations must
+     * stay strict (the default, `false`).
+     */
+    fallback?: boolean;
+}
 /**
  * A player's rating for one round: the round's own rated type where it has
  * one, otherwise the group's `rankingAlgorithm` (strict, no fallback chain).
@@ -220,16 +230,22 @@ export declare function getPlayerRatingStrict(elo: MemberFIDERatingDTO | null | 
  * opening day inside a standard event, say. `rated === 0` (unrated) or a
  * missing round falls back to the group algorithm rather than showing nothing.
  *
+ * With `{ fallback: true }` a player lacking the round's type gets the group's
+ * ranking chain instead of null, flagged `isFallback: true`; an unrated or
+ * missing round uses the chain too, so the result matches the results table.
+ *
  * @param elo - Player's FIDE rating information
  * @param rankingAlgorithm - The group's `rankingAlgorithm`
  * @param roundRated - The round's `RoundDto.rated` value, if known
+ * @param options - `fallback` (default `false`)
  */
-export declare function getPlayerRatingForRound(elo: MemberFIDERatingDTO | null | undefined, rankingAlgorithm: number | null | undefined, roundRated?: number): PlayerRating;
+export declare function getPlayerRatingForRound(elo: MemberFIDERatingDTO | null | undefined, rankingAlgorithm: number | null | undefined, roundRated?: number, options?: RoundRatingOptions): PlayerRating;
 /**
  * {@link getPlayerRatingForRound}, formatted with {@link formatRatingWithType}
  * (e.g. "1708 S" / "1708 R" for rapid, "-" when there is no rating).
+ * `options` as for {@link getPlayerRatingForRound}.
  */
-export declare function formatPlayerRatingForRound(elo: MemberFIDERatingDTO | null | undefined, rankingAlgorithm: number | null | undefined, roundRated?: number, language?: 'sv' | 'en'): string;
+export declare function formatPlayerRatingForRound(elo: MemberFIDERatingDTO | null | undefined, rankingAlgorithm: number | null | undefined, roundRated?: number, language?: 'sv' | 'en', options?: RoundRatingOptions): string;
 /** A rated time control (FIDE rating type). */
 export type RatedTimeControl = 'standard' | 'rapid' | 'blitz';
 /** A group's time control, as decided by {@link getGroupTimeControl}. */

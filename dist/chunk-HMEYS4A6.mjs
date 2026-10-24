@@ -320,14 +320,18 @@ function getPlayerRatingStrict(elo, rankingAlgorithm) {
       return { rating: null, isFallback: false, ratingType: null };
   }
 }
-function getPlayerRatingForRound(elo, rankingAlgorithm, roundRated) {
+function getPlayerRatingForRound(elo, rankingAlgorithm, roundRated, options = {}) {
+  const { fallback = false } = options;
   if (roundRated !== void 0 && roundRated !== RoundRatedType.UNRATED) {
-    return getPlayerRatingByRoundType(elo, roundRated);
+    const byRound = getPlayerRatingByRoundType(elo, roundRated);
+    if (byRound.rating !== null || !fallback) return byRound;
+    const byAlgorithm = getPlayerRatingByAlgorithm(elo, rankingAlgorithm);
+    return byAlgorithm.rating !== null ? { ...byAlgorithm, isFallback: true } : byAlgorithm;
   }
-  return getPlayerRatingStrict(elo, rankingAlgorithm);
+  return fallback ? getPlayerRatingByAlgorithm(elo, rankingAlgorithm) : getPlayerRatingStrict(elo, rankingAlgorithm);
 }
-function formatPlayerRatingForRound(elo, rankingAlgorithm, roundRated, language = "sv") {
-  const { rating, ratingType } = getPlayerRatingForRound(elo, rankingAlgorithm, roundRated);
+function formatPlayerRatingForRound(elo, rankingAlgorithm, roundRated, language = "sv", options = {}) {
+  const { rating, ratingType } = getPlayerRatingForRound(elo, rankingAlgorithm, roundRated, options);
   return formatRatingWithType(rating, ratingType, language);
 }
 function getGroupTimeControl(group) {
