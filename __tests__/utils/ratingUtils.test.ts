@@ -314,6 +314,51 @@ describe('ratingUtils', () => {
       const standardOnly = { rating: 1628, rapidRating: 0, blitzRating: 0 } as MemberFIDERatingDTO;
       expect(getPlayerRatingForRound(standardOnly, RatingAlgorithm.STANDARD_ELO, RoundRatedType.RAPID).rating).toBeNull();
     });
+
+    describe('with { fallback: true }', () => {
+      // Group 19205 (RAPID_STANDARD_BLITZ_ELO, all rounds rapid): schack.se shows 1447E / 1523B
+      const arthur = { rating: 1447, rapidRating: 0, blitzRating: 1430 } as MemberFIDERatingDTO;
+      const rowin = { rating: 0, rapidRating: 0, blitzRating: 1523 } as MemberFIDERatingDTO;
+      const alg = RatingAlgorithm.RAPID_STANDARD_BLITZ_ELO;
+      const opts = { fallback: true };
+
+      it("uses the group's ranking chain when the player lacks the round's type", () => {
+        expect(getPlayerRatingForRound(arthur, alg, RoundRatedType.RAPID, opts))
+          .toEqual({ rating: 1447, isFallback: true, ratingType: 'standard' });
+        expect(getPlayerRatingForRound(rowin, alg, RoundRatedType.RAPID, opts))
+          .toEqual({ rating: 1523, isFallback: true, ratingType: 'blitz' });
+      });
+
+      it("flags a substitute even when it is the group's primary type", () => {
+        const standardOnly = { rating: 1628, rapidRating: 0, blitzRating: 0 } as MemberFIDERatingDTO;
+        expect(getPlayerRatingForRound(standardOnly, RatingAlgorithm.STANDARD_ELO, RoundRatedType.BLITZ, opts))
+          .toEqual({ rating: 1628, isFallback: true, ratingType: 'standard' });
+      });
+
+      it("keeps the round's type when the player has it", () => {
+        expect(getPlayerRatingForRound(elo, alg, RoundRatedType.BLITZ, opts))
+          .toEqual({ rating: 1597, isFallback: false, ratingType: 'blitz' });
+      });
+
+      it('returns null without any rating', () => {
+        const unrated = { rating: 0, rapidRating: 0, blitzRating: 0 } as MemberFIDERatingDTO;
+        expect(getPlayerRatingForRound(unrated, alg, RoundRatedType.RAPID, opts).rating).toBeNull();
+        expect(getPlayerRatingForRound(null, alg, RoundRatedType.RAPID, opts).rating).toBeNull();
+      });
+
+      it('uses the ranking chain for an unrated or unknown round', () => {
+        const expected = { rating: 1447, isFallback: true, ratingType: 'standard' };
+        expect(getPlayerRatingForRound(arthur, alg, RoundRatedType.UNRATED, opts)).toEqual(expected);
+        expect(getPlayerRatingForRound(arthur, alg, undefined, opts)).toEqual(expected);
+        // Default stays strict
+        expect(getPlayerRatingForRound(arthur, alg).rating).toBeNull();
+      });
+
+      it('leaves the default strict', () => {
+        expect(getPlayerRatingForRound(arthur, alg, RoundRatedType.RAPID).rating).toBeNull();
+        expect(getPlayerRatingForRound(arthur, alg, RoundRatedType.RAPID, {}).rating).toBeNull();
+      });
+    });
   });
 
   describe('formatPlayerRatingForRound', () => {
@@ -328,6 +373,15 @@ describe('ratingUtils', () => {
     it('returns "-" without a rating', () => {
       expect(formatPlayerRatingForRound(null, RatingAlgorithm.STANDARD_ELO)).toBe('-');
       expect(formatPlayerRatingForRound(elo, RatingAlgorithm.NO_RATING)).toBe('-');
+    });
+
+    it('formats the fallback rating with its own type', () => {
+      const alg = RatingAlgorithm.RAPID_STANDARD_BLITZ_ELO;
+      const arthur = { rating: 1447, rapidRating: 0, blitzRating: 1430 } as MemberFIDERatingDTO;
+      const rowin = { rating: 0, rapidRating: 0, blitzRating: 1523 } as MemberFIDERatingDTO;
+      expect(formatPlayerRatingForRound(arthur, alg, RoundRatedType.RAPID, 'sv', { fallback: true })).toBe('1447');
+      expect(formatPlayerRatingForRound(rowin, alg, RoundRatedType.RAPID, 'sv', { fallback: true })).toBe('1523 B');
+      expect(formatPlayerRatingForRound(arthur, alg, RoundRatedType.RAPID)).toBe('-');
     });
 
     // opponentStats swapped formatPlayerRating(elo, null) for this call; it must not change output.

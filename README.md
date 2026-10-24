@@ -389,6 +389,10 @@ const { rating, ratingType } = getPlayerRatingForRound(player.elo, group.ranking
 // Formatted for display
 const display = formatPlayerRatingForRound(player.elo, group.rankingAlgorithm, round.rated, 'en'); // "1708 R"
 
+// For display, fall back to the group's ranking chain (as the results table does)
+// instead of "-" when the player lacks the round's type — never for Elo calculations
+const shown = formatPlayerRatingForRound(player.elo, group.rankingAlgorithm, round.rated, 'sv', { fallback: true }); // "1447"
+
 // The time control a group is rated at
 const { primary, roundTypes } = getGroupTimeControl(group);
 // primary:    'standard' | 'rapid' | 'blitz' | 'unknown'
