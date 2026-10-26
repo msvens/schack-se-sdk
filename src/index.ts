@@ -15,6 +15,7 @@ export { ResultsService } from './services/results';
 export { RatingsService } from './services/ratings';
 export { RegistrationService } from './services/registration';
 export { FideService } from './services/fide';
+export { MfideService } from './services/mfide';
 
 // Export constants
 export {
@@ -25,6 +26,7 @@ export {
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
   CHESSTOOLS_API_URL,
+  MFIDE_API_URL,
   SEARCH_GROUPS_MAX_RESULTS
 } from './constants';
 

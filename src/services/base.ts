@@ -79,6 +79,9 @@ export class BaseApiService {
             errorMessage = body.message;
           } else if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string') {
             errorMessage = body.error;
+          } else if (typeof body?.error?.message === 'string') {
+            // mfide: { error: { code, message } }
+            errorMessage = body.error.message;
           }
         } catch {
           // Body wasn't JSON — keep the statusText fallback

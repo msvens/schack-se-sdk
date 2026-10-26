@@ -8,6 +8,7 @@ SPECS_DIR="$SCRIPT_DIR/../api-specs"
 
 SSF_URL="https://member.schack.se/memdb/v3/api-docs"
 CHESSTOOLS_URL="https://api.chesstools.org/openapi.json"
+MFIDE_URL="https://mfide.mellowtech.org/api/openapi.json"
 
 echo "Updating SSF API spec..."
 if curl -sf "$SSF_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$SPECS_DIR/ssf-api.json"; then
@@ -22,6 +23,14 @@ if curl -sf "$CHESSTOOLS_URL" | python3 -c "import json,sys; json.dump(json.load
   echo "  OK"
 else
   echo "  ERROR - failed to fetch ChessTools API spec"
+  exit 1
+fi
+
+echo "Updating mfide API spec..."
+if curl -sf "$MFIDE_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$SPECS_DIR/mfide-api.json"; then
+  echo "  OK"
+else
+  echo "  ERROR - failed to fetch mfide API spec"
   exit 1
 fi
 

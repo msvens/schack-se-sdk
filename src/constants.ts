@@ -24,6 +24,10 @@ export const CURRENT_TEST_API_URL = SSF_PROD_API_URL;
 // ChessTools API URL (FIDE data)
 export const CHESSTOOLS_API_URL = 'https://api.chesstools.org';
 
+// mfide API URL (FIDE data from FIDE's official rating lists). Needs an API
+// key; browser apps go through a same-origin proxy that adds it instead.
+export const MFIDE_API_URL = 'https://mfide.mellowtech.org/api';
+
 // Default timeout for API requests
 export const DEFAULT_TIMEOUT = 10000;
 

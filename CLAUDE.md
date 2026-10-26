@@ -1,7 +1,8 @@
 # Project Context
 
 TypeScript SDK for the Swedish Chess Federation (schack.se) public API, plus FIDE
-player data via the ChessTools API. Typed service wrappers + chess utilities.
+player data via mfide (own service on FIDE's rating lists) and the ChessTools API.
+Typed service wrappers + chess utilities.
 Consumed via git tag, not npm. Full usage docs: README.md. Release: RELEASE.md.
 
 # Commands
@@ -9,7 +10,7 @@ Consumed via git tag, not npm. Full usage docs: README.md. Release: RELEASE.md.
 - Check (CI gate — run before committing): `pnpm check`  # typecheck + test + build
 - Test: `pnpm test` (Vitest; excludes the live FIDE suite) · Build: `pnpm build` · Typecheck: `pnpm typecheck`
 - Pre-PR (run before opening a PR): `pnpm preflight`  # check + live FIDE integration; also reports ChessTools/FIDE status
-- Live FIDE integration only: `pnpm test:integration`  # hits api.chesstools.org; skips cleanly if it's down
+- Live FIDE integration only: `pnpm test:integration`  # hits api.chesstools.org and mfide.mellowtech.org (mfide needs `MFIDE_API_KEY`, a repo secret in CI); skips cleanly if a host is down or the key is missing
 - Release (tag-only): `pnpm release X.Y.Z`
 - API spec drift: `pnpm api:check`
 - Test-data corpus drift (live, not in CI): `pnpm corpus:verify`  # checks src/corpus/ssf-corpus.json ids still resolve
@@ -18,7 +19,8 @@ Consumed via git tag, not npm. Full usage docs: README.md. Release: RELEASE.md.
 # Conventions
 
 - Spec-driven services: `src/services/` are 1:1 wrappers of documented endpoints in
-  `api-specs/` (`ssf-api.json` = SSF, `chesstools-api.json` = FIDE/ChessTools;
+  `api-specs/` (`ssf-api.json` = SSF, `chesstools-api.json` = FIDE/ChessTools,
+  `mfide-api.json` = FIDE/mfide;
   `pnpm api:check` flags drift). Don't wrap undocumented endpoints as spec'd
   services — if one is genuinely needed, keep it clearly separated.
 - Aggregation / derived helpers are encouraged in `src/utils/` (composing spec'd
