@@ -1,11 +1,12 @@
 import {
   FideService,
+  MfideService,
   OrganizationService,
   RatingsService,
   RegistrationService,
   ResultsService,
   TournamentService
-} from "./chunk-VDAOYTQW.mjs";
+} from "./chunk-5XFTB53E.mjs";
 import {
   MemberCategory,
   NO_PLACE,
@@ -13,7 +14,7 @@ import {
   RatingType,
   hasStandings,
   isUnplaced
-} from "./chunk-BVK65LD7.mjs";
+} from "./chunk-GR3HGITV.mjs";
 import {
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   PrizeCategoryType,
@@ -76,7 +77,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-HMEYS4A6.mjs";
+} from "./chunk-VQACGE5J.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -84,6 +85,7 @@ import {
   CHESSTOOLS_API_URL,
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
+  MFIDE_API_URL,
   PlayerService,
   SEARCH_GROUPS_MAX_RESULTS,
   SSF_DEV_API_URL,
@@ -99,7 +101,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "./chunk-Z76RQP4Z.mjs";
+} from "./chunk-FDK6O7OU.mjs";
 import {
   PairingSystem,
   PointSystem,
@@ -147,8 +149,10 @@ export {
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
   FideService,
+  MFIDE_API_URL,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   MemberCategory,
+  MfideService,
   NO_PLACE,
   OrganizationService,
   PairingSystem,

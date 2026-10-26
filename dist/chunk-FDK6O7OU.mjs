@@ -12,6 +12,7 @@ var SSF_PROD_API_URL = `https://member.schack.se/public/api/${API_VERSION}`;
 var SSF_DEV_API_URL = `https://halvarsson.no-ip.com/webapp/memdb/public/api/${API_VERSION_DEV}`;
 var CURRENT_API_URL = SSF_PROD_API_URL;
 var CHESSTOOLS_API_URL = "https://api.chesstools.org";
+var MFIDE_API_URL = "https://mfide.mellowtech.org/api";
 var DEFAULT_TIMEOUT = 1e4;
 var SEARCH_GROUPS_MAX_RESULTS = 100;
 
@@ -80,6 +81,8 @@ var BaseApiService = class {
             errorMessage = body.message;
           } else if (body && typeof body === "object" && "error" in body && typeof body.error === "string") {
             errorMessage = body.error;
+          } else if (typeof body?.error?.message === "string") {
+            errorMessage = body.error.message;
           }
         } catch {
         }
@@ -464,6 +467,7 @@ export {
   SSF_DEV_API_URL,
   CURRENT_API_URL,
   CHESSTOOLS_API_URL,
+  MFIDE_API_URL,
   DEFAULT_TIMEOUT,
   SEARCH_GROUPS_MAX_RESULTS,
   configure,

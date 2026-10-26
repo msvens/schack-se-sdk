@@ -27,8 +27,10 @@ __export(index_exports, {
   CURRENT_API_URL: () => CURRENT_API_URL,
   DEFAULT_TIMEOUT: () => DEFAULT_TIMEOUT,
   FideService: () => FideService,
+  MFIDE_API_URL: () => MFIDE_API_URL,
   MIN_RATED_GAMES_FOR_PERFORMANCE: () => MIN_RATED_GAMES_FOR_PERFORMANCE,
   MemberCategory: () => MemberCategory,
+  MfideService: () => MfideService,
   NO_PLACE: () => NO_PLACE,
   OrganizationService: () => OrganizationService,
   PairingSystem: () => PairingSystem,
@@ -161,6 +163,7 @@ var SSF_PROD_API_URL = `https://member.schack.se/public/api/${API_VERSION}`;
 var SSF_DEV_API_URL = `https://halvarsson.no-ip.com/webapp/memdb/public/api/${API_VERSION_DEV}`;
 var CURRENT_API_URL = SSF_PROD_API_URL;
 var CHESSTOOLS_API_URL = "https://api.chesstools.org";
+var MFIDE_API_URL = "https://mfide.mellowtech.org/api";
 var DEFAULT_TIMEOUT = 1e4;
 var SEARCH_GROUPS_MAX_RESULTS = 100;
 
@@ -229,6 +232,8 @@ var BaseApiService = class {
             errorMessage = body.message;
           } else if (body && typeof body === "object" && "error" in body && typeof body.error === "string") {
             errorMessage = body.error;
+          } else if (typeof body?.error?.message === "string") {
+            errorMessage = body.error.message;
           }
         } catch {
         }
@@ -2092,6 +2097,71 @@ var FideService = class extends BaseApiService {
   }
 };
 
+// src/services/mfide.ts
+var MfideService = class extends BaseApiService {
+  /**
+   * @param baseUrl - mfide's `/api` root (default {@link MFIDE_API_URL}), or a
+   *   proxy path that maps to it
+   * @param apiKey - Sent as `X-API-Key`. Server-side only: never put a key in
+   *   browser code; let a proxy add it instead.
+   * @param timeoutMs - Per-service request timeout
+   */
+  constructor(baseUrl = MFIDE_API_URL, apiKey, timeoutMs) {
+    super(baseUrl, apiKey ? { "X-API-Key": apiKey } : void 0, timeoutMs);
+  }
+  async getEnveloped(endpoint, options) {
+    const response = await this.get(endpoint, options);
+    const body = response.data;
+    if (!body) return { error: response.error, status: response.status, message: response.message };
+    if (body.error) return { error: body.error.message, status: body.error.code, message: "Error" };
+    return { data: body.data, status: response.status, message: "Success" };
+  }
+  /** Service status and data freshness (no key needed). */
+  async getHealth(options) {
+    return this.getEnveloped("/health", options);
+  }
+  /** The calling key's name and rate limit; a quick "is my key valid". */
+  async getKey(options) {
+    return this.getEnveloped("/key", options);
+  }
+  /**
+   * Find players by name (words in any order), best match first. A query of
+   * digits only looks up that FIDE id (0 or 1 result).
+   *
+   * @param query - Name words; max 5 words / 100 chars, at least one word of 2+ letters
+   */
+  async searchPlayers(query, params = {}, options) {
+    const qs = new URLSearchParams({ q: query });
+    if (params.match) qs.set("match", params.match);
+    if (params.country) qs.set("country", params.country);
+    if (params.limit !== void 0) qs.set("limit", String(params.limit));
+    return this.getEnveloped(`/v1/players/search?${qs}`, options);
+  }
+  /** One player with the current month's ratings; 404 for unknown or removed players. */
+  async getPlayer(fideId, options) {
+    return this.getEnveloped(`/v1/players/${fideId}`, options);
+  }
+  /**
+   * A player's monthly ratings, oldest first (up to 60 months).
+   *
+   * @param type - Only that type, and only months the player was rated in it
+   */
+  async getPlayerHistory(fideId, type, options) {
+    const qs = type ? `?type=${type}` : "";
+    return this.getEnveloped(`/v1/players/${fideId}/history${qs}`, options);
+  }
+  /** A current top list in FIDE's order (active in the type, rating, games, name). */
+  async getTop(params = {}, options) {
+    const qs = new URLSearchParams();
+    if (params.type) qs.set("type", params.type);
+    if (params.list) qs.set("list", params.list);
+    if (params.country) qs.set("country", params.country);
+    if (params.limit !== void 0) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return this.getEnveloped(`/v1/top${query ? `?${query}` : ""}`, options);
+  }
+};
+
 // src/utils/ratingHistory.ts
 function decimateRatingData(data, maxPoints) {
   if (data.length <= maxPoints || maxPoints < 2) return data;
@@ -3140,8 +3210,10 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
   FideService,
+  MFIDE_API_URL,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   MemberCategory,
+  MfideService,
   NO_PLACE,
   OrganizationService,
   PairingSystem,

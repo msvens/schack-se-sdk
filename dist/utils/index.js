@@ -1285,6 +1285,8 @@ var BaseApiService = class {
             errorMessage = body.message;
           } else if (body && typeof body === "object" && "error" in body && typeof body.error === "string") {
             errorMessage = body.error;
+          } else if (typeof body?.error?.message === "string") {
+            errorMessage = body.error.message;
           }
         } catch {
         }
