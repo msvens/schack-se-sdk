@@ -1,10 +1,11 @@
 # schack-se-sdk
 
-TypeScript SDK for the Swedish Chess Federation (schack.se) API and FIDE player data via [ChessTools](https://api.chesstools.org/docs).
+TypeScript SDK for the Swedish Chess Federation (schack.se) API and FIDE player data via [mfide](https://github.com/msvens/mfide) and [ChessTools](https://api.chesstools.org/docs).
 
 ### Underlying APIs
 
 - **SSF (Swedish Chess Federation):** [Swagger docs](https://member.schack.se/swagger-ui/index.html#/)
+- **mfide (FIDE data):** [API guide](https://github.com/msvens/mfide/blob/main/API.md), [OpenAPI](https://mfide.mellowtech.org/api/openapi.json)
 - **ChessTools (FIDE data):** [API docs](https://api.chesstools.org/docs)
 
 ## Installation
@@ -197,6 +198,29 @@ const service = new RegistrationService();
 // Get team registration for a club
 const registration = await service.getTeamRegistration(tournamentId, clubId);
 ```
+
+### MfideService
+
+FIDE ratings from [mfide](https://github.com/msvens/mfide), built on FIDE's official monthly rating lists: profiles with current standard, rapid and blitz ratings (each with games, K-factor and activity flag), up to 60 months of history, and FIDE-ordered top lists. Every endpoint shares one player shape, and an unrated type is `null`, never 0.
+
+mfide needs an API key, sent as `X-API-Key`. Keep it server-side: a browser app goes through a same-origin proxy that adds the key and constructs the service without one.
+
+```typescript
+import { MfideService, MFIDE_API_URL } from '@msvens/schack-se-sdk';
+
+// Node: call mfide directly with your key
+const mfide = new MfideService(MFIDE_API_URL, process.env.MFIDE_API_KEY);
+// Browser: a same-origin proxy adds the key
+const viaProxy = new MfideService('/api/fide');
+
+const player = await mfide.getPlayer(1503014);          // 404 for unknown ids
+const hits = await mfide.searchPlayers('carlsen', { limit: 5 });
+const exact = await mfide.searchPlayers('stal', { match: 'word' }); // whole words only
+const history = await mfide.getPlayerHistory(1503014, 'rapid');   // oldest first
+const top = await mfide.getTop({ type: 'blitz', list: 'women', country: 'SWE', limit: 10 });
+```
+
+mfide answers HTTP 200 even for errors and puts the real status in its body; the service unwraps that, so an unknown player is `{ status: 404, error: 'player not found' }` like any other `ApiResponse` error. A proxy's own error pages (e.g. a 429 rate limit with an HTML body) keep their HTTP status.
 
 ### FideService
 
@@ -786,6 +810,7 @@ The actual API URLs are:
 |----------|-----|
 | `SSF_PROD_API_URL` | `https://member.schack.se/public/api/v1` |
 | `CHESSTOOLS_API_URL` | `https://api.chesstools.org` |
+| `MFIDE_API_URL` | `https://mfide.mellowtech.org/api` |
 
 The SDK is intentionally flexible about the base URL so you can point it at your proxy path instead of the actual API:
 

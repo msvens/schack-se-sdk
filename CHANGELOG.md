@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`MfideService`**: FIDE ratings from [mfide](https://github.com/msvens/mfide), built on FIDE's official monthly rating lists, as an alternative to the ChessTools-based `FideService`. ChessTools' rating-list endpoints currently serve the July 2026 list, and its profile and top-active endpoints are often down. Methods: `getPlayer`, `searchPlayers` (prefix or whole-word matching, country filter), `getPlayerHistory` (optionally one rating type), `getTop` (open/women/juniors/girls, world or one federation), `getHealth`, `getKey`. Types: `MfidePlayer`, `MfideRating`, `MfideTopEntry`, `MfideHistoryEntry`, `MfideHealth`, `MfideKeyInfo`. The API key is an optional constructor argument for server-side callers; browser apps use a proxy that adds it.
+- **`MFIDE_API_URL`** (`https://mfide.mellowtech.org/api`), the default base URL for `MfideService`.
+
+### Changed
+
+- For HTTP errors, every service now also reads an error message nested as `{ error: { message } }` (mfide's shape) instead of falling back to the status text.
+
 ## 0.27.0
 
 ### Added

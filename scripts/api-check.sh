@@ -11,6 +11,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 SSF_URL="https://member.schack.se/memdb/v3/api-docs"
 CHESSTOOLS_URL="https://api.chesstools.org/openapi.json"
+MFIDE_URL="https://mfide.mellowtech.org/api/openapi.json"
 
 changed=0
 
@@ -50,6 +51,26 @@ if curl -sf --max-time 30 "$CHESSTOOLS_URL" | python3 -c "import json,sys; json.
   fi
 else
   echo "  ERROR - failed to fetch ChessTools API spec"
+  exit 2
+fi
+
+echo ""
+echo "Checking mfide API spec..."
+if curl -sf --max-time 30 "$MFIDE_URL" | python3 -c "import json,sys; json.dump(json.load(sys.stdin), sys.stdout, indent=2, ensure_ascii=False); print()" > "$TMP_DIR/mfide-api.json" 2>/dev/null; then
+  if ! diff -q "$SPECS_DIR/mfide-api.json" "$TMP_DIR/mfide-api.json" > /dev/null 2>&1; then
+    echo "  CHANGED - mfide API spec differs from stored version"
+    mf_diff=$(diff --unified=3 "$SPECS_DIR/mfide-api.json" "$TMP_DIR/mfide-api.json" || true)
+    mf_hunks=$(echo "$mf_diff" | grep -c '^@@' || true)
+    mf_adds=$(echo "$mf_diff" | grep -cE '^\+[^+]' || true)
+    mf_dels=$(echo "$mf_diff" | grep -cE '^-[^-]' || true)
+    echo "  Summary: ${mf_hunks} hunks, +${mf_adds}/-${mf_dels} lines"
+    echo "$mf_diff"
+    changed=1
+  else
+    echo "  OK - no changes"
+  fi
+else
+  echo "  ERROR - failed to fetch mfide API spec"
   exit 2
 fi
 
