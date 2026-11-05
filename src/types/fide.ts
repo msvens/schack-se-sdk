@@ -12,11 +12,15 @@
  * This leads to inconsistencies across endpoints (e.g. `fideid` vs `fide_id`,
  * `rating` as number vs string, `country` vs `federation`). Each interface
  * models the exact shape returned by its corresponding endpoint.
+ *
+ * Deprecated together with `FideService`; use `MfideService` and the `Mfide*` types.
  */
 
 /**
  * A single rating period entry used in player history.
  * Shared across endpoints that return history data.
+ *
+ * @deprecated Use the `Mfide*` types with `MfideService`.
  */
 export interface FideRatingPeriod {
   period: string;
@@ -33,6 +37,8 @@ export interface FideRatingPeriod {
  * Player from /fide/{id} and /fide/top_by_rating endpoints (MongoDB rating list).
  * Only classical rating data is stored from the FIDE XML — no rapid/blitz fields.
  * Note: `fideid` is a string, `rating` is a number, `birth_year` is a number.
+ *
+ * @deprecated Use the `Mfide*` types with `MfideService`.
  */
 export interface FidePlayer {
   _id: string;
@@ -56,6 +62,8 @@ export interface FidePlayer {
  * Note: `fide_id` (not `fideid`), `sex` is full word ("Male"/"Female"),
  * `fide_title` is full word ("Grandmaster").
  * Rating fields are only present in history entries, not on the base response.
+ *
+ * @deprecated Use the `Mfide*` types with `MfideService`.
  */
 export interface FidePlayerInfo {
   fide_id: string;
@@ -77,6 +85,8 @@ export interface FidePlayerInfo {
  * Active top player from /fide/top_active/ endpoint (web scraper).
  * Note: `fide_id` (not `fideid`), `rating` and `rank` are strings.
  * Uses `country` (not `federation`) as parsed from the FIDE HTML table.
+ *
+ * @deprecated Use the `Mfide*` types with `MfideService`.
  */
 export interface FideActivePlayer {
   fide_id: string;

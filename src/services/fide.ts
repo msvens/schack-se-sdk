@@ -9,6 +9,14 @@ import type {
 } from '../types';
 import { CHESSTOOLS_API_URL } from '../constants';
 
+/**
+ * FIDE player data from the ChessTools API (https://api.chesstools.org).
+ *
+ * @deprecated Use `MfideService`, which serves FIDE's official monthly
+ * rating lists. ChessTools' rating-list endpoints lag behind FIDE's releases and
+ * its live-scrape endpoints are often unavailable. `FideService` will be removed
+ * in a future release.
+ */
 export class FideService extends BaseApiService {
   constructor(baseUrl: string = CHESSTOOLS_API_URL, timeoutMs?: number) {
     super(baseUrl, undefined, timeoutMs);

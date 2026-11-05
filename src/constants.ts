@@ -21,7 +21,7 @@ export const CURRENT_API_URL = SSF_PROD_API_URL;
 // Current remote API URL for tests
 export const CURRENT_TEST_API_URL = SSF_PROD_API_URL;
 
-// ChessTools API URL (FIDE data)
+/** ChessTools API URL (FIDE data). @deprecated Used only by the deprecated `FideService`; use `MFIDE_API_URL` with `MfideService`. */
 export const CHESSTOOLS_API_URL = 'https://api.chesstools.org';
 
 // mfide API URL (FIDE data from FIDE's official rating lists). Needs an API
