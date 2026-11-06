@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Deprecated
+
+- **`FideService`** (ChessTools), its types (`FidePlayer`, `FidePlayerInfo`, `FideActivePlayer`, `FideRatingPeriod`) and **`CHESSTOOLS_API_URL`**. Use `MfideService` and the `Mfide*` types, which are built on FIDE's official monthly rating lists. ChessTools' rating-list endpoints lag behind FIDE's releases, and its live-scrape endpoints are often unavailable. They still work and will be removed in a future release.
+
 ## 0.28.0
 
 ### Added

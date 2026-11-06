@@ -1,12 +1,12 @@
 # schack-se-sdk
 
-TypeScript SDK for the Swedish Chess Federation (schack.se) API and FIDE player data via [mfide](https://github.com/msvens/mfide) and [ChessTools](https://api.chesstools.org/docs).
+TypeScript SDK for the Swedish Chess Federation (schack.se) API and FIDE player data via [mfide](https://github.com/msvens/mfide) (and, deprecated, [ChessTools](https://api.chesstools.org/docs)).
 
 ### Underlying APIs
 
 - **SSF (Swedish Chess Federation):** [Swagger docs](https://member.schack.se/swagger-ui/index.html#/)
 - **mfide (FIDE data):** [API guide](https://github.com/msvens/mfide/blob/main/API.md), [OpenAPI](https://mfide.mellowtech.org/api/openapi.json)
-- **ChessTools (FIDE data):** [API docs](https://api.chesstools.org/docs)
+- **ChessTools (FIDE data, deprecated):** [API docs](https://api.chesstools.org/docs)
 
 ## Installation
 
@@ -222,7 +222,9 @@ const top = await mfide.getTop({ type: 'blitz', list: 'women', country: 'SWE', l
 
 mfide answers HTTP 200 even for errors and puts the real status in its body; the service unwraps that, so an unknown player is `{ status: 404, error: 'player not found' }` like any other `ApiResponse` error. A proxy's own error pages (e.g. a 429 rate limit with an HTML body) keep their HTTP status.
 
-### FideService
+### FideService (deprecated)
+
+> **Deprecated:** use [`MfideService`](#mfideservice). `FideService`, its types and `CHESSTOOLS_API_URL` will be removed in a future release. ChessTools' rating-list endpoints lag behind FIDE's monthly releases, and its live-scrape endpoints are often unavailable.
 
 Provides FIDE player data via the [ChessTools API](https://api.chesstools.org/docs).
 
@@ -809,7 +811,7 @@ The actual API URLs are:
 | Constant | URL |
 |----------|-----|
 | `SSF_PROD_API_URL` | `https://member.schack.se/public/api/v1` |
-| `CHESSTOOLS_API_URL` | `https://api.chesstools.org` |
+| `CHESSTOOLS_API_URL` (deprecated) | `https://api.chesstools.org` |
 | `MFIDE_API_URL` | `https://mfide.mellowtech.org/api` |
 
 The SDK is intentionally flexible about the base URL so you can point it at your proxy path instead of the actual API:
@@ -893,21 +895,21 @@ if (response.data) {
 
 ### Request timeouts
 
-Every request is bounded by a timeout so a slow or wedged upstream can't hang your app indefinitely — this matters most for the ChessTools/FIDE endpoints, several of which are live scrapes with no server-side timeout. When a request exceeds its deadline the SDK aborts it and returns `{ status: 408, error: "Request timed out after Nms" }` (see the table above); methods still never throw.
+Every request is bounded by a timeout so a slow or wedged upstream can't hang your app indefinitely — this matters most for the (deprecated) ChessTools/FIDE endpoints, several of which are live scrapes with no server-side timeout. When a request exceeds its deadline the SDK aborts it and returns `{ status: 408, error: "Request timed out after Nms" }` (see the table above); methods still never throw.
 
 The default is **10 seconds** (`DEFAULT_TIMEOUT`). You can override it at three levels — the most specific wins:
 
 ```typescript
-import { configure, FideService } from '@msvens/schack-se-sdk';
+import { configure, MfideService } from '@msvens/schack-se-sdk';
 
 // 1. Globally, for every service that doesn't set its own:
 configure({ timeoutMs: 5000 });
 
-// 2. Per service, at construction (second constructor argument, after the base URL):
-const fide = new FideService(undefined, 8000); // 8s for all calls on this instance
+// 2. Per service, at construction (the last constructor argument):
+const fide = new MfideService('/api/fide', undefined, 8000); // 8s for all calls on this instance
 
 // 3. Per call, overriding both of the above:
-const res = await fide.getPlayerHistory(1503014, { timeoutMs: 30000 });
+const res = await fide.getPlayerHistory(1503014, undefined, { timeoutMs: 30000 });
 if (res.status === 408) {
   // this specific call was allowed 30s and still didn't finish
 }
@@ -961,7 +963,7 @@ export const POST = proxy;
 ```
 
 ```typescript
-// src/app/api/chesstools/[...path]/route.ts — ChessTools/FIDE proxy
+// src/app/api/chesstools/[...path]/route.ts — ChessTools/FIDE proxy (only for the deprecated FideService)
 import { NextRequest } from 'next/server';
 
 const CHESSTOOLS_API_BASE = 'https://api.chesstools.org';
