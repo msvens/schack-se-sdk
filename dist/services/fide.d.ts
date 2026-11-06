@@ -1,5 +1,13 @@
 import { BaseApiService } from './base';
 import type { ApiResponse, RequestOptions, FidePlayer, FidePlayerInfo, FideActivePlayer, FideRatingPeriod } from '../types';
+/**
+ * FIDE player data from the ChessTools API (https://api.chesstools.org).
+ *
+ * @deprecated Use `MfideService`, which serves FIDE's official monthly
+ * rating lists. ChessTools' rating-list endpoints lag behind FIDE's releases and
+ * its live-scrape endpoints are often unavailable. `FideService` will be removed
+ * in a future release.
+ */
 export declare class FideService extends BaseApiService {
     constructor(baseUrl?: string, timeoutMs?: number);
     /**

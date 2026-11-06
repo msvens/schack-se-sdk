@@ -12,6 +12,7 @@ export declare const SSF_PROD_API_URL = "https://member.schack.se/public/api/v1"
 export declare const SSF_DEV_API_URL = "https://halvarsson.no-ip.com/webapp/memdb/public/api/v1";
 export declare const CURRENT_API_URL = "https://member.schack.se/public/api/v1";
 export declare const CURRENT_TEST_API_URL = "https://member.schack.se/public/api/v1";
+/** ChessTools API URL (FIDE data). @deprecated Used only by the deprecated `FideService`; use `MFIDE_API_URL` with `MfideService`. */
 export declare const CHESSTOOLS_API_URL = "https://api.chesstools.org";
 export declare const MFIDE_API_URL = "https://mfide.mellowtech.org/api";
 export declare const DEFAULT_TIMEOUT = 10000;
