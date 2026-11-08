@@ -2965,7 +2965,7 @@ function isFinished(source, now) {
 }
 
 // src/utils/tournamentsToday.ts
-var UPDATED_LOOKBACK_DAYS = 14;
+var UPDATED_LOOKBACK_DAYS = 3;
 function toLocalIsoDate(d) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

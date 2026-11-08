@@ -22,8 +22,8 @@ export interface TournamentsTodayOptions {
  * today are missing from the coming list; merge by id to add them to a calendar.
  *
  * Limits:
- * - A tournament that ends today and has no results entered yet is in neither
- *   list, so it can't be found.
+ * - A tournament that ends today and has had no results entered in the last
+ *   {@link UPDATED_LOOKBACK_DAYS} days is in neither list, so it can't be found.
  * - Round dates are set by organizers. A long tournament whose round dates are
  *   wrong or are a placeholder schedule is reported on those dates (round dates
  *   outside the tournament's own range are ignored).
