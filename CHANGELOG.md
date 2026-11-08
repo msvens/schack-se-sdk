@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`getTournamentsToday({ districtId?, service? })`**: tournaments played today, meaning they start or end today or have a round dated today within their date range (a season-long KM appears only on its round days). SSF's coming list only returns tournaments that end after today, so a tournament disappears on its last day and a one-day tournament is never listed on the day it's played. The helper searches both the coming list and tournaments with results updated in the last 14 days; merge by id to add the ones ending today to a calendar. A tournament ending today with no results yet is in neither list and can't be found. Type: `TournamentsTodayOptions`.
+
 ## 0.28.1
 
 ### Deprecated

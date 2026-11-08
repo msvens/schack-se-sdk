@@ -113,6 +113,7 @@ export {
   isOngoing,
   isFinished
 } from './utils/tournamentStatus';
+export { getTournamentsToday, type TournamentsTodayOptions } from './utils/tournamentsToday';
 export {
   toRomanNumeral,
   countTeamsByClub,

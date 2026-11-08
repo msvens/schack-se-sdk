@@ -129,7 +129,8 @@ if (results.data?.length === SEARCH_GROUPS_MAX_RESULTS) {
   // tell the user to refine the search
 }
 
-// Get upcoming tournaments
+// Get upcoming tournaments. Only tournaments that end after today: one ending
+// today is missing (see getTournamentsToday below).
 const upcoming = await service.searchComingTournaments();
 
 // Get recently updated tournaments
@@ -138,6 +139,19 @@ const updated = await service.searchUpdatedTournaments(
   '2024-12-31T23:59:59'
 );
 ```
+
+#### Tournaments played today
+
+`searchComingTournaments` only returns tournaments that end *after* today, so a tournament drops out on its last day and a one-day tournament is never listed on the day it's played. `getTournamentsToday` returns the tournaments played today: those that start or end today, plus those whose range covers today and that have a round dated today in any group (so a season-long KM appears only on its round days). It searches both the coming list and tournaments with results updated in the last 14 days. Only the ones ending today are missing from the coming list; merge by id to add them to a calendar.
+
+```typescript
+import { getTournamentsToday, TournamentService } from '@msvens/schack-se-sdk';
+
+const playing = await getTournamentsToday();
+const local = await getTournamentsToday({ districtId: 9, service: new TournamentService('/api/chess/v1') });
+```
+
+Limits: a tournament ending today with no results entered yet is in neither list and can't be found. Round dates come from the organizer, so a long tournament with wrong or placeholder round dates is reported on those dates (round dates outside the tournament's range are ignored). If either search fails you get its error, not a partial list.
 
 ### ResultsService
 

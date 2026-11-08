@@ -94,6 +94,7 @@ export {
   isOngoing,
   isFinished
 } from './tournamentStatus';
+export { getTournamentsToday, type TournamentsTodayOptions } from './tournamentsToday';
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './sortingUtils';
 // Round-standings result types only — the engine (computeRoundStandings) is
