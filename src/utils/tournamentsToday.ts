@@ -3,10 +3,11 @@ import type { ApiResponse, TournamentClassDto, TournamentClassGroupDto, Tourname
 
 /**
  * How far back the results-updated search looks for tournaments that end today.
- * Such a tournament has normally had results entered during its earlier rounds;
- * the window only needs to reach its first round.
+ * Three days covers a Friday–Sunday event with no results yet on Sunday. The
+ * server's search gets slow with longer windows (about 0.5 s for 3 days, 2 s for
+ * 14), and the coming list supplies everything that doesn't end today.
  */
-const UPDATED_LOOKBACK_DAYS = 14;
+const UPDATED_LOOKBACK_DAYS = 3;
 
 export interface TournamentsTodayOptions {
   /** Limit to one district (and its clubs), as on the underlying endpoints. */
@@ -41,8 +42,8 @@ function allGroups(classes: TournamentClassDto[] | undefined): TournamentClassGr
  * today are missing from the coming list; merge by id to add them to a calendar.
  *
  * Limits:
- * - A tournament that ends today and has no results entered yet is in neither
- *   list, so it can't be found.
+ * - A tournament that ends today and has had no results entered in the last
+ *   {@link UPDATED_LOOKBACK_DAYS} days is in neither list, so it can't be found.
  * - Round dates are set by organizers. A long tournament whose round dates are
  *   wrong or are a placeholder schedule is reported on those dates (round dates
  *   outside the tournament's own range are ignored).

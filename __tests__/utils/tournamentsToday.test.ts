@@ -68,7 +68,7 @@ describe('getTournamentsToday', () => {
     expect(res.data!.map(x => x.id)).toEqual([2, 3, 6, 7]);
     expect(service.searchComingTournaments).toHaveBeenCalledWith(9);
     expect(service.searchUpdatedTournaments).toHaveBeenCalledWith(
-      '2026-10-25T00:00:00',
+      '2026-11-05T00:00:00',
       '2026-11-08T23:59:59',
       9
     );

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`getTournamentsToday` looks back 3 days in the results list instead of 14.** SSF's results-updated search took about 2 s for 14 days and about 0.5 s for 3, and the window is only needed for tournaments ending today (everything else comes from the coming list). Three days still covers a Friday–Sunday event with no results yet on Sunday; a tournament ending today with no results in the last 3 days is now missed.
+
 ## 0.29.0
 
 ### Added
