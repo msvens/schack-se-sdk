@@ -115,6 +115,7 @@ __export(index_exports, {
   getTeamRowName: () => getTeamRowName,
   getTiebreakSystemName: () => getTiebreakSystemName,
   getTournamentStatus: () => getTournamentStatus,
+  getTournamentsToday: () => getTournamentsToday,
   hasIndividualPerformance: () => hasIndividualPerformance,
   hasStandings: () => hasStandings,
   isAdjudicatedResult: () => isAdjudicatedResult,
@@ -2963,6 +2964,44 @@ function isFinished(source, now) {
   return getTournamentStatus(source, now) === "finished";
 }
 
+// src/utils/tournamentsToday.ts
+var UPDATED_LOOKBACK_DAYS = 14;
+function toLocalIsoDate(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function allGroups2(classes) {
+  return (classes ?? []).flatMap((c) => [...c.groups ?? [], ...allGroups2(c.subClasses)]);
+}
+async function getTournamentsToday(options = {}) {
+  const { districtId } = options;
+  const service = options.service ?? new TournamentService();
+  const now = /* @__PURE__ */ new Date();
+  const today = toLocalIsoDate(now);
+  const from = new Date(now);
+  from.setDate(from.getDate() - UPDATED_LOOKBACK_DAYS);
+  const responses = await Promise.all([
+    service.searchComingTournaments(districtId),
+    service.searchUpdatedTournaments(`${toLocalIsoDate(from)}T00:00:00`, `${today}T23:59:59`, districtId)
+  ]);
+  const failed = responses.find((r) => r.status !== 200 || !r.data);
+  if (failed) {
+    return { status: failed.status, error: failed.error ?? "Failed to fetch tournaments" };
+  }
+  const playedToday = (t) => {
+    const start = t.start?.slice(0, 10);
+    const end = t.end?.slice(0, 10);
+    if (!start || !end || start > today || end < today) return false;
+    if (start === today || end === today) return true;
+    return allGroups2(t.rootClasses).some(
+      (g) => (g.tournamentRounds ?? []).some((r) => r.roundDate?.slice(0, 10) === today)
+    );
+  };
+  const seen = /* @__PURE__ */ new Set();
+  const data = responses.flatMap((r) => r.data).filter((t) => playedToday(t) && !seen.has(t.id) && (seen.add(t.id), true));
+  return { status: 200, data };
+}
+
 // src/utils/teamFormatting.ts
 function toRomanNumeral(num) {
   if (num <= 0 || num > 20) {
@@ -3298,6 +3337,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   getTeamRowName,
   getTiebreakSystemName,
   getTournamentStatus,
+  getTournamentsToday,
   hasIndividualPerformance,
   hasStandings,
   isAdjudicatedResult,

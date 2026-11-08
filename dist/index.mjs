@@ -4,9 +4,8 @@ import {
   OrganizationService,
   RatingsService,
   RegistrationService,
-  ResultsService,
-  TournamentService
-} from "./chunk-5XFTB53E.mjs";
+  ResultsService
+} from "./chunk-HY6KIOZZ.mjs";
 import {
   MemberCategory,
   NO_PLACE,
@@ -61,6 +60,7 @@ import {
   getRatingTypeFromRoundRated,
   getTeamRowName,
   getTournamentStatus,
+  getTournamentsToday,
   hasIndividualPerformance,
   isFemale,
   isFinished,
@@ -77,7 +77,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-VQACGE5J.mjs";
+} from "./chunk-YUUOWG4M.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -90,6 +90,7 @@ import {
   SEARCH_GROUPS_MAX_RESULTS,
   SSF_DEV_API_URL,
   SSF_PROD_API_URL,
+  TournamentService,
   chunkArray,
   configure,
   deduplicateIds,
@@ -101,7 +102,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "./chunk-FDK6O7OU.mjs";
+} from "./chunk-OHKFJP4Y.mjs";
 import {
   PairingSystem,
   PointSystem,
@@ -237,6 +238,7 @@ export {
   getTeamRowName,
   getTiebreakSystemName,
   getTournamentStatus,
+  getTournamentsToday,
   hasIndividualPerformance,
   hasStandings,
   isAdjudicatedResult,

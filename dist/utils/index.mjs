@@ -44,6 +44,7 @@ import {
   getRatingTypeFromRoundRated,
   getTeamRowName,
   getTournamentStatus,
+  getTournamentsToday,
   hasIndividualPerformance,
   isFemale,
   isFinished,
@@ -60,7 +61,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "../chunk-VQACGE5J.mjs";
+} from "../chunk-YUUOWG4M.mjs";
 import {
   chunkArray,
   deduplicateIds,
@@ -71,7 +72,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "../chunk-FDK6O7OU.mjs";
+} from "../chunk-OHKFJP4Y.mjs";
 import {
   PointSystem,
   PointValues,
@@ -162,6 +163,7 @@ export {
   getResultDisplayString,
   getTeamRowName,
   getTournamentStatus,
+  getTournamentsToday,
   hasIndividualPerformance,
   isAdjudicatedResult,
   isBlackWin,

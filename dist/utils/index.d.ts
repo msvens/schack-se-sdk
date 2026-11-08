@@ -5,6 +5,7 @@ export { PointSystem, PointValues, ResultCode, ResultDisplay, type PointSystemTy
 export { getOpponentKind, type OpponentKind, isWalkoverResult, isWalkover, formatGameResult, formatMatchResult } from './resultFormatting';
 export { RoundRatedType, type RoundRatedTypeValue, parseTimeControl, type TimeControlType, type PlayerRating, getPlayerRatingForTournament, formatPlayerRating, formatRatingWithType, isJuniorPlayer, getKFactorForRating, getPlayerRatingByAlgorithm, getRatingTypeFromRoundRated, getPlayerRatingByRoundType, getPrimaryRatingType, getPlayerRatingStrict, getPlayerRatingForRound, formatPlayerRatingForRound, type RoundRatingOptions, getGroupTimeControl, type GroupTimeControl, type RatedTimeControl, formatPlayerName, Sex, type SexType, isFemale, birthYearOf, chessAge } from './ratingUtils';
 export { getTournamentStatus, isUpcoming, isOngoing, isFinished } from './tournamentStatus';
+export { getTournamentsToday, type TournamentsTodayOptions } from './tournamentsToday';
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './sortingUtils';
 export type { RoundStandingRow, RoundStandings, SecondaryBasis } from './roundStandings';
