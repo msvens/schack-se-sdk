@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`groupsToday` on each tournament from `getTournamentsToday`** (types `TournamentToday`, `GroupToday`), so apps don't have to re-derive which groups play today. It lists the groups with a round dated today within the group's range, each with those rounds; if there are none, the groups whose own range covers today, with `rounds: []` (short events often have no round dates); if none either, an empty list. A league thus lists only the divisions with a round today. Which tournaments are returned is unchanged, and the result is still a list of tournaments, so merging by id keeps working.
+
 ## 0.29.2
 
 ### Changed

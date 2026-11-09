@@ -149,7 +149,15 @@ import { getTournamentsToday, TournamentService } from '@msvens/schack-se-sdk';
 
 const playing = await getTournamentsToday();
 const local = await getTournamentsToday({ districtId: 9, service: new TournamentService('/api/chess/v1') });
+
+for (const t of playing.data ?? []) {
+  for (const { group, rounds } of t.groupsToday) {
+    // rounds: the group's rounds dated today; empty if it matched on its dates alone
+  }
+}
 ```
+
+Each tournament (`TournamentToday`) carries `groupsToday`, the groups played today: those with a round dated today (in the group's range), with those rounds; if none, the groups whose own range covers today, with `rounds: []` (short events often have no round dates); if none either, an empty list. A league thus lists only the divisions with a round today.
 
 Limits: a tournament ending today with no results entered in the last 3 days is in neither list and can't be found. Round dates come from the organizer, so a long tournament with wrong or placeholder round dates is reported on those dates (round dates outside the tournament's or the group's range are ignored; a group whose range ends before it starts is checked against the tournament range only). If either search fails you get its error, not a partial list.
 
