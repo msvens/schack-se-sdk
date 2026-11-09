@@ -77,7 +77,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-EI5VNI5L.mjs";
+} from "./chunk-HQV54U65.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,

@@ -2993,9 +2993,12 @@ async function getTournamentsToday(options = {}) {
     const end = t.end?.slice(0, 10);
     if (!start || !end || start > today || end < today) return false;
     if (start === today || end === today) return true;
-    return allGroups2(t.rootClasses).some(
-      (g) => (g.tournamentRounds ?? []).some((r) => r.roundDate?.slice(0, 10) === today)
-    );
+    return allGroups2(t.rootClasses).some((g) => {
+      const gStart = g.start?.slice(0, 10);
+      const gEnd = g.end?.slice(0, 10);
+      if (gStart && gEnd && gStart <= gEnd && (gStart > today || gEnd < today)) return false;
+      return (g.tournamentRounds ?? []).some((r) => r.roundDate?.slice(0, 10) === today);
+    });
   };
   const seen = /* @__PURE__ */ new Set();
   const data = responses.flatMap((r) => r.data).filter((t) => playedToday(t) && !seen.has(t.id) && (seen.add(t.id), true));

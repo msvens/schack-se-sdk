@@ -9,10 +9,12 @@ export interface TournamentsTodayOptions {
 /**
  * Tournaments played today (local date).
  *
- * A tournament counts if it starts or ends today, or if today is within its
- * range and any of its groups has a round dated today. Short events count by their dates alone, since their round
- * dates aren't always filled in for every day; a season-long KM counts only on
- * days it has a round.
+ * Today must be within the tournament's `start`–`end` range. Then it counts if
+ * it starts or ends today, or if a group has a round dated today and today is
+ * also within that group's range (a group whose range ends before it starts is
+ * checked against the tournament range only). Short events count by their dates
+ * alone, since their round dates aren't always filled in for every day; a
+ * season-long KM counts only on days it has a round.
  *
  * The SSF coming list (`searchComingTournaments`) only returns tournaments that
  * end *after* today, so a tournament disappears from it on its last day, and a
@@ -24,9 +26,10 @@ export interface TournamentsTodayOptions {
  * Limits:
  * - A tournament that ends today and has had no results entered in the last
  *   {@link UPDATED_LOOKBACK_DAYS} days is in neither list, so it can't be found.
- * - Round dates are set by organizers. A long tournament whose round dates are
- *   wrong or are a placeholder schedule is reported on those dates (round dates
- *   outside the tournament's own range are ignored).
+ * - Round and group dates are set by organizers. Round dates outside the
+ *   tournament's or the group's range are ignored, but wrong dates inside both
+ *   are reported as played, and a group with a valid but wrong range hides its
+ *   real round days.
  *
  * The result is deduplicated by id and keeps the coming list's order, followed
  * by those found only in the results list. If either search fails, its error is
