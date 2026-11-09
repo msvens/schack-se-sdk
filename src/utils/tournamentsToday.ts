@@ -1,5 +1,11 @@
 import { TournamentService } from '../services/tournaments';
-import type { ApiResponse, TournamentClassDto, TournamentClassGroupDto, TournamentDto } from '../types';
+import type {
+  ApiResponse,
+  RoundDto,
+  TournamentClassDto,
+  TournamentClassGroupDto,
+  TournamentDto,
+} from '../types';
 
 /**
  * How far back the results-updated search looks for tournaments that end today.
@@ -16,6 +22,16 @@ export interface TournamentsTodayOptions {
   service?: TournamentService;
 }
 
+/** A group played today, from {@link getTournamentsToday}. */
+export interface GroupToday {
+  group: TournamentClassGroupDto;
+  /** The group's rounds dated today. Empty means the group matched on its dates alone. */
+  rounds: RoundDto[];
+}
+
+/** A tournament from {@link getTournamentsToday}, with the groups played today. */
+export type TournamentToday = TournamentDto & { groupsToday: GroupToday[] };
+
 /** Local calendar date as `YYYY-MM-DD`. */
 function toLocalIsoDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -24,6 +40,47 @@ function toLocalIsoDate(d: Date): string {
 
 function allGroups(classes: TournamentClassDto[] | undefined): TournamentClassGroupDto[] {
   return (classes ?? []).flatMap(c => [...(c.groups ?? []), ...allGroups(c.subClasses)]);
+}
+
+const day = (d: string | null | undefined) => d?.slice(0, 10);
+
+/** True when the group's range covers `today`, or the range is broken (end before start). */
+function groupRangeAllows(g: TournamentClassGroupDto, today: string): boolean {
+  const start = day(g.start);
+  const end = day(g.end);
+  if (!start || !end || start > end) return true;
+  return start <= today && today <= end;
+}
+
+/**
+ * The groups of `t` played today, for a tournament whose range already covers today:
+ * 1. groups with a round dated today, within the group's range (a broken range
+ *    defers to the tournament range); else
+ * 2. groups whose own valid range covers today, with no rounds (short events often
+ *    have no round dates filled in); else
+ * 3. none.
+ * Step 2 only applies when step 1 finds nothing, so a league lists only the
+ * divisions with a round today.
+ */
+function groupsPlayedToday(t: TournamentDto, today: string): GroupToday[] {
+  const groups = allGroups(t.rootClasses);
+
+  const withRounds = groups
+    .filter(g => groupRangeAllows(g, today))
+    .map(group => ({
+      group,
+      rounds: (group.tournamentRounds ?? []).filter(r => day(r.roundDate) === today),
+    }))
+    .filter(g => g.rounds.length > 0);
+  if (withRounds.length > 0) return withRounds;
+
+  return groups
+    .filter(g => {
+      const start = day(g.start);
+      const end = day(g.end);
+      return !!start && !!end && start <= today && today <= end;
+    })
+    .map(group => ({ group, rounds: [] }));
 }
 
 /**
@@ -51,6 +108,10 @@ function allGroups(classes: TournamentClassDto[] | undefined): TournamentClassGr
  *   are reported as played, and a group with a valid but wrong range hides its
  *   real round days.
  *
+ * Each tournament carries `groupsToday`: the groups with a round dated today (with
+ * those rounds); if none, the groups whose own range covers today (no rounds); if
+ * none either, an empty list. A league thus lists only the divisions playing today.
+ *
  * The result is deduplicated by id and keeps the coming list's order, followed
  * by those found only in the results list. If either search fails, its error is
  * returned rather than a partial list.
@@ -62,7 +123,7 @@ function allGroups(classes: TournamentClassDto[] | undefined): TournamentClassGr
  */
 export async function getTournamentsToday(
   options: TournamentsTodayOptions = {}
-): Promise<ApiResponse<TournamentDto[]>> {
+): Promise<ApiResponse<TournamentToday[]>> {
   const { districtId } = options;
   const service = options.service ?? new TournamentService();
 
@@ -80,26 +141,22 @@ export async function getTournamentsToday(
     return { status: failed.status, error: failed.error ?? 'Failed to fetch tournaments' };
   }
 
-  const playedToday = (t: TournamentDto) => {
-    const start = t.start?.slice(0, 10);
-    const end = t.end?.slice(0, 10);
+  const seen = new Set<number>();
+  const data: TournamentToday[] = [];
+  for (const t of responses.flatMap(r => r.data!)) {
+    if (seen.has(t.id)) continue;
+    const start = day(t.start);
+    const end = day(t.end);
     // Only within the tournament's own range: some round dates are a placeholder
     // schedule that starts when the tournament was created.
-    if (!start || !end || start > today || end < today) return false;
-    if (start === today || end === today) return true;
-    return allGroups(t.rootClasses).some(g => {
-      // A group's own range also bounds its rounds (e.g. a one-day group with
-      // rounds spread over weeks), unless that range is broken (end before start).
-      const gStart = g.start?.slice(0, 10);
-      const gEnd = g.end?.slice(0, 10);
-      if (gStart && gEnd && gStart <= gEnd && (gStart > today || gEnd < today)) return false;
-      return (g.tournamentRounds ?? []).some(r => r.roundDate?.slice(0, 10) === today);
-    });
-  };
-  const seen = new Set<number>();
-  const data = responses
-    .flatMap(r => r.data!)
-    .filter(t => playedToday(t) && !seen.has(t.id) && (seen.add(t.id), true));
+    if (!start || !end || start > today || end < today) continue;
+    const groupsToday = groupsPlayedToday(t, today);
+    const playedToday =
+      start === today || end === today || groupsToday.some(g => g.rounds.length > 0);
+    if (!playedToday) continue;
+    seen.add(t.id);
+    data.push({ ...t, groupsToday });
+  }
 
   return { status: 200, data };
 }
