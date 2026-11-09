@@ -1,11 +1,21 @@
 import { TournamentService } from '../services/tournaments';
-import type { ApiResponse, TournamentDto } from '../types';
+import type { ApiResponse, RoundDto, TournamentClassGroupDto, TournamentDto } from '../types';
 export interface TournamentsTodayOptions {
     /** Limit to one district (and its clubs), as on the underlying endpoints. */
     districtId?: number;
     /** The service to call, e.g. one constructed with a proxy base URL. Defaults to `new TournamentService()`. */
     service?: TournamentService;
 }
+/** A group played today, from {@link getTournamentsToday}. */
+export interface GroupToday {
+    group: TournamentClassGroupDto;
+    /** The group's rounds dated today. Empty means the group matched on its dates alone. */
+    rounds: RoundDto[];
+}
+/** A tournament from {@link getTournamentsToday}, with the groups played today. */
+export type TournamentToday = TournamentDto & {
+    groupsToday: GroupToday[];
+};
 /**
  * Tournaments played today (local date).
  *
@@ -31,6 +41,10 @@ export interface TournamentsTodayOptions {
  *   are reported as played, and a group with a valid but wrong range hides its
  *   real round days.
  *
+ * Each tournament carries `groupsToday`: the groups with a round dated today (with
+ * those rounds); if none, the groups whose own range covers today (no rounds); if
+ * none either, an empty list. A league thus lists only the divisions playing today.
+ *
  * The result is deduplicated by id and keeps the coming list's order, followed
  * by those found only in the results list. If either search fails, its error is
  * returned rather than a partial list.
@@ -40,5 +54,5 @@ export interface TournamentsTodayOptions {
  * // One district, behind a proxy:
  * const local = await getTournamentsToday({ districtId: 9, service: new TournamentService('/api/chess/v1') });
  */
-export declare function getTournamentsToday(options?: TournamentsTodayOptions): Promise<ApiResponse<TournamentDto[]>>;
+export declare function getTournamentsToday(options?: TournamentsTodayOptions): Promise<ApiResponse<TournamentToday[]>>;
 //# sourceMappingURL=tournamentsToday.d.ts.map

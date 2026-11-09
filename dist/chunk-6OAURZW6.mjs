@@ -766,8 +766,8 @@ function getPlayerDateCacheKey(playerId, timestamp) {
   return `${playerId}-${monthStart}`;
 }
 function parseLocalDate(dateStr) {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day);
+  const [year, month, day2] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day2);
 }
 
 // src/utils/tournamentStatus.ts
@@ -826,6 +826,26 @@ function toLocalIsoDate(d) {
 function allGroups2(classes) {
   return (classes ?? []).flatMap((c) => [...c.groups ?? [], ...allGroups2(c.subClasses)]);
 }
+var day = (d) => d?.slice(0, 10);
+function groupRangeAllows(g, today) {
+  const start = day(g.start);
+  const end = day(g.end);
+  if (!start || !end || start > end) return true;
+  return start <= today && today <= end;
+}
+function groupsPlayedToday(t, today) {
+  const groups = allGroups2(t.rootClasses);
+  const withRounds = groups.filter((g) => groupRangeAllows(g, today)).map((group) => ({
+    group,
+    rounds: (group.tournamentRounds ?? []).filter((r) => day(r.roundDate) === today)
+  })).filter((g) => g.rounds.length > 0);
+  if (withRounds.length > 0) return withRounds;
+  return groups.filter((g) => {
+    const start = day(g.start);
+    const end = day(g.end);
+    return !!start && !!end && start <= today && today <= end;
+  }).map((group) => ({ group, rounds: [] }));
+}
 async function getTournamentsToday(options = {}) {
   const { districtId } = options;
   const service = options.service ?? new TournamentService();
@@ -841,20 +861,19 @@ async function getTournamentsToday(options = {}) {
   if (failed) {
     return { status: failed.status, error: failed.error ?? "Failed to fetch tournaments" };
   }
-  const playedToday = (t) => {
-    const start = t.start?.slice(0, 10);
-    const end = t.end?.slice(0, 10);
-    if (!start || !end || start > today || end < today) return false;
-    if (start === today || end === today) return true;
-    return allGroups2(t.rootClasses).some((g) => {
-      const gStart = g.start?.slice(0, 10);
-      const gEnd = g.end?.slice(0, 10);
-      if (gStart && gEnd && gStart <= gEnd && (gStart > today || gEnd < today)) return false;
-      return (g.tournamentRounds ?? []).some((r) => r.roundDate?.slice(0, 10) === today);
-    });
-  };
   const seen = /* @__PURE__ */ new Set();
-  const data = responses.flatMap((r) => r.data).filter((t) => playedToday(t) && !seen.has(t.id) && (seen.add(t.id), true));
+  const data = [];
+  for (const t of responses.flatMap((r) => r.data)) {
+    if (seen.has(t.id)) continue;
+    const start = day(t.start);
+    const end = day(t.end);
+    if (!start || !end || start > today || end < today) continue;
+    const groupsToday = groupsPlayedToday(t, today);
+    const playedToday = start === today || end === today || groupsToday.some((g) => g.rounds.length > 0);
+    if (!playedToday) continue;
+    seen.add(t.id);
+    data.push({ ...t, groupsToday });
+  }
   return { status: 200, data };
 }
 
