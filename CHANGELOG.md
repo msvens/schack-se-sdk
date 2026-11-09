@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`getTournamentsToday` also checks the group's range for round dates.** A round dated today now counts only if today is within its group's `start`–`end` as well as the tournament's, so a one-day group whose rounds were spread over weeks by mistake no longer shows as played on those days. A group whose range ends before it starts (seen in a few live groups) is checked against the tournament range only.
+
 ## 0.29.1
 
 ### Changed

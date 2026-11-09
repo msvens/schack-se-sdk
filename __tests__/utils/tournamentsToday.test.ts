@@ -9,10 +9,21 @@ import type { ApiResponse, TournamentDto } from '../../src/types';
 
 const TODAY = '2026-11-08';
 
-/** A tournament with one group per entry in `groupRoundDates`, each with those round dates. */
-function t(id: number, start: string, end: string, groupRoundDates: string[][] = []): TournamentDto {
+/**
+ * A tournament with one group per entry in `groupRoundDates`, each with those
+ * round dates. Groups span the tournament's range unless `groupRanges` says otherwise.
+ */
+function t(
+  id: number,
+  start: string,
+  end: string,
+  groupRoundDates: string[][] = [],
+  groupRanges: [string, string][] = []
+): TournamentDto {
   const groups = groupRoundDates.map((dates, i) => ({
     id: id * 10 + i,
+    start: groupRanges[i]?.[0] ?? start,
+    end: groupRanges[i]?.[1] ?? end,
     tournamentRounds: dates.map((roundDate, n) => ({ roundNumber: n + 1, roundDate })),
   }));
   return { id, name: `T${id}`, start, end, rootClasses: [{ groups, subClasses: [] }] } as unknown as TournamentDto;
@@ -72,6 +83,23 @@ describe('getTournamentsToday', () => {
       '2026-11-08T23:59:59',
       9
     );
+  });
+
+  it('ignores a round dated today outside its group range, unless that range is broken', async () => {
+    const { asService } = stubService({
+      status: 200,
+      data: [
+        // One-day group in October with rounds spread over weeks: excluded.
+        t(1, '2026-09-01', '2026-12-01', [['2026-10-17', '2026-10-24', '2026-10-31', TODAY]], [['2026-10-17', '2026-10-17']]),
+        // Group range ends before it starts: falls back to the tournament range.
+        t(2, '2026-09-01', '2027-02-24', [[TODAY]], [['2026-09-30', '2026-02-24']]),
+        // Second group's range covers today: counts.
+        t(3, '2026-09-01', '2026-12-01', [[TODAY], [TODAY]], [['2026-09-01', '2026-10-01'], ['2026-11-01', '2026-11-30']]),
+      ],
+    });
+
+    const res = await getTournamentsToday({ service: asService });
+    expect(res.data!.map(x => x.id)).toEqual([2, 3]);
   });
 
   it('finds rounds in nested sub-classes', async () => {
