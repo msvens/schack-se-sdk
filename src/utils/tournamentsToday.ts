@@ -107,6 +107,9 @@ function groupsPlayedToday(t: TournamentDto, today: string): GroupToday[] {
  *   tournament's or the group's range are ignored, but wrong dates inside both
  *   are reported as played, and a group with a valid but wrong range hides its
  *   real round days.
+ * - Grand Prix series (type 7) are returned like any other tournament, but they
+ *   have no results and their round dates don't reflect play; the real games are
+ *   in the stage tournaments. Filter with `isGrandPrix` if they shouldn't show.
  *
  * Each tournament carries `groupsToday`: the groups with a round dated today (with
  * those rounds); if none, the groups whose own range covers today (no rounds); if

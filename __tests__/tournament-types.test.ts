@@ -7,6 +7,7 @@ import {
   isTeamPairing,
   isSchackfyran,
   isSchackfyranLike,
+  isGrandPrix,
   isLooseTeamTournament,
 } from '../src/types/tournament';
 import { PointSystem } from '../src/utils/gameResults';
@@ -66,6 +67,13 @@ describe('isSchackfyran', () => {
     expect(isSchackfyran(TournamentType.SCHOOL_SM)).toBe(false);
     expect(isSchackfyran(TournamentType.SVENSKA_CUPEN)).toBe(false);
     expect(isSchackfyran(TournamentType.YES2CHESS)).toBe(false);
+  });
+});
+
+describe('isGrandPrix', () => {
+  it('returns true only for GRAND_PRIX (7)', () => {
+    expect(isGrandPrix(TournamentType.GRAND_PRIX)).toBe(true);
+    for (const type of [0, 1, 2, 3, 4, 5, 6, 8, 9]) expect(isGrandPrix(type)).toBe(false);
   });
 });
 
