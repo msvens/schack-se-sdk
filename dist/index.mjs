@@ -5,7 +5,7 @@ import {
   RatingsService,
   RegistrationService,
   ResultsService
-} from "./chunk-HY6KIOZZ.mjs";
+} from "./chunk-KLDNQMUX.mjs";
 import {
   MemberCategory,
   NO_PLACE,
@@ -77,7 +77,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-6OAURZW6.mjs";
+} from "./chunk-GJGJF4SP.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -102,7 +102,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "./chunk-OHKFJP4Y.mjs";
+} from "./chunk-CNAFHG5S.mjs";
 import {
   PairingSystem,
   PointSystem,
@@ -127,6 +127,7 @@ import {
   isBlackWin,
   isCountableResult,
   isDraw,
+  isGrandPrix,
   isLooseTeamTournament,
   isPostponed,
   isResultCodeInformative,
@@ -141,7 +142,7 @@ import {
   parseResultDisplay,
   resolveIndividualResult,
   resolveTeamMatchResult
-} from "./chunk-6U6BXSQJ.mjs";
+} from "./chunk-RXRDTBFE.mjs";
 export {
   API_VERSION,
   API_VERSION_DEV,
@@ -247,6 +248,7 @@ export {
   isDraw,
   isFemale,
   isFinished,
+  isGrandPrix,
   isJuniorPlayer,
   isLooseTeamTournament,
   isOngoing,

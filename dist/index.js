@@ -124,6 +124,7 @@ __export(index_exports, {
   isDraw: () => isDraw,
   isFemale: () => isFemale,
   isFinished: () => isFinished,
+  isGrandPrix: () => isGrandPrix,
   isJuniorPlayer: () => isJuniorPlayer,
   isLooseTeamTournament: () => isLooseTeamTournament,
   isOngoing: () => isOngoing,
@@ -748,6 +749,9 @@ function isSchackfyran(type) {
 function isSchackfyranLike(type, groupPointSystem) {
   return type === TournamentType.SCHACKFYRAN || groupPointSystem === PointSystem.SCHACK4AN;
 }
+function isGrandPrix(type) {
+  return type === TournamentType.GRAND_PRIX;
+}
 
 // src/types/results.ts
 var NO_PLACE = 1e3;
@@ -1189,7 +1193,10 @@ var TournamentService = class extends BaseApiService {
     return this.get(endpoint, options);
   }
   /**
-   * Get upcoming tournaments
+   * Get upcoming tournaments: those whose end date is after today, including
+   * ones that have already started. A tournament ending today is not included;
+   * see `getTournamentsToday`. Grand Prix series (type 7) are included; they
+   * have no results of their own, see `isGrandPrix`.
    * @param districtId - Optional district ID to filter by district and club tournaments
    * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of upcoming tournaments
@@ -3368,6 +3375,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   isDraw,
   isFemale,
   isFinished,
+  isGrandPrix,
   isJuniorPlayer,
   isLooseTeamTournament,
   isOngoing,

@@ -3,7 +3,7 @@ import {
   isCountableResult,
   isTouristBye,
   isWalkoverResultCode
-} from "./chunk-6U6BXSQJ.mjs";
+} from "./chunk-RXRDTBFE.mjs";
 
 // src/constants.ts
 var API_VERSION = "v1";
@@ -463,7 +463,10 @@ var TournamentService = class extends BaseApiService {
     return this.get(endpoint, options);
   }
   /**
-   * Get upcoming tournaments
+   * Get upcoming tournaments: those whose end date is after today, including
+   * ones that have already started. A tournament ending today is not included;
+   * see `getTournamentsToday`. Grand Prix series (type 7) are included; they
+   * have no results of their own, see `isGrandPrix`.
    * @param districtId - Optional district ID to filter by district and club tournaments
    * @param options - Per-request options (e.g. timeoutMs)
    * @returns Array of upcoming tournaments

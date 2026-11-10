@@ -442,6 +442,9 @@ function isSchackfyran(type) {
 function isSchackfyranLike(type, groupPointSystem) {
   return type === TournamentType.SCHACKFYRAN || groupPointSystem === PointSystem.SCHACK4AN;
 }
+function isGrandPrix(type) {
+  return type === TournamentType.GRAND_PRIX;
+}
 
 // src/types/ratingAlgorithm.ts
 var RatingAlgorithm = {
@@ -504,5 +507,6 @@ export {
   isTeamPairing,
   isSchackfyran,
   isSchackfyranLike,
+  isGrandPrix,
   RatingAlgorithm
 };

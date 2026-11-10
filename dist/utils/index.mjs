@@ -61,7 +61,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "../chunk-6OAURZW6.mjs";
+} from "../chunk-GJGJF4SP.mjs";
 import {
   chunkArray,
   deduplicateIds,
@@ -72,7 +72,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "../chunk-OHKFJP4Y.mjs";
+} from "../chunk-CNAFHG5S.mjs";
 import {
   PointSystem,
   PointValues,
@@ -98,7 +98,7 @@ import {
   parseResultDisplay,
   resolveIndividualResult,
   resolveTeamMatchResult
-} from "../chunk-6U6BXSQJ.mjs";
+} from "../chunk-RXRDTBFE.mjs";
 export {
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   PointSystem,

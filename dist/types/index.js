@@ -33,6 +33,7 @@ __export(types_exports, {
   TournamentType: () => TournamentType,
   getTiebreakSystemName: () => getTiebreakSystemName,
   hasStandings: () => hasStandings,
+  isGrandPrix: () => isGrandPrix,
   isLooseTeamTournament: () => isLooseTeamTournament,
   isSchackfyran: () => isSchackfyran,
   isSchackfyranLike: () => isSchackfyranLike,
@@ -234,6 +235,9 @@ function isSchackfyran(type) {
 function isSchackfyranLike(type, groupPointSystem) {
   return type === TournamentType.SCHACKFYRAN || groupPointSystem === PointSystem.SCHACK4AN;
 }
+function isGrandPrix(type) {
+  return type === TournamentType.GRAND_PRIX;
+}
 
 // src/types/results.ts
 var NO_PLACE = 1e3;
@@ -321,6 +325,7 @@ var RatingAlgorithm = {
   TournamentType,
   getTiebreakSystemName,
   hasStandings,
+  isGrandPrix,
   isLooseTeamTournament,
   isSchackfyran,
   isSchackfyranLike,

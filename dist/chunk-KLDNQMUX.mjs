@@ -5,13 +5,13 @@ import {
   TournamentService,
   findTournamentGroup,
   getOpponentKind
-} from "./chunk-OHKFJP4Y.mjs";
+} from "./chunk-CNAFHG5S.mjs";
 import {
   PairingSystem,
   TiebreakSystem,
   calculatePoints,
   isTeamPairing
-} from "./chunk-6U6BXSQJ.mjs";
+} from "./chunk-RXRDTBFE.mjs";
 
 // src/services/organizations.ts
 var OrganizationService = class extends BaseApiService {

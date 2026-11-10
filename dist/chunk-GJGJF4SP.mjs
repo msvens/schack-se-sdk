@@ -3,7 +3,7 @@ import {
   TournamentService,
   findTournamentGroup,
   getOpponentKind
-} from "./chunk-OHKFJP4Y.mjs";
+} from "./chunk-CNAFHG5S.mjs";
 import {
   PointSystem,
   RatingAlgorithm,
@@ -14,7 +14,7 @@ import {
   isCountableResult,
   isTouristBye,
   isWalkoverResultCode
-} from "./chunk-6U6BXSQJ.mjs";
+} from "./chunk-RXRDTBFE.mjs";
 
 // src/utils/ratingHistory.ts
 function decimateRatingData(data, maxPoints) {

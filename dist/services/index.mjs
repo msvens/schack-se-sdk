@@ -5,14 +5,14 @@ import {
   RatingsService,
   RegistrationService,
   ResultsService
-} from "../chunk-HY6KIOZZ.mjs";
+} from "../chunk-KLDNQMUX.mjs";
 import "../chunk-GR3HGITV.mjs";
 import {
   BaseApiService,
   PlayerService,
   TournamentService
-} from "../chunk-OHKFJP4Y.mjs";
-import "../chunk-6U6BXSQJ.mjs";
+} from "../chunk-CNAFHG5S.mjs";
+import "../chunk-RXRDTBFE.mjs";
 export {
   BaseApiService,
   FideService,

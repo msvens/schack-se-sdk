@@ -15,12 +15,13 @@ import {
   TournamentState,
   TournamentType,
   getTiebreakSystemName,
+  isGrandPrix,
   isLooseTeamTournament,
   isSchackfyran,
   isSchackfyranLike,
   isTeamPairing,
   isTeamTournament
-} from "../chunk-6U6BXSQJ.mjs";
+} from "../chunk-RXRDTBFE.mjs";
 export {
   MemberCategory,
   NO_PLACE,
@@ -35,6 +36,7 @@ export {
   TournamentType,
   getTiebreakSystemName,
   hasStandings,
+  isGrandPrix,
   isLooseTeamTournament,
   isSchackfyran,
   isSchackfyranLike,
