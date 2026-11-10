@@ -19,6 +19,10 @@ import { PointSystem } from '../utils/gameResults';
  * participants are typically children who aren't tournament-registered. Treat
  * the individual results table as private and prefer linking to schack.se
  * when displaying Schackfyran tournaments. See {@link isSchackfyran}.
+ *
+ * Note on `GRAND_PRIX` (7): a season-long series over stages that are played
+ * and reported as tournaments of their own. The series itself has no results.
+ * See {@link isGrandPrix}.
  */
 export const TournamentType = {
   ALLSVENSKAN: 2,
@@ -274,6 +278,38 @@ export function isSchackfyran(type: number): boolean {
 export function isSchackfyranLike(type: number, groupPointSystem: number): boolean {
   return type === TournamentType.SCHACKFYRAN
     || groupPointSystem === PointSystem.SCHACK4AN;
+}
+
+/**
+ * Check if a tournament is a Grand Prix series (type 7).
+ *
+ * A series is a season-long umbrella, such as "Svenskt Grand Prix 2026/2027" or
+ * "Utmaningen Challengers HT26 TOTAL". It holds a `TOTALT` group plus one group
+ * per stage, while each stage is played and reported as a tournament of its own
+ * (usually type `INDIVIDUAL`). Observed on all live series (November 2026):
+ *
+ * - **No results:** standings and round results are empty for every group, and
+ *   a series never appears in the results-updated search. The series totals are
+ *   shown on schack.se but aren't in the API, so link there instead of rendering
+ *   empty tables.
+ * - **Round dates don't reflect play:** some are generated (evenly spaced every
+ *   6, 9 or 14 days), others mirror the stages' dates. A series therefore shows
+ *   up in `getTournamentsToday` on its round dates, with empty `groupsToday`
+ *   groups, while the real games are in the stage tournament.
+ * - **No link to the stages:** nothing in the API connects a series group to
+ *   the tournament the stage is played as.
+ *
+ * The SDK still returns series everywhere (coming list, `getTournamentsToday`);
+ * filter with this check if they shouldn't be shown.
+ *
+ * @param type Tournament type number (`TournamentDto.type`)
+ * @returns true if the tournament is a Grand Prix series
+ *
+ * @example
+ * const playing = (await getTournamentsToday()).data?.filter(t => !isGrandPrix(t.type));
+ */
+export function isGrandPrix(type: number): boolean {
+  return type === TournamentType.GRAND_PRIX;
 }
 
 /**

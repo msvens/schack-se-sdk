@@ -159,6 +159,8 @@ for (const t of playing.data ?? []) {
 
 Each tournament (`TournamentToday`) carries `groupsToday`, the groups played today: those with a round dated today (in the group's range), with those rounds; if none, the groups whose own range covers today, with `rounds: []` (short events often have no round dates); if none either, an empty list. A league thus lists only the divisions with a round today.
 
+Grand Prix series are included like any other tournament; see [Grand Prix series](#grand-prix-series) for why you may want to filter them out.
+
 Limits: a tournament ending today with no results entered in the last 3 days is in neither list and can't be found. Round dates come from the organizer, so a long tournament with wrong or placeholder round dates is reported on those dates (round dates outside the tournament's or the group's range are ignored; a group whose range ends before it starts is checked against the tournament range only). If either search fails you get its error, not a partial list.
 
 ### ResultsService
@@ -673,6 +675,7 @@ import {
   isTeamTournament,
   isTeamPairing,
   isSchackfyran,
+  isGrandPrix,
   isLooseTeamTournament,
 } from '@msvens/schack-se-sdk';
 
@@ -722,6 +725,22 @@ import { isSchackfyranLike } from '@msvens/schack-se-sdk';
 if (isSchackfyranLike(tournament.type, group.pointSystem)) {
   // S4 scoring or type 9 — treat as Schackfyran-like
 }
+```
+
+### Grand Prix series
+
+A Grand Prix series (`type === 7`, detected via `isGrandPrix(type)`) is a season-long umbrella, such as "Svenskt Grand Prix 2026/2027". It holds a `TOTALT` group plus one group per stage, while each stage is played and reported as a tournament of its own (usually `INDIVIDUAL`). On all live series (November 2026):
+
+- **No results:** standings and round results are empty for every group. The series totals are shown on schack.se but aren't in the API, so link there instead of rendering empty tables.
+- **Round dates don't reflect play:** some are generated (evenly spaced), others mirror the stages' dates. A series therefore appears in `getTournamentsToday` on its round dates, with empty groups in `groupsToday`, while the real games are in the stage tournament.
+- **No link to the stages:** nothing in the API connects a series group to its stage tournament.
+
+The SDK still returns series everywhere (the coming list, `getTournamentsToday`). Filter them out if they shouldn't be shown:
+
+```typescript
+import { getTournamentsToday, isGrandPrix } from '@msvens/schack-se-sdk';
+
+const playing = (await getTournamentsToday()).data?.filter(t => !isGrandPrix(t.type));
 ```
 
 ### Decoding constants

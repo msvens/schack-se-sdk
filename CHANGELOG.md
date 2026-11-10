@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`isGrandPrix(type)`**: true for Grand Prix series (type 7), so callers don't have to hardcode `type === 7`. A series is a season-long umbrella over stages that are played and reported as tournaments of their own. On all live series its standings and round results are empty, its round dates don't reflect play (some are generated), and nothing in the API links a series group to its stage tournament. The SDK still returns series everywhere.
+
+### Docs
+
+- Grand Prix series documented in the README, on `isGrandPrix`, `TournamentType`, `getTournamentsToday` (a series shows up on its round dates, with empty groups) and `searchComingTournaments`. `searchComingTournaments` also documents that it leaves out tournaments ending today.
+
 ## 0.30.0
 
 ### Added
