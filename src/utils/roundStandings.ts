@@ -18,13 +18,16 @@
  * - **Team**: team board-point totals per match. Ranking match points → board
  *   points, both exact. Match points from comparing the two board totals.
  *
- * Byes and walkovers credit the awarded points to the real contender but add no
- * opponent contribution and are excluded from W/D/L and gamesPlayed.
+ * Byes and walkovers credit the awarded points to the real contender but are
+ * excluded from W/D/L and gamesPlayed. In SSF Buchholz groups the same applies
+ * to a walkover, postponed or no-result game between two real players, and the
+ * quality points give each unplayed round a fictive opponent (see
+ * `computeSsfSecPoints`); other systems still count those as games.
  */
 
 import type { TournamentRoundResultDto } from '../types';
 import { getOpponentKind } from './resultFormatting';
-import { calculatePoints } from './gameResults';
+import { calculatePoints, isCountableResult, isWalkoverResultCode } from './gameResults';
 import {
   computeSsfSecPoints,
   isSsfSecPointsSupported,
@@ -114,8 +117,16 @@ interface Accumulator {
   order: number;
   /** Individual only — games played with the black pieces (FIDE Art 7.3). */
   gamesWithBlack: number;
-  /** Individual only — the points awarded for each bye/walkover (unplayed round). */
-  byeResults: number[];
+  /**
+   * Individual only — unplayed rounds the player was paired for (bye, walkover,
+   * postponed or no-result game): `won` = awarded more than the other side.
+   */
+  unplayedWon: number;
+  unplayedLost: number;
+  /** Individual only — walkovers won against a real opponent (count in SSF's wins field). */
+  forfeitWins: number;
+  /** Individual only — rounds so far with a pairing record (bye and walkover included). */
+  roundsPaired: number;
   /** Individual only — one entry per real game (kept for Buchholz / SB). */
   opponents: { id: number; myResult: number }[];
   /** Team only — cumulative board points per board index (attributed matches only). */
@@ -130,6 +141,11 @@ interface Accumulator {
 
 function isRealContender(id: number): boolean {
   return getOpponentKind(id) === 'paired';
+}
+
+/** A walkover, postponed or no-result game: paired, but not played over the board. */
+function isUnplayedGame(game: { result: number }): boolean {
+  return isWalkoverResultCode(game.result) || !isCountableResult(game.result);
 }
 
 /**
@@ -147,6 +163,7 @@ export function computeRoundStandings(
     matchPointValues = { win: 2, draw: 1, loss: 0 }
   } = options;
   const team = mode === 'team';
+  const ssfRules = !team && tiebreakSystem !== undefined && isSsfSecPointsSupported(tiebreakSystem);
 
   const byRound = new Map<number, TournamentRoundResultDto[]>();
   for (const pairing of roundResults) {
@@ -156,10 +173,9 @@ export function computeRoundStandings(
   }
   const rounds = [...byRound.keys()].sort((a, b) => a - b);
 
-  // Secondary-ordering confidence for this group (constant across rounds). Byes
-  // are now modelled per spec (fictive opponents); withdrawal/forfeit-loss edge
-  // cases (TB §7.3) are the residual we don't reproduce exactly, but those are
-  // ultimately caught by self-verification at the service layer.
+  // Secondary-ordering confidence for this group (constant across rounds).
+  // Unplayed rounds follow rules fitted to live data (see computeSsfSecPoints);
+  // what they don't reproduce is caught by self-verification at the service layer.
   const basis = secondaryBasis({ mode, tiebreakSystem, hasUnhandledUnplayed: false });
   const estimated = isEstimated(basis);
 
@@ -194,7 +210,10 @@ export function computeRoundStandings(
         gamesPlayed: 0,
         order: acc.size,
         gamesWithBlack: 0,
-        byeResults: [],
+        unplayedWon: 0,
+        unplayedLost: 0,
+        forfeitWins: 0,
+        roundsPaired: 0,
         opponents: [],
         boardPoints: new Map(),
         boardAttributed: true,
@@ -216,14 +235,35 @@ export function computeRoundStandings(
       if (homeReal) get(p.homeId, p.homeTeamNumber).points += p.homeResult;
       if (awayReal) get(p.awayId, p.awayTeamNumber).points += p.awayResult;
 
-      // An unplayed round (bye/walkover): record the points awarded so we can
-      // build the fictive opponent for the player's kvalitetspoäng (TB §7.2.2).
+      // Individual: a round is unplayed when either side is a placeholder (bye,
+      // walkover id). It credits points but is no game: no opponent, W/D/L or
+      // colour. In SSF Buchholz groups a walkover, postponed or no-result game
+      // between two real players is unplayed too, and the quality points give
+      // each unplayed round a fictive opponent (see computeSsfSecPoints). Other
+      // systems keep counting those as games: round-robin (Berger) tables match
+      // the official order better that way.
+      const unplayed =
+        !team && (!homeReal || !awayReal || (ssfRules && p.games.some(isUnplayedGame)));
       if (!team) {
-        if (homeReal && !awayReal) get(p.homeId, 0).byeResults.push(p.homeResult);
-        if (awayReal && !homeReal) get(p.awayId, 0).byeResults.push(p.awayResult);
+        if (homeReal) get(p.homeId, 0).roundsPaired += 1;
+        if (awayReal) get(p.awayId, 0).roundsPaired += 1;
       }
-
-      if (homeReal && awayReal) {
+      if (unplayed) {
+        const sides: [boolean, number, number, boolean][] = [
+          [homeReal, p.homeId, p.homeResult - p.awayResult, awayReal],
+          [awayReal, p.awayId, p.awayResult - p.homeResult, homeReal]
+        ];
+        for (const [real, id, margin, vsReal] of sides) {
+          if (!real) continue;
+          const x = get(id, 0);
+          if (margin > 0) {
+            x.unplayedWon += 1;
+            if (vsReal) x.forfeitWins += 1;
+          } else {
+            x.unplayedLost += 1;
+          }
+        }
+      } else if (homeReal && awayReal) {
         const h = get(p.homeId, p.homeTeamNumber);
         const a = get(p.awayId, p.awayTeamNumber);
         if (team) {
@@ -256,12 +296,11 @@ export function computeRoundStandings(
           }
         }
       }
-      // Bye/walkover: points already credited; no game/match, opponent, or W/D/L.
     }
 
     snapshots.push({
       round,
-      rows: buildRows(acc, keyOf, { team, qualityMetric, tiebreakSystem, boardKeys }),
+      rows: buildRows(acc, keyOf, { team, qualityMetric, tiebreakSystem, boardKeys, roundsSoFar: snapshots.length + 1 }),
       estimated,
       secondaryBasis: basis
     });
@@ -429,9 +468,17 @@ function resolveTeams(accs: Accumulator[], boardKeys: number[][]): Accumulator[]
 function buildRows(
   acc: Map<string, Accumulator>,
   keyOf: (id: number, teamNumber: number) => string,
-  opts: { team: boolean; qualityMetric: QualityMetric; tiebreakSystem?: number; boardKeys?: number[][] }
+  opts: {
+    team: boolean;
+    qualityMetric: QualityMetric;
+    tiebreakSystem?: number;
+    boardKeys?: number[][];
+    /** Rounds replayed so far — rounds without a pairing record count as absences. */
+    roundsSoFar: number;
+  }
 ): RoundStandingRow[] {
-  const { team, qualityMetric, tiebreakSystem, boardKeys = [] } = opts;
+  const { team, qualityMetric, tiebreakSystem, boardKeys = [], roundsSoFar } = opts;
+  const absentRounds = (a: Accumulator) => Math.max(0, roundsSoFar - a.roundsPaired);
   const useSsf = !team && tiebreakSystem !== undefined && isSsfSecPointsSupported(tiebreakSystem);
   // Round-robin (Berger) groups rank by the full SSF order — inbördes resultat →
   // Sonneborn-Berger → wins → games-with-black (TB §7.2.1) — not a single number.
@@ -445,6 +492,7 @@ function buildRows(
     let qualityPoints: number | undefined;
     if (!team) {
       const opponentScores: number[] = [];
+      const opponentAbsentRounds: number[] = [];
       const sbContributions: SbContribution[] = [];
       if (berger) {
         const r = new Map<number, number>();
@@ -453,22 +501,25 @@ function buildRows(
         blackOf.set(a.contenderId, a.gamesWithBlack);
       }
       for (const opp of a.opponents) {
-        const oppScore = acc.get(keyOf(opp.id, 0))?.points ?? 0;
+        const o = acc.get(keyOf(opp.id, 0));
+        const oppScore = o?.points ?? 0;
         opponentScores.push(oppScore);
+        opponentAbsentRounds.push(o ? absentRounds(o) : 0);
         sbContributions.push({ opponentScore: oppScore, myResult: opp.myResult });
       }
       // Official SSF secPoints when we can reproduce this group's tie-break
       // system; otherwise the indicative Buchholz / Sonneborn-Berger metric.
-      // Fictive opponent per bye: score = player's score before the bye + points
-      // in remaining rounds ≈ player's current score − the bye's points (§7.2.2).
-      const byeFictiveScores = a.byeResults.map((br) => a.points - br);
       const ssf = useSsf
         ? computeSsfSecPoints(tiebreakSystem!, {
             opponentScores,
+            opponentAbsentRounds,
             sbContributions,
-            wins: a.wins,
+            ownScore: a.points,
+            wins: a.wins + a.forfeitWins,
             gamesWithBlack: a.gamesWithBlack,
-            byeFictiveScores
+            unplayedWon: a.unplayedWon,
+            unplayedLost: a.unplayedLost,
+            absentRounds: absentRounds(a)
           })
         : null;
       qualityPoints = ssf ?? (qualityMetric === 'sonneborn-berger'

@@ -16,12 +16,13 @@ import {
   isSsfSecPointsSupported,
   secondaryBasis,
   isEstimated,
-  orderingMatchesOfficial
+  orderingMatchesOfficial,
+  type TiebreakContext
 } from '../src/utils/tiebreaks';
 import { TiebreakSystem } from '../src/index';
 import { ResultsService } from '../src/index';
 import { CURRENT_TEST_API_URL } from '../src/constants';
-import { TEST_RESULTS_GROUP_ID } from './test-data';
+import { TEST_RESULTS_GROUP_ID, TEST_UNPLAYED_ROUNDS_GROUP_ID } from './test-data';
 import { ssfUnreachable } from './helpers/liveProbe';
 
 // Only the integration block below hits the network; skip it when SSF is
@@ -57,38 +58,60 @@ describe('FIDE base methods', () => {
 });
 
 describe('SSF packing (reverse-engineered)', () => {
+  /** A context with no unplayed rounds; override per test. */
+  const ctx = (o: Partial<TiebreakContext>): TiebreakContext => ({
+    opponentScores: [],
+    opponentAbsentRounds: [],
+    sbContributions: [],
+    ownScore: 0,
+    wins: 0,
+    gamesWithBlack: 0,
+    unplayedWon: 0,
+    unplayedLost: 0,
+    absentRounds: 0,
+    ...o
+  });
+
   test('SSF Buchholz = cut-1 + wins·0.01 + gamesWithBlack·0.0001', () => {
-    const v = computeSsfSecPoints(TiebreakSystem.SSF_BUCHHOLZ, {
-      opponentScores: [4, 5, 6], // cut-1 = 11
-      sbContributions: [],
-      wins: 6,
-      gamesWithBlack: 4,
-      byeFictiveScores: []
-    });
+    const v = computeSsfSecPoints(
+      TiebreakSystem.SSF_BUCHHOLZ,
+      ctx({ opponentScores: [4, 5, 6], opponentAbsentRounds: [0, 0, 0], wins: 6, gamesWithBlack: 4 }) // cut-1 = 11
+    );
     expect(v).toBeCloseTo(11.0604, 10);
   });
 
-  test('a bye drops from the cut → plain Buchholz of the real opponents', () => {
-    const v = computeSsfSecPoints(TiebreakSystem.SSF_BUCHHOLZ, {
-      opponentScores: [4, 5, 6], // plain Buchholz = 15 (bye excluded, no real cut)
-      sbContributions: [],
-      wins: 3,
-      gamesWithBlack: 4,
-      byeFictiveScores: [2] // a bye is present → base = plain Buchholz of real = 15
-    });
-    expect(v).toBeCloseTo(15.0304, 10);
+  test('a won bye or walkover is a fictive opponent with the player\'s own score', () => {
+    // 7271/19418, player 676308: walkover win in round 1, then 4.5, 5.5, 4.5, 4.5, 5.5, 4.5.
+    // Fictive 5.5 joins them and the lowest (4.5) is cut: 29 + 5.5 − 4.5 = 30.
+    const v = computeSsfSecPoints(
+      TiebreakSystem.SSF_BUCHHOLZ,
+      ctx({ opponentScores: [4.5, 5.5, 4.5, 4.5, 5.5, 4.5], opponentAbsentRounds: [0, 0, 0, 0, 0, 0], ownScore: 5.5, wins: 4, gamesWithBlack: 3, unplayedWon: 1 })
+    );
+    expect(v).toBeCloseTo(30.0403, 10);
+  });
+
+  test('a lost walkover counts 0 (and is the one cut)', () => {
+    // 7271/19418, player 759974: walkover loss in round 1, then 3, 1, 3.5, 4, 1, 2.5 → 15.
+    const v = computeSsfSecPoints(
+      TiebreakSystem.SSF_BUCHHOLZ,
+      ctx({ opponentScores: [3, 1, 3.5, 4, 1, 2.5], opponentAbsentRounds: [0, 0, 0, 0, 0, 0], ownScore: 2.5, wins: 2, gamesWithBlack: 3, unplayedLost: 1 })
+    );
+    expect(v).toBeCloseTo(15.0203, 10);
+  });
+
+  test('an opponent without a pairing in some rounds gets ½ per such round', () => {
+    // Opponent on 1 point missed 4 rounds → 3; the 0 is cut: 5 + 3 = 8.
+    const v = computeSsfSecPoints(
+      TiebreakSystem.SSF_BUCHHOLZ,
+      ctx({ opponentScores: [0, 1, 5], opponentAbsentRounds: [0, 4, 0] })
+    );
+    expect(v).toBeCloseTo(8, 10);
   });
 
   test('returns null for systems we do not model yet', () => {
     expect(isSsfSecPointsSupported(TiebreakSystem.SSF_BUCHHOLZ)).toBe(true);
     expect(isSsfSecPointsSupported(TiebreakSystem.SSF_BERGER)).toBe(false);
-    const v = computeSsfSecPoints(TiebreakSystem.SSF_BERGER, {
-      opponentScores: [4, 5],
-      sbContributions: [],
-      wins: 1,
-      gamesWithBlack: 1,
-      byeFictiveScores: []
-    });
+    const v = computeSsfSecPoints(TiebreakSystem.SSF_BERGER, ctx({ opponentScores: [4, 5], opponentAbsentRounds: [0, 0], wins: 1, gamesWithBlack: 1 }));
     expect(v).toBeNull();
   });
 });
@@ -170,4 +193,24 @@ describe.skipIf(SSF_DOWN)('getRoundStandings reproduces official secPoints (inte
     }
     expect(matched).toBeGreaterThan(0);
   }, 10000);
+});
+
+describe.skipIf(SSF_DOWN)('getRoundStandings handles unplayed rounds like SSF (integration)', () => {
+  // Farsta SK JGP 2026, Klass C (7271/19418): finished, with walkover wins and
+  // losses between real players, byes and a player who withdrew after round 1.
+  test('every player matches the official secPoints', async () => {
+    const service = new ResultsService(CURRENT_TEST_API_URL);
+    const [replay, table] = await Promise.all([
+      service.getRoundStandings(TEST_UNPLAYED_ROUNDS_GROUP_ID),
+      service.getTournamentResults(TEST_UNPLAYED_ROUNDS_GROUP_ID)
+    ]);
+    if (!replay.data?.length || !table.data?.length) return;
+
+    const final = replay.data[replay.data.length - 1];
+    const byId = new Map(final.rows.map((r) => [r.contenderId, r]));
+    for (const official of table.data) {
+      expect(byId.get(official.contenderId)?.qualityPoints).toBeCloseTo(official.secPoints, 3);
+    }
+    // Not 'verified': the official table splits some players tied on every field by lot.
+  }, 15000);
 });

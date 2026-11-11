@@ -90,23 +90,27 @@ export function sonnebornBerger(contributions: readonly SbContribution[]): numbe
  * round-standings engine builds this from the per-round accumulators.
  */
 export interface TiebreakContext {
-  /** Real opponents' scores (cumulative, as of this round). */
+  /** Real opponents' scores (cumulative, as of this round), one per game played. */
   opponentScores: number[];
+  /** Parallel to `opponentScores`: rounds that opponent had no pairing at all (withdrawn, absent). */
+  opponentAbsentRounds: number[];
   /** Sonneborn-Berger contributions (real games only). */
   sbContributions: SbContribution[];
-  /** Games won as of this round (FIDE Art 7.1 / 7.2 — equal for individual play). */
+  /** The player's own score (cumulative, as of this round). */
+  ownScore: number;
+  /**
+   * Wins for the packed wins field: games won plus walkovers won against a real
+   * opponent (byes excluded), which is what SSF's `secPoints` counts.
+   */
   wins: number;
   /** Games played with the black pieces as of this round (FIDE Art 7.3). */
   gamesWithBlack: number;
-  /**
-   * Fictive-opponent scores for the player's byes/walkovers (one per unplayed
-   * round). Per SSF TB 2025/26 §7.2.2, a frirond counts toward the player's own
-   * kvalitetspoäng as a game against a fictive opponent whose score = the
-   * player's score before the bye + the player's points in the remaining rounds
-   * (≈ player's score − the bye's points). These are added to the opponent
-   * scores before the cut-1, so the cut drops the lowest of real + fictive.
-   */
-  byeFictiveScores: number[];
+  /** Unplayed rounds the player won: a bye or a walkover win. */
+  unplayedWon: number;
+  /** Unplayed rounds the player didn't win: a walkover loss, postponed or no-result game. */
+  unplayedLost: number;
+  /** Rounds the player had no pairing at all. */
+  absentRounds: number;
 }
 
 /** Scale factors for successive packed fields: ·10⁻², ·10⁻⁴, ·10⁻⁶, … */
@@ -125,21 +129,27 @@ function pack(base: number, fields: readonly number[]): number {
  * Decoded systems and their evidence:
  *
  * - **SSF_BUCHHOLZ (3)** — individual Swiss.
- *   `secPoints = base + wins·10⁻² + gamesWithBlack·10⁻⁴`, where
- *   `base = BuchholzCut1` of the real opponents, EXCEPT when the player has a
- *   bye/walkover (an Art 16 VUR), in which case the cut is spent on the dummy
- *   opponent and `base = plain Buchholz` of the real opponents (Art 16.5.1).
- *   Verified against two live groups:
- *     - 15816 (2025, no byes, 64 players): value within 9.8e-6 of official;
- *       ordering 62/64 (the gap is a not-yet-decoded sub-10⁻⁵ packed field that
- *       only separates the very deepest ties).
- *     - 6072 (Linköpingsmästerskapen 2016, the SSF reference torture set): 31/31
- *       non-bye and all 6 bye players match the official `secPoints` (this old
- *       tournament returns `secPoints` rounded to ~0.1, so compare with that
- *       tolerance).
- *   Field 1 = number of wins (Art 7.1); field 2 = games played with black
- *   (Art 7.3). Confidence: HIGH for value and near-complete ordering. The
- *   sub-10⁻⁵ field and multi-VUR cases remain to be decoded.
+ *   `secPoints = base + wins·10⁻² + gamesWithBlack·10⁻⁴`, where `base` is
+ *   Buchholz Cut-1 (the lowest value dropped) over one value per round:
+ *     - a played game: the opponent's score, plus ½ for every round that
+ *       opponent had no pairing at all (withdrawn or absent). A walkover loss
+ *       they were paired for adds nothing;
+ *     - a bye or walkover the player won, or a round they had no pairing: a
+ *       fictive opponent with the player's own score;
+ *     - a walkover the player lost, or a postponed / no-result game: 0.
+ *   `wins` counts walkover wins against a real opponent but not byes, and
+ *   `gamesWithBlack` counts only games played over the board.
+ *   The unplayed-round rules were fitted to live data (2026-11-11): over 188
+ *   finished SSF Buchholz groups (~4,300 players) the base matches the official
+ *   value for 86% of players and every player in 99 groups, against 69% and 29
+ *   groups for the earlier rule (plain Buchholz, without the cut, for a bye; a
+ *   walkover counted as a game). Players with several unplayed rounds make up
+ *   most of the remaining misses, and old tables (LM 2016, group 6072) match
+ *   worse, so SSF's rules seem to have changed over the years. Earlier evidence
+ *   for the packed fields: group 15816 (no byes, 64 players) within 9.8e-6 of
+ *   the official value; a sub-10⁻⁵ field separating the deepest ties is not
+ *   decoded. Confidence: HIGH for played games and the packing, MEDIUM for
+ *   unplayed rounds.
  *
  * Not yet modeled (caller uses the indicative fallback): SSF_BERGER (1, likely
  * Sonneborn-Berger base + similar packing), MEDIAN_BUCHHOLZ (4), PROGRESSIVE (5),
@@ -149,17 +159,12 @@ function pack(base: number, fields: readonly number[]): number {
 export function computeSsfSecPoints(tiebreakSystem: number, ctx: TiebreakContext): number | null {
   switch (tiebreakSystem) {
     case TiebreakSystem.SSF_BUCHHOLZ: {
-      // kvalitetspoäng = Buchholz Cut-1 over the real opponents. For a bye we use
-      // the simpler "drop the bye from the cut → plain Buchholz of the real
-      // opponents" rule. The rulebook's exact fictive-opponent rule (§7.2.2 —
-      // fictive scores are provided in `byeFictiveScores`) was tried and matched
-      // the STORED tables WORSE (e.g. LM 2016 37→33), because real stored tables
-      // vary by era; neither rule fits recent bye players either. Bye handling is
-      // therefore best-effort, and self-verification flags groups we don't match.
-      const base = ctx.byeFictiveScores.length
-        ? buchholz(ctx.opponentScores)
-        : buchholzCut1(ctx.opponentScores);
-      return pack(base, [ctx.wins, ctx.gamesWithBlack]);
+      // kvalitetspoäng = Buchholz Cut-1 over one value per round; the rules for
+      // unplayed rounds are documented above (fitted to live data, not published).
+      const values = ctx.opponentScores.map((s, i) => s + 0.5 * (ctx.opponentAbsentRounds[i] ?? 0));
+      for (let i = 0; i < ctx.unplayedWon + ctx.absentRounds; i++) values.push(ctx.ownScore);
+      for (let i = 0; i < ctx.unplayedLost; i++) values.push(0);
+      return pack(buchholzCut1(values), [ctx.wins, ctx.gamesWithBlack]);
     }
     default:
       return null;
