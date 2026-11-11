@@ -249,6 +249,48 @@ describe('computeRoundStandings (unit)', () => {
 
 });
 
+describe('computeRoundStandings (SSF Buchholz unplayed rounds)', () => {
+  /** Individual pairing with its single game; home plays White. */
+  function game(roundNr: number, homeId: number, awayId: number, result: number): TournamentRoundResultDto {
+    const [hr, ar] = calculatePoints(result);
+    const p = pairing(roundNr, homeId, awayId, hr, ar);
+    p.games = [{ id: 0, tournamentResultID: 0, tableNr: 1, whiteId: homeId, blackId: awayId, result, pgn: '', groupiD: 0 }];
+    return p;
+  }
+  const opts = { mode: 'individual' as const, tiebreakSystem: TiebreakSystem.SSF_BUCHHOLZ };
+  const row = (data: TournamentRoundResultDto[], id: number) =>
+    computeRoundStandings(data, opts).at(-1)!.rows.find((r) => r.contenderId === id)!;
+
+  test('a walkover between real players is no game but a fictive opponent', () => {
+    const data = [
+      game(1, 1, 2, 2), // 1 beats 2 by walkover (WHITE_WIN_WO)
+      game(2, 1, 3, 1), // 1 beats 3
+      game(2, 2, 4, 1) // 2 beats 4
+    ];
+    const r1 = row(data, 1);
+    // Not a game: no W/D/L, no gamesPlayed; but the walkover win counts in the packed wins field.
+    expect(r1).toMatchObject({ points: 2, wins: 1, losses: 0, gamesPlayed: 1 });
+    // Values: opponent 3 (0, +½ for round 1 without a pairing) and the fictive
+    // opponent (own score 2); cut-1 drops the ½ → 2.
+    expect(r1.qualityPoints).toBeCloseTo(2 + 2 * 0.01, 10);
+    // Player 2 lost the walkover: 0 for that round, which is cut; opponent 4 is
+    // worth ½ (absent in round 1) → 0.5. No black: the walkover isn't a game.
+    expect(row(data, 2)).toMatchObject({ points: 1, wins: 1, losses: 0, gamesPlayed: 1 });
+    expect(row(data, 2).qualityPoints).toBeCloseTo(0.5 + 0.01, 10);
+  });
+
+  test('a postponed game is not counted as a draw', () => {
+    const data = [game(1, 1, 2, 100)]; // POSTPONED, 0-0
+    expect(row(data, 1)).toMatchObject({ draws: 0, gamesPlayed: 0 });
+  });
+
+  test('other systems still count a walkover as a game', () => {
+    const data = [game(1, 1, 2, 2)];
+    const r = computeRoundStandings(data, { mode: 'individual' })[0].rows.find((x) => x.contenderId === 1)!;
+    expect(r).toMatchObject({ wins: 1, gamesPlayed: 1 });
+  });
+});
+
 describe('computeRoundStandings (team mode)', () => {
   // 4 teams, 2 rounds, match points 2/1/0. Board totals in home/awayResult.
   // R1: 10>20 (3-1), 30=40 (2-2)

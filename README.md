@@ -624,8 +624,13 @@ and only upgrades the ones we reproduce position-for-position.)
     mirrors the official SSF tie-break order (kvalitetspoäng = Buchholz cut-1 →
     most wins → most games with black → **drawing of lots**), so those "deepest
     ties" are players the official table separates only by *lots* — which can't be
-    reproduced. (Reverse-engineered from SSF's output; bye/forfeit handling is
-    best-effort and varies by era.)
+    reproduced. Unplayed rounds follow rules fitted to live data: a bye or
+    walkover win counts as an opponent with the player's own score, a walkover
+    loss (or postponed game) as 0, and an opponent who had no pairing in some
+    rounds (withdrawn, absent) gets ½ per such round. A walkover is not a game,
+    so it's left out of W/D/L. These match the official value for 86% of players
+    in recent groups; players with several unplayed rounds are the usual misses.
+    (Reverse-engineered from SSF's output, not confirmed by SSF.)
   - **Round-robin (Berger)** groups are *ranked* by the full official order
     (TB §7.2.1): **inbördes resultat → Sonneborn-Berger → most wins → most games
     with black**. This reproduces the official place order, so round-robins
