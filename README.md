@@ -1049,4 +1049,4 @@ Use `getPlayerInfoBatch`: it sends the whole batch as one `getPlayerList` POST, 
 
 ## License
 
-MIT
+[MIT](LICENSE)
