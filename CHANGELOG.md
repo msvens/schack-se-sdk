@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Standings playback: no cut with a single value (SSF Buchholz).** After round 1 a walkover winner now has 1 quality point, the fictive opponent at their own score, and ranks above the winners over the board, as on SSF's own tables. Cut-1 used to drop the only value, leaving 0. Losers over the board now have their opponent's point too. Only round-1 snapshots change; final tables always have more than one value.
+
 ## 0.31.1
 
 ### Removed

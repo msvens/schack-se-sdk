@@ -99,6 +99,14 @@ describe('SSF packing (reverse-engineered)', () => {
     expect(v).toBeCloseTo(15.0203, 10);
   });
 
+  test('a single value is not cut: a round-1 walkover win is worth 1', () => {
+    const v = computeSsfSecPoints(TiebreakSystem.SSF_BUCHHOLZ, ctx({ ownScore: 1, wins: 1, unplayedWon: 1 }));
+    expect(v).toBeCloseTo(1.01, 10);
+    // A round-1 loss over the board: the opponent's 1 point counts.
+    const loss = computeSsfSecPoints(TiebreakSystem.SSF_BUCHHOLZ, ctx({ opponentScores: [1], opponentAbsentRounds: [0], gamesWithBlack: 1 }));
+    expect(loss).toBeCloseTo(1.0001, 10);
+  });
+
   test('an opponent without a pairing in some rounds gets ½ per such round', () => {
     // Opponent on 1 point missed 4 rounds → 3; the 0 is cut: 5 + 3 = 8.
     const v = computeSsfSecPoints(
