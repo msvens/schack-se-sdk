@@ -18,8 +18,11 @@
  * - **Team**: team board-point totals per match. Ranking match points → board
  *   points, both exact. Match points from comparing the two board totals.
  *
- * Byes and walkovers credit the awarded points to the real contender but add no
- * opponent contribution and are excluded from W/D/L and gamesPlayed.
+ * Byes and walkovers credit the awarded points to the real contender but are
+ * excluded from W/D/L and gamesPlayed. In SSF Buchholz groups the same applies
+ * to a walkover, postponed or no-result game between two real players, and the
+ * quality points give each unplayed round a fictive opponent (see
+ * `computeSsfSecPoints`); other systems still count those as games.
  */
 import type { TournamentRoundResultDto } from '../types';
 import { type SecondaryBasis } from './tiebreaks';

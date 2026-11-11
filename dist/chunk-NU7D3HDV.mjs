@@ -10,7 +10,9 @@ import {
   PairingSystem,
   TiebreakSystem,
   calculatePoints,
-  isTeamPairing
+  isCountableResult,
+  isTeamPairing,
+  isWalkoverResultCode
 } from "./chunk-RXRDTBFE.mjs";
 
 // src/services/organizations.ts
@@ -86,8 +88,10 @@ function pack(base, fields) {
 function computeSsfSecPoints(tiebreakSystem, ctx) {
   switch (tiebreakSystem) {
     case TiebreakSystem.SSF_BUCHHOLZ: {
-      const base = ctx.byeFictiveScores.length ? buchholz(ctx.opponentScores) : buchholzCut1(ctx.opponentScores);
-      return pack(base, [ctx.wins, ctx.gamesWithBlack]);
+      const values = ctx.opponentScores.map((s, i) => s + 0.5 * (ctx.opponentAbsentRounds[i] ?? 0));
+      for (let i = 0; i < ctx.unplayedWon + ctx.absentRounds; i++) values.push(ctx.ownScore);
+      for (let i = 0; i < ctx.unplayedLost; i++) values.push(0);
+      return pack(buchholzCut1(values), [ctx.wins, ctx.gamesWithBlack]);
     }
     default:
       return null;
@@ -126,6 +130,9 @@ function orderingMatchesOfficial(orderedKeys, officialPlace) {
 function isRealContender(id) {
   return getOpponentKind(id) === "paired";
 }
+function isUnplayedGame(game) {
+  return isWalkoverResultCode(game.result) || !isCountableResult(game.result);
+}
 function computeRoundStandings(roundResults, options) {
   const {
     mode,
@@ -134,6 +141,7 @@ function computeRoundStandings(roundResults, options) {
     matchPointValues = { win: 2, draw: 1, loss: 0 }
   } = options;
   const team = mode === "team";
+  const ssfRules = !team && tiebreakSystem !== void 0 && isSsfSecPointsSupported(tiebreakSystem);
   const byRound = /* @__PURE__ */ new Map();
   for (const pairing of roundResults) {
     const list = byRound.get(pairing.roundNr);
@@ -169,7 +177,10 @@ function computeRoundStandings(roundResults, options) {
         gamesPlayed: 0,
         order: acc.size,
         gamesWithBlack: 0,
-        byeResults: [],
+        unplayedWon: 0,
+        unplayedLost: 0,
+        forfeitWins: 0,
+        roundsPaired: 0,
         opponents: [],
         boardPoints: /* @__PURE__ */ new Map(),
         boardAttributed: true,
@@ -187,11 +198,27 @@ function computeRoundStandings(roundResults, options) {
       const awayReal = isRealContender(p.awayId);
       if (homeReal) get(p.homeId, p.homeTeamNumber).points += p.homeResult;
       if (awayReal) get(p.awayId, p.awayTeamNumber).points += p.awayResult;
+      const unplayed = !team && (!homeReal || !awayReal || ssfRules && p.games.some(isUnplayedGame));
       if (!team) {
-        if (homeReal && !awayReal) get(p.homeId, 0).byeResults.push(p.homeResult);
-        if (awayReal && !homeReal) get(p.awayId, 0).byeResults.push(p.awayResult);
+        if (homeReal) get(p.homeId, 0).roundsPaired += 1;
+        if (awayReal) get(p.awayId, 0).roundsPaired += 1;
       }
-      if (homeReal && awayReal) {
+      if (unplayed) {
+        const sides = [
+          [homeReal, p.homeId, p.homeResult - p.awayResult, awayReal],
+          [awayReal, p.awayId, p.awayResult - p.homeResult, homeReal]
+        ];
+        for (const [real, id, margin, vsReal] of sides) {
+          if (!real) continue;
+          const x = get(id, 0);
+          if (margin > 0) {
+            x.unplayedWon += 1;
+            if (vsReal) x.forfeitWins += 1;
+          } else {
+            x.unplayedLost += 1;
+          }
+        }
+      } else if (homeReal && awayReal) {
         const h = get(p.homeId, p.homeTeamNumber);
         const a = get(p.awayId, p.awayTeamNumber);
         if (team) {
@@ -224,7 +251,7 @@ function computeRoundStandings(roundResults, options) {
     }
     snapshots.push({
       round,
-      rows: buildRows(acc, keyOf, { team, qualityMetric, tiebreakSystem, boardKeys }),
+      rows: buildRows(acc, keyOf, { team, qualityMetric, tiebreakSystem, boardKeys, roundsSoFar: snapshots.length + 1 }),
       estimated,
       secondaryBasis: basis
     });
@@ -329,7 +356,8 @@ function resolveTeams(accs, boardKeys) {
   return resolve(accs);
 }
 function buildRows(acc, keyOf, opts) {
-  const { team, qualityMetric, tiebreakSystem, boardKeys = [] } = opts;
+  const { team, qualityMetric, tiebreakSystem, boardKeys = [], roundsSoFar } = opts;
+  const absentRounds = (a) => Math.max(0, roundsSoFar - a.roundsPaired);
   const useSsf = !team && tiebreakSystem !== void 0 && isSsfSecPointsSupported(tiebreakSystem);
   const berger = !team && qualityMetric === "sonneborn-berger";
   const rows = [];
@@ -339,6 +367,7 @@ function buildRows(acc, keyOf, opts) {
     let qualityPoints;
     if (!team) {
       const opponentScores = [];
+      const opponentAbsentRounds = [];
       const sbContributions = [];
       if (berger) {
         const r = /* @__PURE__ */ new Map();
@@ -347,17 +376,22 @@ function buildRows(acc, keyOf, opts) {
         blackOf.set(a.contenderId, a.gamesWithBlack);
       }
       for (const opp of a.opponents) {
-        const oppScore = acc.get(keyOf(opp.id, 0))?.points ?? 0;
+        const o = acc.get(keyOf(opp.id, 0));
+        const oppScore = o?.points ?? 0;
         opponentScores.push(oppScore);
+        opponentAbsentRounds.push(o ? absentRounds(o) : 0);
         sbContributions.push({ opponentScore: oppScore, myResult: opp.myResult });
       }
-      const byeFictiveScores = a.byeResults.map((br) => a.points - br);
       const ssf = useSsf ? computeSsfSecPoints(tiebreakSystem, {
         opponentScores,
+        opponentAbsentRounds,
         sbContributions,
-        wins: a.wins,
+        ownScore: a.points,
+        wins: a.wins + a.forfeitWins,
         gamesWithBlack: a.gamesWithBlack,
-        byeFictiveScores
+        unplayedWon: a.unplayedWon,
+        unplayedLost: a.unplayedLost,
+        absentRounds: absentRounds(a)
       }) : null;
       qualityPoints = ssf ?? (qualityMetric === "sonneborn-berger" ? sbContributions.reduce((s, c) => s + c.opponentScore * c.myResult, 0) : opponentScores.reduce((s, x) => s + x, 0));
     }
