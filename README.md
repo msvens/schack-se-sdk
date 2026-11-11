@@ -248,7 +248,7 @@ mfide answers HTTP 200 even for errors and puts the real status in its body; the
 
 ### FideService (deprecated)
 
-> **Deprecated:** use [`MfideService`](#mfideservice). `FideService`, its types and `CHESSTOOLS_API_URL` will be removed in a future release. ChessTools' rating-list endpoints lag behind FIDE's monthly releases, and its live-scrape endpoints are often unavailable.
+> **Deprecated:** use [`MfideService`](#mfideservice). `FideService`, its types and `CHESSTOOLS_API_URL` will be removed in a future release. ChessTools' rating-list endpoints lag behind FIDE's monthly releases, and its live-scrape endpoints are often unavailable. It is no longer covered by the SDK's live tests, so use it at your own risk.
 
 Provides FIDE player data via the [ChessTools API](https://api.chesstools.org/docs).
 

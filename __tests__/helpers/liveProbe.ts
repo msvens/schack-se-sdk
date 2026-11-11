@@ -11,7 +11,7 @@
  * Used with `describe.skipIf(...)` so an upstream outage yellows the run
  * (skipped) rather than reding it (failed).
  */
-import { OrganizationService, FideService } from '../../src';
+import { OrganizationService } from '../../src';
 
 const PROBE_TIMEOUT_MS = 2500;
 
@@ -35,13 +35,5 @@ export function ssfUnreachable(): Promise<boolean> {
   return probe(
     'member.schack.se (SSF)',
     new OrganizationService(undefined, PROBE_TIMEOUT_MS).getFederation()
-  );
-}
-
-/** True when api.chesstools.org (FIDE) can't be reached. */
-export function fideUnreachable(): Promise<boolean> {
-  return probe(
-    'api.chesstools.org (FIDE)',
-    new FideService(undefined, PROBE_TIMEOUT_MS).getTopByRating(1)
   );
 }

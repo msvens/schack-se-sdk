@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Removed
+
+- **Live tests for the deprecated ChessTools `FideService`.** They timed out on most runs against a service we no longer recommend. `FideService` itself is unchanged but untested: use it at your own risk, or switch to `MfideService`. The live FIDE suite now covers mfide only.
+
 ### Fixed
 
 - **Standings playback: quality points for unplayed rounds in SSF Buchholz groups** (`tiebreakSystem` 3), from new rules fitted to live data. A bye or walkover win counts as an opponent with the player's own score, and the lowest value is then cut as usual. Before, a bye meant no cut at all. A walkover loss, postponed or no-result game counts as 0. An opponent who had no pairing in some rounds (withdrawn, absent) is worth ½ more per such round. A walkover, postponed or no-result game between two real players is no longer counted as a game. It's left out of W/D/L, `gamesPlayed` and games with black, but a walkover win still counts in the packed wins field, as in SSF's `secPoints`. Over 188 finished groups (~4,300 players) the value now matches the official one for 86% of players (was 69%), and every player in 99 groups (was 29). The final-round order self-verifies in 101 groups (was 64). Farsta SK JGP 2026 Klass C (19418) now matches for all 70 players. Other tie-break systems are unchanged: round-robin tables match the official order better when walkovers count as games. The rules aren't confirmed by SSF, and the playback stays an estimate.
