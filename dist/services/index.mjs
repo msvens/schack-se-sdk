@@ -5,7 +5,7 @@ import {
   RatingsService,
   RegistrationService,
   ResultsService
-} from "../chunk-NU7D3HDV.mjs";
+} from "../chunk-LJTQAKHY.mjs";
 import "../chunk-GR3HGITV.mjs";
 import {
   BaseApiService,

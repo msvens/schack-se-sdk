@@ -91,7 +91,8 @@ function computeSsfSecPoints(tiebreakSystem, ctx) {
       const values = ctx.opponentScores.map((s, i) => s + 0.5 * (ctx.opponentAbsentRounds[i] ?? 0));
       for (let i = 0; i < ctx.unplayedWon + ctx.absentRounds; i++) values.push(ctx.ownScore);
       for (let i = 0; i < ctx.unplayedLost; i++) values.push(0);
-      return pack(buchholzCut1(values), [ctx.wins, ctx.gamesWithBlack]);
+      const base = values.length >= 2 ? buchholzCut1(values) : buchholz(values);
+      return pack(base, [ctx.wins, ctx.gamesWithBlack]);
     }
     default:
       return null;

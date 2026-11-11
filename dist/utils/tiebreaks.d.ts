@@ -37,7 +37,7 @@
 export declare function buchholz(opponentScores: readonly number[]): number;
 /**
  * Buchholz Cut-1 (Art 14.1): Buchholz minus the single lowest opponent score.
- * With fewer than 2 opponents there is nothing to cut.
+ * A single opponent is cut too, leaving 0 (SSF doesn't; see computeSsfSecPoints).
  */
 export declare function buchholzCut1(opponentScores: readonly number[]): number;
 /**
@@ -99,6 +99,10 @@ export interface TiebreakContext {
  *     - a bye or walkover the player won, or a round they had no pairing: a
  *       fictive opponent with the player's own score;
  *     - a walkover the player lost, or a postponed / no-result game: 0.
+ *   With a single value (after round 1) nothing is cut, so a walkover winner
+ *   has 1 QP and ranks above the winners over the board, whose opponents have 0.
+ *   Seen many times by the user on SSF's own tables after round 1; not visible in
+ *   final tables, where everyone has more than one value.
  *   `wins` counts walkover wins against a real opponent but not byes, and
  *   `gamesWithBlack` counts only games played over the board.
  *   The unplayed-round rules were fitted to live data (2026-11-11): over 188
