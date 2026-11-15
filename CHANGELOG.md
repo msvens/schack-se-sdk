@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`getTournamentsToday` uses the coming list only.** SSF's `/tournament/group/coming` now includes tournaments ending today, so the extra search of results updated in the last 3 days is gone. One request instead of two, and a one-day or last-day tournament is found even before any results are entered (that gap was a documented limit). The filtering (dates, rounds today, `groupsToday`) is unchanged. `searchComingTournaments` docs updated to match.
+
 ## 0.31.2
 
 ### Fixed

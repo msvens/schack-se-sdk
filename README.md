@@ -129,8 +129,7 @@ if (results.data?.length === SEARCH_GROUPS_MAX_RESULTS) {
   // tell the user to refine the search
 }
 
-// Get upcoming tournaments. Only tournaments that end after today: one ending
-// today is missing (see getTournamentsToday below).
+// Get upcoming tournaments: those that end today or later.
 const upcoming = await service.searchComingTournaments();
 
 // Get recently updated tournaments
@@ -142,7 +141,7 @@ const updated = await service.searchUpdatedTournaments(
 
 #### Tournaments played today
 
-`searchComingTournaments` only returns tournaments that end *after* today, so a tournament drops out on its last day and a one-day tournament is never listed on the day it's played. `getTournamentsToday` returns the tournaments played today: those that start or end today, plus those whose range covers today and that have a round dated today in a group whose own range also covers today (so a season-long KM appears only on its round days). It searches both the coming list and tournaments with results updated in the last 3 days (longer windows make SSF's search noticeably slower). Only the ones ending today are missing from the coming list; merge by id to add them to a calendar.
+`getTournamentsToday` returns the tournaments played today, filtered from the coming list: those that start or end today, plus those whose range covers today and that have a round dated today in a group whose own range also covers today (so a season-long KM appears only on its round days).
 
 ```typescript
 import { getTournamentsToday, TournamentService } from '@msvens/schack-se-sdk';
@@ -161,7 +160,7 @@ Each tournament (`TournamentToday`) carries `groupsToday`, the groups played tod
 
 Grand Prix series are included like any other tournament; see [Grand Prix series](#grand-prix-series) for why you may want to filter them out.
 
-Limits: a tournament ending today with no results entered in the last 3 days is in neither list and can't be found. Round dates come from the organizer, so a long tournament with wrong or placeholder round dates is reported on those dates (round dates outside the tournament's or the group's range are ignored; a group whose range ends before it starts is checked against the tournament range only). If either search fails you get its error, not a partial list.
+Limits: round dates come from the organizer, so a long tournament with wrong or placeholder round dates is reported on those dates (round dates outside the tournament's or the group's range are ignored; a group whose range ends before it starts is checked against the tournament range only). If the coming list fails you get its error.
 
 ### ResultsService
 
