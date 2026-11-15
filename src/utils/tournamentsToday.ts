@@ -7,14 +7,6 @@ import type {
   TournamentDto,
 } from '../types';
 
-/**
- * How far back the results-updated search looks for tournaments that end today.
- * Three days covers a Friday–Sunday event with no results yet on Sunday. The
- * server's search gets slow with longer windows (about 0.5 s for 3 days, 2 s for
- * 14), and the coming list supplies everything that doesn't end today.
- */
-const UPDATED_LOOKBACK_DAYS = 3;
-
 export interface TournamentsTodayOptions {
   /** Limit to one district (and its clubs), as on the underlying endpoints. */
   districtId?: number;
@@ -93,16 +85,11 @@ function groupsPlayedToday(t: TournamentDto, today: string): GroupToday[] {
  * alone, since their round dates aren't always filled in for every day; a
  * season-long KM counts only on days it has a round.
  *
- * The SSF coming list (`searchComingTournaments`) only returns tournaments that
- * end *after* today, so a tournament disappears from it on its last day, and a
- * one-day tournament is never listed on the day it is played. This helper
- * therefore searches both the coming list and tournaments with results updated
- * in the last {@link UPDATED_LOOKBACK_DAYS} days. Only the tournaments ending
- * today are missing from the coming list; merge by id to add them to a calendar.
+ * Candidates come from the SSF coming list (`searchComingTournaments`), which
+ * holds every tournament ending today or later, so the result is a filtered
+ * subset of it.
  *
  * Limits:
- * - A tournament that ends today and has had no results entered in the last
- *   {@link UPDATED_LOOKBACK_DAYS} days is in neither list, so it can't be found.
  * - Round and group dates are set by organizers. Round dates outside the
  *   tournament's or the group's range are ignored, but wrong dates inside both
  *   are reported as played, and a group with a valid but wrong range hides its
@@ -115,9 +102,8 @@ function groupsPlayedToday(t: TournamentDto, today: string): GroupToday[] {
  * those rounds); if none, the groups whose own range covers today (no rounds); if
  * none either, an empty list. A league thus lists only the divisions playing today.
  *
- * The result is deduplicated by id and keeps the coming list's order, followed
- * by those found only in the results list. If either search fails, its error is
- * returned rather than a partial list.
+ * The result keeps the coming list's order. If the search fails, its error is
+ * returned.
  *
  * @example
  * const playing = await getTournamentsToday();
@@ -130,24 +116,15 @@ export async function getTournamentsToday(
   const { districtId } = options;
   const service = options.service ?? new TournamentService();
 
-  const now = new Date();
-  const today = toLocalIsoDate(now);
-  const from = new Date(now);
-  from.setDate(from.getDate() - UPDATED_LOOKBACK_DAYS);
+  const today = toLocalIsoDate(new Date());
 
-  const responses = await Promise.all([
-    service.searchComingTournaments(districtId),
-    service.searchUpdatedTournaments(`${toLocalIsoDate(from)}T00:00:00`, `${today}T23:59:59`, districtId),
-  ]);
-  const failed = responses.find(r => r.status !== 200 || !r.data);
-  if (failed) {
-    return { status: failed.status, error: failed.error ?? 'Failed to fetch tournaments' };
+  const coming = await service.searchComingTournaments(districtId);
+  if (coming.status !== 200 || !coming.data) {
+    return { status: coming.status, error: coming.error ?? 'Failed to fetch tournaments' };
   }
 
-  const seen = new Set<number>();
   const data: TournamentToday[] = [];
-  for (const t of responses.flatMap(r => r.data!)) {
-    if (seen.has(t.id)) continue;
+  for (const t of coming.data) {
     const start = day(t.start);
     const end = day(t.end);
     // Only within the tournament's own range: some round dates are a placeholder
@@ -157,7 +134,6 @@ export async function getTournamentsToday(
     const playedToday =
       start === today || end === today || groupsToday.some(g => g.rounds.length > 0);
     if (!playedToday) continue;
-    seen.add(t.id);
     data.push({ ...t, groupsToday });
   }
 
