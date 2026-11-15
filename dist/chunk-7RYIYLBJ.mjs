@@ -463,9 +463,9 @@ var TournamentService = class extends BaseApiService {
     return this.get(endpoint, options);
   }
   /**
-   * Get upcoming tournaments: those whose end date is after today, including
-   * ones that have already started. A tournament ending today is not included;
-   * see `getTournamentsToday`. Grand Prix series (type 7) are included; they
+   * Get upcoming tournaments: those whose end date is today or later, including
+   * ones that have already started. For those played today, see
+   * `getTournamentsToday`. Grand Prix series (type 7) are included; they
    * have no results of their own, see `isGrandPrix`.
    * @param districtId - Optional district ID to filter by district and club tournaments
    * @param options - Per-request options (e.g. timeoutMs)

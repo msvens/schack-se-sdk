@@ -5,7 +5,7 @@ import {
   RatingsService,
   RegistrationService,
   ResultsService
-} from "./chunk-LJTQAKHY.mjs";
+} from "./chunk-STIYZ62E.mjs";
 import {
   MemberCategory,
   NO_PLACE,
@@ -77,7 +77,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-GJGJF4SP.mjs";
+} from "./chunk-C2KHMUZO.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -102,7 +102,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "./chunk-CNAFHG5S.mjs";
+} from "./chunk-7RYIYLBJ.mjs";
 import {
   PairingSystem,
   PointSystem,

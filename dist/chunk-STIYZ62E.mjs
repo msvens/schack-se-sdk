@@ -5,7 +5,7 @@ import {
   TournamentService,
   findTournamentGroup,
   getOpponentKind
-} from "./chunk-CNAFHG5S.mjs";
+} from "./chunk-7RYIYLBJ.mjs";
 import {
   PairingSystem,
   TiebreakSystem,

@@ -1656,9 +1656,9 @@ var TournamentService = class extends BaseApiService {
     return this.get(endpoint, options);
   }
   /**
-   * Get upcoming tournaments: those whose end date is after today, including
-   * ones that have already started. A tournament ending today is not included;
-   * see `getTournamentsToday`. Grand Prix series (type 7) are included; they
+   * Get upcoming tournaments: those whose end date is today or later, including
+   * ones that have already started. For those played today, see
+   * `getTournamentsToday`. Grand Prix series (type 7) are included; they
    * have no results of their own, see `isGrandPrix`.
    * @param districtId - Optional district ID to filter by district and club tournaments
    * @param options - Per-request options (e.g. timeoutMs)
@@ -1790,7 +1790,6 @@ var TournamentService = class extends BaseApiService {
 };
 
 // src/utils/tournamentsToday.ts
-var UPDATED_LOOKBACK_DAYS = 3;
 function toLocalIsoDate(d) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -1821,29 +1820,19 @@ function groupsPlayedToday(t, today) {
 async function getTournamentsToday(options = {}) {
   const { districtId } = options;
   const service = options.service ?? new TournamentService();
-  const now = /* @__PURE__ */ new Date();
-  const today = toLocalIsoDate(now);
-  const from = new Date(now);
-  from.setDate(from.getDate() - UPDATED_LOOKBACK_DAYS);
-  const responses = await Promise.all([
-    service.searchComingTournaments(districtId),
-    service.searchUpdatedTournaments(`${toLocalIsoDate(from)}T00:00:00`, `${today}T23:59:59`, districtId)
-  ]);
-  const failed = responses.find((r) => r.status !== 200 || !r.data);
-  if (failed) {
-    return { status: failed.status, error: failed.error ?? "Failed to fetch tournaments" };
+  const today = toLocalIsoDate(/* @__PURE__ */ new Date());
+  const coming = await service.searchComingTournaments(districtId);
+  if (coming.status !== 200 || !coming.data) {
+    return { status: coming.status, error: coming.error ?? "Failed to fetch tournaments" };
   }
-  const seen = /* @__PURE__ */ new Set();
   const data = [];
-  for (const t of responses.flatMap((r) => r.data)) {
-    if (seen.has(t.id)) continue;
+  for (const t of coming.data) {
     const start = day(t.start);
     const end = day(t.end);
     if (!start || !end || start > today || end < today) continue;
     const groupsToday = groupsPlayedToday(t, today);
     const playedToday = start === today || end === today || groupsToday.some((g) => g.rounds.length > 0);
     if (!playedToday) continue;
-    seen.add(t.id);
     data.push({ ...t, groupsToday });
   }
   return { status: 200, data };
