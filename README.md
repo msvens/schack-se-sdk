@@ -315,6 +315,46 @@ FIDE's; the rounding and truncation are what the official site does, verified
 against its published values for 461 players across 8 events (rapid, standard,
 blitz, team and mixed). `pnpm perf:fixture` regenerates that reference data.
 
+### Monthly rating estimate (for fun)
+
+How many FIDE rating points a player's games in one month are worth, from the
+games reported to SSF: "your rated games in November ≈ +60 (rapid)". An
+estimate, not an official rating.
+
+```typescript
+import { estimateMonthlyRatingChange } from '@msvens/schack-se-sdk';
+
+const res = await estimateMonthlyRatingChange(642062, { month: '2026-11' }); // month defaults to the current one
+for (const e of res.data?.estimates ?? []) {
+  // e.timeControl: 'standard' | 'rapid' | 'blitz'
+  console.log(`${e.timeControl}: ${e.rating} → ~${e.estimatedRating} (${e.change >= 0 ? '+' : ''}${e.change}, ${e.games} games, K ${e.k})`);
+  // e.gameList: each game with tournament, group, round, date, opponent rating, score, expected score and change
+}
+```
+
+It counts the games in rounds dated in the month (individual and team groups)
+that are FIDE-rated, actually played (no walkovers or byes) and against an
+opponent rated in that time control. Then per time control, as FIDE does:
+ratings from the 1st of the month's list, the player's stored K lowered so that
+K × games ≤ 700, FIDE's expected-score table with the 400-point rule, and the
+change rounded once for the month.
+
+It values the month's games; it doesn't predict the next list. FIDE rates a
+tournament when the organizer reports it, usually for the next list but
+sometimes a list or two later. When FIDE rates the same games, the estimate
+matches exactly (checked against published lists). Limits:
+
+- Only games reported to SSF. The player's own FIDE-rated games abroad are
+  missing, so the estimate is less complete for strong players. Opponents'
+  other games don't matter: only their rating on the month's list is used.
+- Results entered more than 7 days after the month are missed.
+- A time control the player has no rating in is left out (a first rating is
+  calculated differently).
+
+A few requests per call: the player's games, one results-updated search, the
+round results of each group the player played in that month, and one batch of
+player lookups.
+
 ### Individual Results (tournament performance list)
 
 `getIndividualPerformance` builds resultat.schack.se's "Individuella resultat":
