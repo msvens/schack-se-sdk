@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`getKFactorForRating` uses the stored K for rapid and blitz.** It read only the standard `k` and computed rapid/blitz K from the rating (20, or 10 from 2400), ignoring `rapidk`/`blitzK`. A junior or new player got K=20 instead of 40 unless a birthdate was passed, which halves an estimated rating change: e.g. a junior rated only in rapid. The stored K for the matching time control now comes first, for standard too, ahead of the junior rule, so it also covers new players (K=40 until 30 games) and K=10 staying after reaching 2400. Without a stored K the junior / 20 / 10 rules apply as before.
+
 ## 0.31.3
 
 ### Changed
