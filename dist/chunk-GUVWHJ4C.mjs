@@ -1,9 +1,10 @@
 import {
   PlayerService,
+  ResultsService,
   TournamentService,
   findTournamentGroup,
   getOpponentKind
-} from "./chunk-7RYIYLBJ.mjs";
+} from "./chunk-RTAMAEQL.mjs";
 import {
   PointSystem,
   RatingAlgorithm,
@@ -14,7 +15,7 @@ import {
   isCountableResult,
   isTouristBye,
   isWalkoverResultCode
-} from "./chunk-RXRDTBFE.mjs";
+} from "./chunk-L5CACHWV.mjs";
 
 // src/utils/ratingHistory.ts
 function decimateRatingData(data, maxPoints) {
@@ -811,8 +812,8 @@ function isFinished(source, now) {
 
 // src/utils/tournamentsToday.ts
 function toLocalIsoDate(d) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 function allGroups2(classes) {
   return (classes ?? []).flatMap((c) => [...c.groups ?? [], ...allGroups2(c.subClasses)]);
@@ -856,6 +857,138 @@ async function getTournamentsToday(options = {}) {
     data.push({ ...t, groupsToday });
   }
   return { status: 200, data };
+}
+
+// src/utils/monthlyRatingEstimate.ts
+var MAX_K_TIMES_GAMES = 700;
+var LATE_RESULTS_DAYS = 7;
+var STANDARD_UNCAPPED_FROM = 2650;
+var pad = (n) => String(n).padStart(2, "0");
+var toLocalIsoDate2 = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+function allGroups3(classes) {
+  return (classes ?? []).flatMap((c) => [...c.groups ?? [], ...allGroups3(c.subClasses)]);
+}
+function roundFide(x) {
+  return Math.sign(x) * Math.round(Math.abs(x));
+}
+var round1 = (x) => Math.round(x * 10) / 10;
+var round2 = (x) => Math.round(x * 100) / 100;
+async function estimateMonthlyRatingChange(memberId, options = {}) {
+  const tournaments = options.tournamentService ?? new TournamentService();
+  const results = options.resultsService ?? new ResultsService();
+  const players = options.playerService ?? new PlayerService();
+  const now = /* @__PURE__ */ new Date();
+  const month = options.month ?? `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const parsed = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!parsed || Number(parsed[2]) < 1 || Number(parsed[2]) > 12) {
+    return { status: 400, error: `Invalid month '${month}', expected YYYY-MM` };
+  }
+  const listDate = new Date(Number(parsed[1]), Number(parsed[2]) - 1, 1);
+  const empty = { status: 200, data: { memberId, month, estimates: [] } };
+  if (listDate > now) return empty;
+  const searchEnd = new Date(Number(parsed[1]), Number(parsed[2]), LATE_RESULTS_DAYS);
+  const [gamesRes, updatedRes] = await Promise.all([
+    results.getMemberGames(memberId),
+    tournaments.searchUpdatedTournaments(
+      `${month}-01T00:00:00`,
+      `${toLocalIsoDate2(searchEnd < now ? searchEnd : now)}T23:59:59`
+    )
+  ]);
+  for (const r of [gamesRes, updatedRes]) {
+    if (r.status !== 200 || !r.data) {
+      return { status: r.status, error: r.error ?? "Failed to fetch games or tournaments" };
+    }
+  }
+  const updatedGroups = /* @__PURE__ */ new Map();
+  for (const tournament of updatedRes.data) {
+    for (const group of allGroups3(tournament.rootClasses)) updatedGroups.set(group.id, { group, tournament });
+  }
+  const gamesByGroup = /* @__PURE__ */ new Map();
+  for (const game of gamesRes.data) {
+    if (!updatedGroups.has(game.groupiD)) continue;
+    gamesByGroup.set(game.groupiD, [...gamesByGroup.get(game.groupiD) ?? [], game]);
+  }
+  const groupIds = [...gamesByGroup.keys()];
+  const roundResults = await Promise.all(groupIds.map((id) => results.getTournamentRoundResults(id)));
+  const failed = roundResults.find((r) => r.status !== 200 || !r.data);
+  if (failed) return { status: failed.status, error: failed.error ?? "Failed to fetch round results" };
+  const counted = [];
+  groupIds.forEach((groupId, i) => {
+    const { group, tournament } = updatedGroups.get(groupId);
+    const rows = new Map(roundResults[i].data.map((row) => [row.id, row]));
+    const ratedByRound = new Map((group.tournamentRounds ?? []).map((r) => [r.roundNumber, r.rated]));
+    for (const game of gamesByGroup.get(groupId)) {
+      const row = rows.get(game.tournamentResultID);
+      const date = row?.date?.slice(0, 10);
+      if (!row || !date?.startsWith(month)) continue;
+      const timeControl = getRatingTypeFromRoundRated(ratedByRound.get(row.roundNr));
+      if (timeControl !== "standard" && timeControl !== "rapid" && timeControl !== "blitz") continue;
+      const isWhite = game.whiteId === memberId;
+      const opponentId = isWhite ? game.blackId : game.whiteId;
+      if (getOpponentKind(opponentId) !== "paired") continue;
+      if (isWalkoverResultCode(game.result) || isTouristBye(game.result)) continue;
+      const outcome = getPlayerOutcome(game.result, isWhite);
+      if (!outcome) continue;
+      counted.push({
+        timeControl,
+        tournament,
+        groupId,
+        roundNr: row.roundNr,
+        date,
+        opponentId,
+        score: outcome === "win" ? 1 : outcome === "draw" ? 0.5 : 0
+      });
+    }
+  });
+  if (counted.length === 0) return empty;
+  const ids = [memberId, ...new Set(counted.map((g) => g.opponentId))];
+  const lookups = await players.getPlayerInfoBatch(ids, listDate);
+  const lookupFailed = lookups.find((r) => r.error);
+  if (lookupFailed) return { status: lookupFailed.status, error: lookupFailed.error };
+  const info = /* @__PURE__ */ new Map();
+  lookups.forEach((r, i) => r.data && info.set(ids[i], r.data));
+  const me = info.get(memberId);
+  const ratingIn = (p, tc) => getPlayerRatingByRoundType(p?.elo, { standard: 1, rapid: 2, blitz: 3 }[tc]).rating;
+  const estimates = [];
+  for (const timeControl of ["standard", "rapid", "blitz"]) {
+    const rating = ratingIn(me, timeControl);
+    if (!rating) continue;
+    const games = counted.filter((g) => g.timeControl === timeControl).map((g) => ({ g, opponentRating: ratingIn(info.get(g.opponentId), timeControl) })).filter((x) => !!x.opponentRating).sort((a, b) => a.g.date.localeCompare(b.g.date) || a.g.groupId - b.g.groupId || a.g.roundNr - b.g.roundNr);
+    if (games.length === 0) continue;
+    const storedK = getKFactorForRating(timeControl, rating, me?.elo, me?.birthdate, listDate);
+    const k = Math.min(storedK, Math.floor(MAX_K_TIMES_GAMES / games.length));
+    const capped = !(timeControl === "standard" && rating >= STANDARD_UNCAPPED_FROM);
+    const gameList = games.map(({ g, opponentRating }) => {
+      const expectedScore2 = calculateExpectedScore(rating, opponentRating, { capped });
+      return {
+        tournamentId: g.tournament.id,
+        tournamentName: g.tournament.name,
+        groupId: g.groupId,
+        roundNr: g.roundNr,
+        date: g.date,
+        opponentId: g.opponentId,
+        opponentRating,
+        score: g.score,
+        expectedScore: expectedScore2,
+        change: round1(k * (g.score - expectedScore2))
+      };
+    });
+    const score = gameList.reduce((s, g) => s + g.score, 0);
+    const expectedScore = round2(gameList.reduce((s, g) => s + g.expectedScore, 0));
+    const change = roundFide(k * (score - expectedScore));
+    estimates.push({
+      timeControl,
+      rating,
+      k,
+      games: gameList.length,
+      score,
+      expectedScore,
+      change,
+      estimatedRating: rating + change,
+      gameList
+    });
+  }
+  return { status: 200, data: { memberId, month, estimates } };
 }
 
 // src/utils/teamFormatting.ts
@@ -1145,6 +1278,7 @@ export {
   isOngoing,
   isFinished,
   getTournamentsToday,
+  estimateMonthlyRatingChange,
   toRomanNumeral,
   countTeamsByClub,
   formatTeamName,

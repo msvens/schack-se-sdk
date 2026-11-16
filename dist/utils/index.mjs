@@ -20,6 +20,7 @@ import {
   createStandingsTeamNameFormatter,
   createTeamNameFormatter,
   decimateRatingData,
+  estimateMonthlyRatingChange,
   filterGamesByTimeControl,
   formatPlayerName,
   formatPlayerRating,
@@ -61,7 +62,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "../chunk-BQ7XBLWK.mjs";
+} from "../chunk-GUVWHJ4C.mjs";
 import {
   chunkArray,
   deduplicateIds,
@@ -72,7 +73,7 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "../chunk-7RYIYLBJ.mjs";
+} from "../chunk-RTAMAEQL.mjs";
 import {
   PointSystem,
   PointValues,
@@ -98,7 +99,7 @@ import {
   parseResultDisplay,
   resolveIndividualResult,
   resolveTeamMatchResult
-} from "../chunk-RXRDTBFE.mjs";
+} from "../chunk-L5CACHWV.mjs";
 export {
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   PointSystem,
@@ -128,6 +129,7 @@ export {
   createTeamNameFormatter,
   decimateRatingData,
   deduplicateIds,
+  estimateMonthlyRatingChange,
   filterGamesByTimeControl,
   findTournamentGroup,
   formatGameResult,

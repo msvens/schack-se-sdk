@@ -3,17 +3,8 @@ import {
   MfideService,
   OrganizationService,
   RatingsService,
-  RegistrationService,
-  ResultsService
-} from "./chunk-STIYZ62E.mjs";
-import {
-  MemberCategory,
-  NO_PLACE,
-  PlayerCategory,
-  RatingType,
-  hasStandings,
-  isUnplaced
-} from "./chunk-GR3HGITV.mjs";
+  RegistrationService
+} from "./chunk-HK65IFE6.mjs";
 import {
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   PrizeCategoryType,
@@ -36,6 +27,7 @@ import {
   createStandingsTeamNameFormatter,
   createTeamNameFormatter,
   decimateRatingData,
+  estimateMonthlyRatingChange,
   filterGamesByTimeControl,
   formatPlayerName,
   formatPlayerRating,
@@ -77,7 +69,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-BQ7XBLWK.mjs";
+} from "./chunk-GUVWHJ4C.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -87,6 +79,7 @@ import {
   DEFAULT_TIMEOUT,
   MFIDE_API_URL,
   PlayerService,
+  ResultsService,
   SEARCH_GROUPS_MAX_RESULTS,
   SSF_DEV_API_URL,
   SSF_PROD_API_URL,
@@ -102,12 +95,16 @@ import {
   getOpponentKind,
   isWalkover,
   isWalkoverResult
-} from "./chunk-7RYIYLBJ.mjs";
+} from "./chunk-RTAMAEQL.mjs";
 import {
+  MemberCategory,
+  NO_PLACE,
   PairingSystem,
+  PlayerCategory,
   PointSystem,
   PointValues,
   RatingAlgorithm,
+  RatingType,
   ResultCode,
   ResultDisplay,
   Schack4anTeamPointSystem,
@@ -123,6 +120,7 @@ import {
   getPointSystemName,
   getResultDisplayString,
   getTiebreakSystemName,
+  hasStandings,
   isAdjudicatedResult,
   isBlackWin,
   isCountableResult,
@@ -136,13 +134,14 @@ import {
   isTeamPairing,
   isTeamTournament,
   isTouristBye,
+  isUnplaced,
   isWalkoverResultCode,
   isWhiteWin,
   parseGameResult,
   parseResultDisplay,
   resolveIndividualResult,
   resolveTeamMatchResult
-} from "./chunk-RXRDTBFE.mjs";
+} from "./chunk-L5CACHWV.mjs";
 export {
   API_VERSION,
   API_VERSION_DEV,
@@ -202,6 +201,7 @@ export {
   createTeamNameFormatter,
   decimateRatingData,
   deduplicateIds,
+  estimateMonthlyRatingChange,
   filterGamesByTimeControl,
   findTournamentGroup,
   formatGameResult,

@@ -6,6 +6,7 @@ export { getOpponentKind, type OpponentKind, isWalkoverResult, isWalkover, forma
 export { RoundRatedType, type RoundRatedTypeValue, parseTimeControl, type TimeControlType, type PlayerRating, getPlayerRatingForTournament, formatPlayerRating, formatRatingWithType, isJuniorPlayer, getKFactorForRating, getPlayerRatingByAlgorithm, getRatingTypeFromRoundRated, getPlayerRatingByRoundType, getPrimaryRatingType, getPlayerRatingStrict, getPlayerRatingForRound, formatPlayerRatingForRound, type RoundRatingOptions, getGroupTimeControl, type GroupTimeControl, type RatedTimeControl, formatPlayerName, Sex, type SexType, isFemale, birthYearOf, chessAge } from './ratingUtils';
 export { getTournamentStatus, isUpcoming, isOngoing, isFinished } from './tournamentStatus';
 export { getTournamentsToday, type TournamentsTodayOptions, type TournamentToday, type GroupToday } from './tournamentsToday';
+export { estimateMonthlyRatingChange, type MonthlyRatingEstimateOptions, type MonthlyRatingEstimate, type EstimatedRatingChange, type EstimatedGame } from './monthlyRatingEstimate';
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './sortingUtils';
 export type { RoundStandingRow, RoundStandings, SecondaryBasis } from './roundStandings';
