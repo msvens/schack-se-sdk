@@ -305,20 +305,20 @@ export function chessAge(
 /**
  * Get the appropriate K-factor for ELO calculations based on rating type
  *
- * FIDE K-factor rules (same for standard, rapid, and blitz):
- * - K=40 for new players (<30 games) - we can't detect this without game count
- * - K=40 for juniors (under 18 by end of year) with rating <2300
- * - K=20 as long as rating remains under 2400
- * - K=10 once published rating has reached 2400
+ * Uses the K published with the rating list for the matching time control
+ * (`k` for standard and LASK, `rapidk` for rapid, `blitzK` for blitz). It
+ * already covers the cases the rules below can't detect: new players (K=40
+ * until 30 games) and K=10 staying once a rating has reached 2400.
  *
- * IMPORTANT: The stored K-factor (playerElo.k) is for STANDARD games only.
- * For rapid/blitz, we must calculate K based on the rapid/blitz rating being used,
- * not the stored standard K-factor.
+ * Without a stored K it falls back to FIDE's rules:
+ * - K=40 for juniors (under 18 by end of year) with rating <2300
+ * - K=20 under 2400
+ * - K=10 from 2400
  *
  * @param ratingType - The type of rating being used
  * @param playerRating - The player's rating value (should be the rating for this game type)
- * @param playerElo - Optional player ELO data (contains k-factor for standard games)
- * @param birthdate - Optional player birth date for junior K-factor calculation
+ * @param playerElo - Optional player ELO data (holds the stored K for each time control)
+ * @param birthdate - Optional player birth date for the junior fallback
  * @param gameDate - Optional game date for junior calculation (defaults to current date)
  * @returns K-factor to use for calculations
  */
@@ -334,33 +334,20 @@ export function getKFactorForRating(
     return 20;
   }
 
-  // Check for junior K-factor: K=40 for under-18 players with rating <2300
+  const storedK =
+    ratingType === 'rapid' ? playerElo?.rapidk :
+    ratingType === 'blitz' ? playerElo?.blitzK :
+    playerElo?.k;
+  if (storedK) {
+    return storedK;
+  }
+
+  // Junior K-factor: K=40 for under-18 players with rating <2300
   if (birthdate && playerRating < 2300 && isJuniorPlayer(birthdate, gameDate)) {
     return 40;
   }
 
-  // Apply FIDE K-factor rules based on rating type
-  switch (ratingType) {
-    case 'rapid':
-    case 'blitz':
-      // For rapid/blitz, calculate K based on the rapid/blitz rating
-      // DO NOT use stored K-factor (that's for standard games)
-      // K=20 for <2400, K=10 for 2400+
-      return playerRating >= 2400 ? 10 : 20;
-
-    case 'standard':
-    case 'lask':
-      // For standard games, use stored K-factor if available
-      // (This already accounts for junior status from SSF data)
-      if (playerElo?.k) {
-        return playerElo.k;
-      }
-      // Otherwise use K=20 for <2400, K=10 for 2400+
-      return playerRating >= 2400 ? 10 : 20;
-
-    default:
-      return 20;
-  }
+  return playerRating >= 2400 ? 10 : 20;
 }
 
 /**

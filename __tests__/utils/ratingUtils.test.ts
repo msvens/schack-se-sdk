@@ -104,11 +104,25 @@ describe('ratingUtils', () => {
       expect(getKFactorForRating('standard', 2500, { k: 10 } as MemberFIDERatingDTO)).toBe(10);
     });
 
-    it('should NOT use stored K for rapid/blitz games', () => {
-      // Rapid/blitz should calculate K from rating, not use stored K
+    it('should use the stored rapid/blitz K for rapid/blitz games', () => {
+      const elo = { k: 20, rapidk: 40, blitzK: 10 } as MemberFIDERatingDTO;
+      expect(getKFactorForRating('rapid', 1500, elo)).toBe(40);
+      expect(getKFactorForRating('blitz', 1500, elo)).toBe(10);
+      // Player without a standard rating (k = 0) but with a rapid K
+      expect(getKFactorForRating('rapid', 1478, { k: 0, rapidk: 40 } as MemberFIDERatingDTO)).toBe(40);
+    });
+
+    it('should not use the standard K for rapid/blitz games', () => {
       expect(getKFactorForRating('rapid', 1500, { k: 10 } as MemberFIDERatingDTO)).toBe(20);
       expect(getKFactorForRating('blitz', 1500, { k: 10 } as MemberFIDERatingDTO)).toBe(20);
       expect(getKFactorForRating('rapid', 2500, { k: 20 } as MemberFIDERatingDTO)).toBe(10);
+    });
+
+    it('should prefer the stored K over the junior and 2400 rules', () => {
+      // Once 2400 is reached K stays 10, even below 2400
+      expect(getKFactorForRating('standard', 2350, { k: 10 } as MemberFIDERatingDTO, '2010-01-01')).toBe(10);
+      // New adult player: K=40 until 30 games
+      expect(getKFactorForRating('rapid', 1600, { rapidk: 40 } as MemberFIDERatingDTO, '1980-01-01')).toBe(40);
     });
 
     it('should return 20 for null rating or rating type', () => {
