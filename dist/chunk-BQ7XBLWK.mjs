@@ -184,22 +184,14 @@ function getKFactorForRating(ratingType, playerRating, playerElo, birthdate, gam
   if (!ratingType || !playerRating) {
     return 20;
   }
+  const storedK = ratingType === "rapid" ? playerElo?.rapidk : ratingType === "blitz" ? playerElo?.blitzK : playerElo?.k;
+  if (storedK) {
+    return storedK;
+  }
   if (birthdate && playerRating < 2300 && isJuniorPlayer(birthdate, gameDate)) {
     return 40;
   }
-  switch (ratingType) {
-    case "rapid":
-    case "blitz":
-      return playerRating >= 2400 ? 10 : 20;
-    case "standard":
-    case "lask":
-      if (playerElo?.k) {
-        return playerElo.k;
-      }
-      return playerRating >= 2400 ? 10 : 20;
-    default:
-      return 20;
-  }
+  return playerRating >= 2400 ? 10 : 20;
 }
 function getPlayerRatingByAlgorithm(elo, rankingAlgorithm) {
   if (!elo) {

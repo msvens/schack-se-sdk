@@ -61,7 +61,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "../chunk-C2KHMUZO.mjs";
+} from "../chunk-BQ7XBLWK.mjs";
 import {
   chunkArray,
   deduplicateIds,
