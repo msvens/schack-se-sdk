@@ -100,6 +100,13 @@ export {
   type TournamentToday,
   type GroupToday
 } from './tournamentsToday';
+export {
+  estimateMonthlyRatingChange,
+  type MonthlyRatingEstimateOptions,
+  type MonthlyRatingEstimate,
+  type EstimatedRatingChange,
+  type EstimatedGame
+} from './monthlyRatingEstimate';
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './sortingUtils';
 // Round-standings result types only — the engine (computeRoundStandings) is

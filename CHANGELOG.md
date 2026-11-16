@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`estimateMonthlyRatingChange(memberId, { month })`**: for fun, how many FIDE rating points a player's games in a month are worth, per time control, from the games reported to SSF ("your rated games in November ≈ +60 rapid"). Counts FIDE-rated, played games in rounds dated in the month, individual and team, against rated opponents, and follows FIDE's rules: ratings from the month's list, stored K capped at K × games ≤ 700, the 400-point rule, rounded once for the month. Returns the games behind each estimate. It values the month's games and doesn't predict the next list: FIDE rates a tournament when the organizer reports it, sometimes a list or two later. When FIDE rates the same games it matches exactly. Only games reported to SSF are counted.
+
 ## 0.31.4
 
 ### Fixed

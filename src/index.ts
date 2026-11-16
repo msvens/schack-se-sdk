@@ -120,6 +120,13 @@ export {
   type GroupToday
 } from './utils/tournamentsToday';
 export {
+  estimateMonthlyRatingChange,
+  type MonthlyRatingEstimateOptions,
+  type MonthlyRatingEstimate,
+  type EstimatedRatingChange,
+  type EstimatedGame
+} from './utils/monthlyRatingEstimate';
+export {
   toRomanNumeral,
   countTeamsByClub,
   formatTeamName,
