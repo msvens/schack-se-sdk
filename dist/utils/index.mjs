@@ -1,4 +1,5 @@
 import {
+  LONG_TOURNAMENT_DAYS,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
@@ -44,6 +45,7 @@ import {
   getPrimaryRatingType,
   getRatingTypeFromRoundRated,
   getTeamRowName,
+  getTournamentPlayDays,
   getTournamentStatus,
   getTournamentsToday,
   hasIndividualPerformance,
@@ -62,7 +64,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "../chunk-GUVWHJ4C.mjs";
+} from "../chunk-FYUJIVKC.mjs";
 import {
   chunkArray,
   deduplicateIds,
@@ -101,6 +103,7 @@ import {
   resolveTeamMatchResult
 } from "../chunk-L5CACHWV.mjs";
 export {
+  LONG_TOURNAMENT_DAYS,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   PointSystem,
   PointValues,
@@ -164,6 +167,7 @@ export {
   getRatingTypeFromRoundRated,
   getResultDisplayString,
   getTeamRowName,
+  getTournamentPlayDays,
   getTournamentStatus,
   getTournamentsToday,
   hasIndividualPerformance,

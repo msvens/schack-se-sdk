@@ -21,7 +21,8 @@ export { getOpponentKind, type OpponentKind, isWalkoverResult, isWalkover, forma
 export { findTournamentGroup, getGroupName, type TournamentGroupResult } from './utils/tournamentGroupUtils';
 export { PrizeCategoryType, type PrizeCategoryTypeValue, type PrizeRule, type PrizeEligibilityOptions, isPrizeCategory, parsePrizeCategory, resolvePrizeMembers } from './utils/prizeCategories';
 export { getTournamentStatus, isUpcoming, isOngoing, isFinished } from './utils/tournamentStatus';
-export { getTournamentsToday, type TournamentsTodayOptions, type TournamentToday, type GroupToday } from './utils/tournamentsToday';
+export { getTournamentsToday, type TournamentsTodayOptions, type TournamentToday } from './utils/tournamentsToday';
+export { getTournamentPlayDays, LONG_TOURNAMENT_DAYS, type TournamentPlayDay, type GroupToday } from './utils/tournamentPlayDays';
 export { estimateMonthlyRatingChange, type MonthlyRatingEstimateOptions, type MonthlyRatingEstimate, type EstimatedRatingChange, type EstimatedGame } from './utils/monthlyRatingEstimate';
 export { toRomanNumeral, countTeamsByClub, formatTeamName, createTeamNameFormatter, getTeamRowName, createStandingsTeamNameFormatter, countTeamsFromRoundResults, createRoundResultsTeamNameFormatter } from './utils/teamFormatting';
 export { PointSystem, ResultCode, ResultDisplay, PointValues, type PointSystemType, type ResultCodeType, type GameOutcome, type ParsedGameResult, type ResultKind, type ParsedResultDisplay, getPointSystemFromResult, isWhiteWin, isBlackWin, isDraw, isWalkoverResultCode, isTouristBye, isCountableResult, isAdjudicatedResult, isPostponed, isResultCodeInformative, getGameOutcome, calculatePoints, getResultDisplayString, parseResultDisplay, resolveIndividualResult, resolveTeamMatchResult, parseGameResult, getPlayerOutcome, getPlayerPoints, getPointSystemName } from './utils/gameResults';

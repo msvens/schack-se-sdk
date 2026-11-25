@@ -6,6 +6,7 @@ import {
   RegistrationService
 } from "./chunk-HK65IFE6.mjs";
 import {
+  LONG_TOURNAMENT_DAYS,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   PrizeCategoryType,
   RATING_DIFFERENCE_CAP,
@@ -51,6 +52,7 @@ import {
   getPrimaryRatingType,
   getRatingTypeFromRoundRated,
   getTeamRowName,
+  getTournamentPlayDays,
   getTournamentStatus,
   getTournamentsToday,
   hasIndividualPerformance,
@@ -69,7 +71,7 @@ import {
   sortTournamentEndResultsByPlace,
   sortTournamentsByDate,
   toRomanNumeral
-} from "./chunk-GUVWHJ4C.mjs";
+} from "./chunk-FYUJIVKC.mjs";
 import {
   API_VERSION,
   API_VERSION_DEV,
@@ -150,6 +152,7 @@ export {
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
   FideService,
+  LONG_TOURNAMENT_DAYS,
   MFIDE_API_URL,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   MemberCategory,
@@ -238,6 +241,7 @@ export {
   getResultDisplayString,
   getTeamRowName,
   getTiebreakSystemName,
+  getTournamentPlayDays,
   getTournamentStatus,
   getTournamentsToday,
   hasIndividualPerformance,

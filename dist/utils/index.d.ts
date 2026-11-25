@@ -5,7 +5,8 @@ export { PointSystem, PointValues, ResultCode, ResultDisplay, type PointSystemTy
 export { getOpponentKind, type OpponentKind, isWalkoverResult, isWalkover, formatGameResult, formatMatchResult } from './resultFormatting';
 export { RoundRatedType, type RoundRatedTypeValue, parseTimeControl, type TimeControlType, type PlayerRating, getPlayerRatingForTournament, formatPlayerRating, formatRatingWithType, isJuniorPlayer, getKFactorForRating, getPlayerRatingByAlgorithm, getRatingTypeFromRoundRated, getPlayerRatingByRoundType, getPrimaryRatingType, getPlayerRatingStrict, getPlayerRatingForRound, formatPlayerRatingForRound, type RoundRatingOptions, getGroupTimeControl, type GroupTimeControl, type RatedTimeControl, formatPlayerName, Sex, type SexType, isFemale, birthYearOf, chessAge } from './ratingUtils';
 export { getTournamentStatus, isUpcoming, isOngoing, isFinished } from './tournamentStatus';
-export { getTournamentsToday, type TournamentsTodayOptions, type TournamentToday, type GroupToday } from './tournamentsToday';
+export { getTournamentsToday, type TournamentsTodayOptions, type TournamentToday } from './tournamentsToday';
+export { getTournamentPlayDays, LONG_TOURNAMENT_DAYS, type TournamentPlayDay, type GroupToday } from './tournamentPlayDays';
 export { estimateMonthlyRatingChange, type MonthlyRatingEstimateOptions, type MonthlyRatingEstimate, type EstimatedRatingChange, type EstimatedGame } from './monthlyRatingEstimate';
 export { getPlayerRatingHistory, decimateRatingData } from './ratingHistory';
 export { sortTournamentEndResultsByPlace, sortTournamentsByDate } from './sortingUtils';

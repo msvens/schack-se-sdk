@@ -27,6 +27,7 @@ __export(index_exports, {
   CURRENT_API_URL: () => CURRENT_API_URL,
   DEFAULT_TIMEOUT: () => DEFAULT_TIMEOUT,
   FideService: () => FideService,
+  LONG_TOURNAMENT_DAYS: () => LONG_TOURNAMENT_DAYS,
   MFIDE_API_URL: () => MFIDE_API_URL,
   MIN_RATED_GAMES_FOR_PERFORMANCE: () => MIN_RATED_GAMES_FOR_PERFORMANCE,
   MemberCategory: () => MemberCategory,
@@ -115,6 +116,7 @@ __export(index_exports, {
   getResultDisplayString: () => getResultDisplayString,
   getTeamRowName: () => getTeamRowName,
   getTiebreakSystemName: () => getTiebreakSystemName,
+  getTournamentPlayDays: () => getTournamentPlayDays,
   getTournamentStatus: () => getTournamentStatus,
   getTournamentsToday: () => getTournamentsToday,
   hasIndividualPerformance: () => hasIndividualPerformance,
@@ -2997,33 +2999,90 @@ function isFinished(source, now) {
   return getTournamentStatus(source, now) === "finished";
 }
 
+// src/utils/tournamentPlayDays.ts
+var LONG_TOURNAMENT_DAYS = 7;
+var day = (d) => d?.slice(0, 10);
+function addDays(date, n) {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+function daysIn(range) {
+  const out = [];
+  for (let d = range.start; d <= range.end; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+var length = (range) => daysIn(range).length;
+var inside = (date, range) => range.start <= date && date <= range.end;
+function allGroups2(classes) {
+  return (classes ?? []).flatMap((c) => [...c.groups ?? [], ...allGroups2(c.subClasses)]);
+}
+function groupRange(g, tournament) {
+  const start = day(g.start);
+  const end = day(g.end);
+  if (!start || !end || start > end) return tournament;
+  const clipped = {
+    start: start > tournament.start ? start : tournament.start,
+    end: end < tournament.end ? end : tournament.end
+  };
+  return clipped.start <= clipped.end ? clipped : tournament;
+}
+function getTournamentPlayDays(tournament) {
+  const start = day(tournament.start);
+  const end = day(tournament.end);
+  if (!start || !end || start > end) return [];
+  const range = { start, end };
+  const groups = allGroups2(tournament.rootClasses);
+  const ranges = new Map(groups.map((g) => [g, groupRange(g, range)]));
+  const covering = (date) => groups.filter((g) => inside(date, ranges.get(g))).map((group) => ({ group, rounds: [] }));
+  const marker = (date, kind) => ({
+    date,
+    groups: covering(date),
+    marker: kind
+  });
+  if (isGrandPrix(tournament.type)) {
+    const gp = (date, kind) => ({ date, groups: [], marker: kind });
+    return start === end ? [gp(start, "starts")] : [gp(start, "starts"), gp(end, "ends")];
+  }
+  const played = /* @__PURE__ */ new Map();
+  const add = (date, entry) => {
+    const list = played.get(date) ?? [];
+    list.push(entry);
+    played.set(date, list);
+  };
+  for (const group of groups) {
+    const own = ranges.get(group);
+    const rounds = (group.tournamentRounds ?? []).filter((r) => {
+      const d = day(r.roundDate);
+      return !!d && inside(d, own);
+    });
+    if (rounds.length > 0) {
+      const byDay = /* @__PURE__ */ new Map();
+      for (const r of rounds) byDay.set(day(r.roundDate), [...byDay.get(day(r.roundDate)) ?? [], r]);
+      for (const [date, dayRounds] of byDay) add(date, { group, rounds: dayRounds });
+    } else if (length(own) <= LONG_TOURNAMENT_DAYS) {
+      for (const date of daysIn(own)) add(date, { group, rounds: [] });
+    }
+  }
+  const long = length(range) > LONG_TOURNAMENT_DAYS;
+  if (!long) {
+    for (const date of daysIn(range)) if (!played.has(date)) played.set(date, covering(date));
+  }
+  const days = [...played].map(([date, list]) => ({
+    date,
+    // Keep the tournament's group order.
+    groups: [...list].sort((a, b) => groups.indexOf(a.group) - groups.indexOf(b.group))
+  }));
+  if (long) {
+    if (!played.has(start)) days.push(marker(start, "starts"));
+    if (!played.has(end)) days.push(marker(end, "ends"));
+  }
+  return days.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // src/utils/tournamentsToday.ts
 function toLocalIsoDate(d) {
   const pad2 = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-function allGroups2(classes) {
-  return (classes ?? []).flatMap((c) => [...c.groups ?? [], ...allGroups2(c.subClasses)]);
-}
-var day = (d) => d?.slice(0, 10);
-function groupRangeAllows(g, today) {
-  const start = day(g.start);
-  const end = day(g.end);
-  if (!start || !end || start > end) return true;
-  return start <= today && today <= end;
-}
-function groupsPlayedToday(t, today) {
-  const groups = allGroups2(t.rootClasses);
-  const withRounds = groups.filter((g) => groupRangeAllows(g, today)).map((group) => ({
-    group,
-    rounds: (group.tournamentRounds ?? []).filter((r) => day(r.roundDate) === today)
-  })).filter((g) => g.rounds.length > 0);
-  if (withRounds.length > 0) return withRounds;
-  return groups.filter((g) => {
-    const start = day(g.start);
-    const end = day(g.end);
-    return !!start && !!end && start <= today && today <= end;
-  }).map((group) => ({ group, rounds: [] }));
 }
 async function getTournamentsToday(options = {}) {
   const { districtId } = options;
@@ -3035,13 +3094,13 @@ async function getTournamentsToday(options = {}) {
   }
   const data = [];
   for (const t of coming.data) {
-    const start = day(t.start);
-    const end = day(t.end);
-    if (!start || !end || start > today || end < today) continue;
-    const groupsToday = groupsPlayedToday(t, today);
-    const playedToday = start === today || end === today || groupsToday.some((g) => g.rounds.length > 0);
-    if (!playedToday) continue;
-    data.push({ ...t, groupsToday });
+    const playDay = getTournamentPlayDays(t).find((d) => d.date === today);
+    if (!playDay) continue;
+    data.push({
+      ...t,
+      groupsToday: playDay.groups,
+      ...playDay.marker ? { marker: playDay.marker } : {}
+    });
   }
   return { status: 200, data };
 }
@@ -3425,6 +3484,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   CURRENT_API_URL,
   DEFAULT_TIMEOUT,
   FideService,
+  LONG_TOURNAMENT_DAYS,
   MFIDE_API_URL,
   MIN_RATED_GAMES_FOR_PERFORMANCE,
   MemberCategory,
@@ -3513,6 +3573,7 @@ function gamesToDisplayFormat(games, playerId, playerMap, tournamentMap, current
   getResultDisplayString,
   getTeamRowName,
   getTiebreakSystemName,
+  getTournamentPlayDays,
   getTournamentStatus,
   getTournamentsToday,
   hasIndividualPerformance,
