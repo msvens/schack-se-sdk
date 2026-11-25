@@ -1,11 +1,6 @@
 import { TournamentService } from '../services/tournaments';
-import type {
-  ApiResponse,
-  RoundDto,
-  TournamentClassDto,
-  TournamentClassGroupDto,
-  TournamentDto,
-} from '../types';
+import type { ApiResponse, TournamentDto } from '../types';
+import { getTournamentPlayDays, type GroupToday } from './tournamentPlayDays';
 
 export interface TournamentsTodayOptions {
   /** Limit to one district (and its clubs), as on the underlying endpoints. */
@@ -14,15 +9,12 @@ export interface TournamentsTodayOptions {
   service?: TournamentService;
 }
 
-/** A group played today, from {@link getTournamentsToday}. */
-export interface GroupToday {
-  group: TournamentClassGroupDto;
-  /** The group's rounds dated today. Empty means the group matched on its dates alone. */
-  rounds: RoundDto[];
-}
-
 /** A tournament from {@link getTournamentsToday}, with the groups played today. */
-export type TournamentToday = TournamentDto & { groupsToday: GroupToday[] };
+export type TournamentToday = TournamentDto & {
+  groupsToday: GroupToday[];
+  /** Set when today is only the tournament's start or end, not a day of play (see {@link getTournamentPlayDays}). */
+  marker?: 'starts' | 'ends';
+};
 
 /** Local calendar date as `YYYY-MM-DD`. */
 function toLocalIsoDate(d: Date): string {
@@ -30,77 +22,17 @@ function toLocalIsoDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function allGroups(classes: TournamentClassDto[] | undefined): TournamentClassGroupDto[] {
-  return (classes ?? []).flatMap(c => [...(c.groups ?? []), ...allGroups(c.subClasses)]);
-}
-
-const day = (d: string | null | undefined) => d?.slice(0, 10);
-
-/** True when the group's range covers `today`, or the range is broken (end before start). */
-function groupRangeAllows(g: TournamentClassGroupDto, today: string): boolean {
-  const start = day(g.start);
-  const end = day(g.end);
-  if (!start || !end || start > end) return true;
-  return start <= today && today <= end;
-}
-
 /**
- * The groups of `t` played today, for a tournament whose range already covers today:
- * 1. groups with a round dated today, within the group's range (a broken range
- *    defers to the tournament range); else
- * 2. groups whose own valid range covers today, with no rounds (short events often
- *    have no round dates filled in); else
- * 3. none.
- * Step 2 only applies when step 1 finds nothing, so a league lists only the
- * divisions with a round today.
- */
-function groupsPlayedToday(t: TournamentDto, today: string): GroupToday[] {
-  const groups = allGroups(t.rootClasses);
-
-  const withRounds = groups
-    .filter(g => groupRangeAllows(g, today))
-    .map(group => ({
-      group,
-      rounds: (group.tournamentRounds ?? []).filter(r => day(r.roundDate) === today),
-    }))
-    .filter(g => g.rounds.length > 0);
-  if (withRounds.length > 0) return withRounds;
-
-  return groups
-    .filter(g => {
-      const start = day(g.start);
-      const end = day(g.end);
-      return !!start && !!end && start <= today && today <= end;
-    })
-    .map(group => ({ group, rounds: [] }));
-}
-
-/**
- * Tournaments played today (local date).
+ * Tournaments played today (local date), plus long tournaments and Grand Prix
+ * series that start or end today.
  *
- * Today must be within the tournament's `start`–`end` range. Then it counts if
- * it starts or ends today, or if a group has a round dated today and today is
- * also within that group's range (a group whose range ends before it starts is
- * checked against the tournament range only). Short events count by their dates
- * alone, since their round dates aren't always filled in for every day; a
- * season-long KM counts only on days it has a round.
+ * This is the SSF coming list (`searchComingTournaments`, every tournament ending
+ * today or later) filtered by {@link getTournamentPlayDays} for today, so it
+ * agrees with that function for any day a calendar shows. See it for the rules.
  *
- * Candidates come from the SSF coming list (`searchComingTournaments`), which
- * holds every tournament ending today or later, so the result is a filtered
- * subset of it.
- *
- * Limits:
- * - Round and group dates are set by organizers. Round dates outside the
- *   tournament's or the group's range are ignored, but wrong dates inside both
- *   are reported as played, and a group with a valid but wrong range hides its
- *   real round days.
- * - Grand Prix series (type 7) are returned like any other tournament, but they
- *   have no results and their round dates don't reflect play; the real games are
- *   in the stage tournaments. Filter with `isGrandPrix` if they shouldn't show.
- *
- * Each tournament carries `groupsToday`: the groups with a round dated today (with
- * those rounds); if none, the groups whose own range covers today (no rounds); if
- * none either, an empty list. A league thus lists only the divisions playing today.
+ * Each tournament carries `groupsToday`, the groups played today (with today's
+ * rounds, or no rounds when they matched on their dates alone), and `marker` when
+ * today is only its start or end. `groupsToday` can be empty.
  *
  * The result keeps the coming list's order. If the search fails, its error is
  * returned.
@@ -125,16 +57,13 @@ export async function getTournamentsToday(
 
   const data: TournamentToday[] = [];
   for (const t of coming.data) {
-    const start = day(t.start);
-    const end = day(t.end);
-    // Only within the tournament's own range: some round dates are a placeholder
-    // schedule that starts when the tournament was created.
-    if (!start || !end || start > today || end < today) continue;
-    const groupsToday = groupsPlayedToday(t, today);
-    const playedToday =
-      start === today || end === today || groupsToday.some(g => g.rounds.length > 0);
-    if (!playedToday) continue;
-    data.push({ ...t, groupsToday });
+    const playDay = getTournamentPlayDays(t).find(d => d.date === today);
+    if (!playDay) continue;
+    data.push({
+      ...t,
+      groupsToday: playDay.groups,
+      ...(playDay.marker ? { marker: playDay.marker } : {}),
+    });
   }
 
   return { status: 200, data };

@@ -97,9 +97,14 @@ export {
 export {
   getTournamentsToday,
   type TournamentsTodayOptions,
-  type TournamentToday,
-  type GroupToday
+  type TournamentToday
 } from './tournamentsToday';
+export {
+  getTournamentPlayDays,
+  LONG_TOURNAMENT_DAYS,
+  type TournamentPlayDay,
+  type GroupToday
+} from './tournamentPlayDays';
 export {
   estimateMonthlyRatingChange,
   type MonthlyRatingEstimateOptions,

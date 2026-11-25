@@ -139,28 +139,37 @@ const updated = await service.searchUpdatedTournaments(
 );
 ```
 
-#### Tournaments played today
+#### Tournaments played today, and on any day
 
-`getTournamentsToday` returns the tournaments played today, filtered from the coming list: those that start or end today, plus those whose range covers today and that have a round dated today in a group whose own range also covers today (so a season-long KM appears only on its round days).
+`getTournamentPlayDays(tournament)` is the SDK's single rule for which days a tournament is played and which groups play on each. It's pure (no request, no date input), so a calendar can lay out a month from the coming list without one call per day. `getTournamentsToday` is the coming list filtered by it for today, so `/today`-style pages and calendars agree by construction.
 
 ```typescript
-import { getTournamentsToday, TournamentService } from '@msvens/schack-se-sdk';
+import { getTournamentPlayDays, getTournamentsToday, TournamentService } from '@msvens/schack-se-sdk';
+
+const coming = await new TournamentService().searchComingTournaments();
+for (const t of coming.data ?? []) {
+  for (const { date, groups, marker } of getTournamentPlayDays(t)) {
+    // date: 'YYYY-MM-DD'; marker: 'starts' | 'ends' when the day is only the start or end
+  }
+}
 
 const playing = await getTournamentsToday();
 const local = await getTournamentsToday({ districtId: 9, service: new TournamentService('/api/chess/v1') });
-
 for (const t of playing.data ?? []) {
+  // t.marker: 'starts' | 'ends' if today is only its start or end
   for (const { group, rounds } of t.groupsToday) {
     // rounds: the group's rounds dated today; empty if it matched on its dates alone
   }
 }
 ```
 
-Each tournament (`TournamentToday`) carries `groupsToday`, the groups played today: those with a round dated today (in the group's range), with those rounds; if none, the groups whose own range covers today, with `rounds: []` (short events often have no round dates); if none either, an empty list. A league thus lists only the divisions with a round today.
+The rules:
 
-Grand Prix series are included like any other tournament; see [Grand Prix series](#grand-prix-series) for why you may want to filter them out.
+- **Ranges:** the tournament's `start`–`end` is the hard limit; nothing outside it counts, and a missing or reversed range gives no days. A group's own range narrows it, unless the group's range is missing, reversed or outside the tournament's, when the tournament's applies.
+- **Play days:** each day a group has a round dated within its range; each day of a group without usable round dates if its range is at most 7 days (`LONG_TOURNAMENT_DAYS`); and every day of a tournament of at most 7 days, since organizers often date only some rounds of a weekend event. A day lists the groups with a round that day plus undated short groups covering it, so a league lists only the divisions playing; a short-event day with no dated round lists the groups whose range covers it.
+- **Markers:** a tournament longer than 7 days gets `starts` / `ends` on its start and end days when no one plays then, so a season-long league shows when it begins and finishes. A [Grand Prix series](#grand-prix-series) is never played, and gets only markers (`starts` alone for a one-day series), with no groups.
 
-Limits: round dates come from the organizer, so a long tournament with wrong or placeholder round dates is reported on those dates (round dates outside the tournament's or the group's range are ignored; a group whose range ends before it starts is checked against the tournament range only). If the coming list fails you get its error.
+Limits: round and group dates come from organizers, so wrong dates inside both ranges are reported as played, and a group with a valid but wrong range hides its real round days. If the coming list fails, `getTournamentsToday` returns its error.
 
 ### ResultsService
 
@@ -776,10 +785,10 @@ if (isSchackfyranLike(tournament.type, group.pointSystem)) {
 A Grand Prix series (`type === 7`, detected via `isGrandPrix(type)`) is a season-long umbrella, such as "Svenskt Grand Prix 2026/2027". It holds a `TOTALT` group plus one group per stage, while each stage is played and reported as a tournament of its own (usually `INDIVIDUAL`). On all live series (November 2026):
 
 - **No results:** standings and round results are empty for every group. The series totals are shown on schack.se but aren't in the API, so link there instead of rendering empty tables.
-- **Round dates don't reflect play:** some are generated (evenly spaced), others mirror the stages' dates. A series therefore appears in `getTournamentsToday` on its round dates, with empty groups in `groupsToday`, while the real games are in the stage tournament.
+- **Round dates don't reflect play:** some are generated (evenly spaced), others mirror the stages' dates. `getTournamentPlayDays` and `getTournamentsToday` therefore ignore them and give a series only a `starts` and an `ends` marker; the real games are in the stage tournaments.
 - **No link to the stages:** nothing in the API connects a series group to its stage tournament.
 
-The SDK still returns series everywhere (the coming list, `getTournamentsToday`). Filter them out if they shouldn't be shown:
+The SDK still returns series everywhere (the coming list, and `getTournamentsToday` on their start and end days). Filter them out if they shouldn't be shown:
 
 ```typescript
 import { getTournamentsToday, isGrandPrix } from '@msvens/schack-se-sdk';
