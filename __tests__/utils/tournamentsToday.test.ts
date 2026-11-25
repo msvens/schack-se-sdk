@@ -188,6 +188,30 @@ describe('getTournamentsToday', () => {
     });
   });
 
+  it('flags the start or end of a long tournament or Grand Prix series as a marker', async () => {
+    const gp = { ...t(4, TODAY, '2027-05-08', [[TODAY]]), type: 7 } as TournamentDto;
+    const { asService } = stubService({
+      status: 200,
+      data: [
+        t(1, TODAY, '2026-12-01', [['2026-11-15']]), // long, first round later: starts
+        t(2, '2026-09-01', TODAY, [['2026-11-01']]), // long, last round earlier: ends
+        t(3, TODAY, '2026-12-01', [[TODAY]]), // long, round on its start day: played
+        gp, // series: starts, even with a round dated today
+        { ...t(5, '2026-09-01', '2026-12-01', [[TODAY]]), type: 7 } as TournamentDto, // series mid-range: excluded
+      ],
+    });
+
+    const res = await getTournamentsToday({ service: asService });
+    expect(res.data!.map(x => [x.id, x.marker])).toEqual([
+      [1, 'starts'],
+      [2, 'ends'],
+      [3, undefined],
+      [4, 'starts'],
+    ]);
+    expect(res.data![2]).not.toHaveProperty('marker');
+    expect(res.data![3].groupsToday).toEqual([]);
+  });
+
   it('returns the error when the coming list fails', async () => {
     const comingDown = stubService({ status: 500, error: 'boom' });
     expect(await getTournamentsToday({ service: comingDown.asService })).toEqual({ status: 500, error: 'boom' });

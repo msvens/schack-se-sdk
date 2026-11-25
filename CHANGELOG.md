@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`getTournamentPlayDays(tournament)`**: the days a tournament is played, with the groups on each, plus `starts` / `ends` markers. Pure, so a calendar can lay out the coming list for any day by the same rule as `getTournamentsToday`. Also exports `TournamentPlayDay` and `LONG_TOURNAMENT_DAYS` (7). `GroupToday` now lives with it (same export).
+
+### Changed
+
+- **`getTournamentsToday` is the coming list filtered by `getTournamentPlayDays` for today**, and returns `marker: 'starts' | 'ends'` when today is only a tournament's start or end. Differences from 0.32.0:
+  - Every day of an event of at most 7 days counts, not just its start and end. Organizers often date only some rounds, so e.g. the Saturday of a weekend event with no round dated that day was missing.
+  - A long tournament's start or end day without a round is still returned, now with `marker`.
+  - A Grand Prix series is returned only on its start and end days, as a marker with no groups; its round dates don't reflect play.
+  - A group range entirely outside the tournament's falls back to the tournament's, so that group is listed on the tournament's days.
+
 ## 0.32.0
 
 ### Added
